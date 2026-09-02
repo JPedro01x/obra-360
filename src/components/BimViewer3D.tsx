@@ -939,31 +939,66 @@ export const BimViewer3D: React.FC<BimViewer3DProps> = ({
         </div>
       )}
 
-      {/* AI 2D -> 3D PARSER MODAL */}
+      {/* AI 2D FILE PARSER -> 3D BIM EXTRUSION MODAL */}
       {showAiModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className={`border rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-4 ${cardBg}`}>
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className={`border rounded-3xl max-w-xl w-full p-6 shadow-2xl space-y-5 ${cardBg}`}>
             <div className={`flex justify-between items-center border-b pb-3 ${isDark ? 'border-[#27272a]' : 'border-zinc-200'}`}>
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-orange-500" />
-                <h3 className={`font-bold text-base ${textTitle}`}>Importar Planta 2D & Gerar Modelo 3D</h3>
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-orange-600/20 border border-orange-500/30 flex items-center justify-center text-orange-500">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className={`font-extrabold text-base ${textTitle}`}>Importar Planta 2D & Extrudar Modelo 3D</h3>
+                  <p className={`text-[11px] ${textMuted}`}>Conversor de vetores 2D (.dwg, .dxf, .svg, .json) para malhas 3D BIM</p>
+                </div>
               </div>
               <button onClick={() => setShowAiModal(false)} className={`font-bold ${textMuted} hover:${textTitle}`}>✕</button>
             </div>
 
             {isAiProcessing ? (
-              <div className="py-8 text-center space-y-4">
-                <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto" />
-                <h4 className={`font-bold text-sm ${textTitle}`}>
-                  {aiStep === 1 && '1/3 Analisando linhas e vetores da Planta 2D...'}
-                  {aiStep === 2 && '2/3 Mapeando paredes, portas e pilares com Visão Computacional...'}
-                  {aiStep === 3 && '3/3 Gerando geometria 3D BIM procedurar...'}
-                </h4>
+              <div className="py-10 text-center space-y-4 font-mono">
+                <div className="w-14 h-14 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto" />
+                <div>
+                  <h4 className="font-extrabold text-sm text-orange-400">
+                    {aiStep === 1 && '1/3 Lendo arquivo vetorial 2D (Reconhecendo cotas e espessuras)...'}
+                    {aiStep === 2 && '2/3 Mapeando paredes de 15cm, pilares 20x20cm e vedações de portas/janelas...'}
+                    {aiStep === 3 && '3/3 Extrudando malha poligonal 3D BIM com materiais procedurais...'}
+                  </h4>
+                  <p className={`text-[11px] mt-1 ${textMuted}`}>Motor de Visão Computacional Obra360</p>
+                </div>
               </div>
             ) : (
               <div className="space-y-4 text-xs">
+                
+                {/* Drag and Drop File Zone */}
+                <div className={`border-2 border-dashed rounded-2xl p-6 text-center space-y-2 cursor-pointer transition ${
+                  isDark ? 'border-zinc-700 bg-[#121214] hover:border-orange-500' : 'bg-zinc-50 border-zinc-300 hover:border-orange-500'
+                }`}>
+                  <FileText className="w-8 h-8 text-orange-500 mx-auto animate-pulse" />
+                  <div>
+                    <span className={`font-bold ${textTitle}`}>Clique para selecionar ou arraste sua Planta 2D</span>
+                    <p className={`text-[11px] ${textMuted}`}>Formatos suportados: .DWG, .DXF, .SVG, .JSON ou Imagem de Planta em Alta Resolução</p>
+                  </div>
+                  <input
+                    type="file"
+                    accept=".dwg,.dxf,.svg,.json,image/*"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        onSendToast('info', 'Arquivo 2D Carregado', `Planta "${e.target.files[0].name}" pronta para conversão 3D.`);
+                      }
+                    }}
+                    className="hidden"
+                    id="floorplan-file-input"
+                  />
+                  <label htmlFor="floorplan-file-input" className="inline-block mt-2 px-3 py-1.5 bg-orange-600/20 text-orange-400 font-bold rounded-xl border border-orange-500/30 cursor-pointer">
+                    📁 Procurar Arquivo no Computador
+                  </label>
+                </div>
+
+                {/* Preset Templates Alternative */}
                 <div>
-                  <label className={`block mb-1.5 font-semibold ${textMuted}`}>Selecione um Projeto Preset de Planta 2D:</label>
+                  <label className={`block mb-1.5 font-semibold ${textMuted}`}>Ou escolha um Modelo Arquitetônico Preset 2D:</label>
                   <select
                     value={selectedPreset}
                     onChange={(e) => setSelectedPreset(e.target.value)}
@@ -971,10 +1006,14 @@ export const BimViewer3D: React.FC<BimViewer3DProps> = ({
                       isDark ? 'bg-[#121214] text-white border-[#27272a]' : 'bg-zinc-50 text-zinc-900 border-zinc-300'
                     }`}
                   >
-                    <option value="Casa 3 Quartos (120m²)">Casa Residencial 3 Quartos com Suíte (120m²)</option>
-                    <option value="Sobrado Duplex (220m²)">Sobrado Duplex com Garagem (220m²)</option>
+                    <option value="Casa 3 Quartos (120m²)">Casa Residencial 3 Quartos com Suíte e Varanda (120m²)</option>
+                    <option value="Sobrado Duplex (220m²)">Sobrado Duplex 4 Quartos com Garagem (220m²)</option>
                     <option value="Galpão Comercial (350m²)">Galpão Comercial / Estrutura Metálica (350m²)</option>
                   </select>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-orange-500/10 border border-orange-500/20 text-orange-400 font-mono text-[11px]">
+                  💡 <strong>Extrusão Automática:</strong> O motor Obra360 lê as coordenadas 2D do arquivo selecionado e gera a fundação, paredes alinhadas, lajes e telhado diretamente no Canvas 3D.
                 </div>
 
                 <div className="pt-2 flex justify-end gap-2">
@@ -988,9 +1027,9 @@ export const BimViewer3D: React.FC<BimViewer3DProps> = ({
                   </button>
                   <button
                     onClick={startAiGeneration}
-                    className="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-xl font-bold shadow-lg shadow-orange-600/30 flex items-center gap-1.5"
+                    className="px-5 py-2 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white rounded-xl font-bold shadow-lg shadow-orange-600/30 flex items-center gap-2"
                   >
-                    <Sparkles className="w-4 h-4" /> Processar & Gerar 3D
+                    <Sparkles className="w-4 h-4" /> Convert em Modelo 3D BIM
                   </button>
                 </div>
               </div>

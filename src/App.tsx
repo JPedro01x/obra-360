@@ -187,22 +187,57 @@ export function App() {
 
   const isDark = theme === 'dark';
 
-  // STRICT RBAC TAB VISIBILITY GUARDS PER ROLE (13 ROLES)
+  // STRICT AIRTIGHT RBAC TAB VISIBILITY GUARDS PER ROLE (13 ROLES)
   const isSuperAdmin = currentRole === 'SUPER_ADMIN';
 
-  const canSee3dTab = isSuperAdmin || ['GERENTE_OBRA', 'ENGENHEIRO', 'ARQUITETO', 'MESTRE_OBRA', 'ALMOXARIFE', 'INCORPORADOR', 'FINANCEIRO'].includes(currentRole);
+  const canSee3dTab = isSuperAdmin || ['GERENTE_OBRA', 'ENGENHEIRO', 'ARQUITETO', 'MESTRE_OBRA', 'INCORPORADOR'].includes(currentRole);
   const canSeeProjetosTab = isSuperAdmin || ['GERENTE_OBRA', 'ARQUITETO', 'ENGENHEIRO', 'INCORPORADOR', 'AUDITOR'].includes(currentRole);
-  const canSeeDashboardTab = true;
-  const canSeeStockTab = isSuperAdmin || ['GERENTE_OBRA', 'ENGENHEIRO', 'FINANCEIRO', 'MESTRE_OBRA', 'ALMOXARIFE'].includes(currentRole);
-  const canSeeRbacTab = isSuperAdmin || ['GERENTE_OBRA', 'AUDITOR', 'INCORPORADOR'].includes(currentRole);
+  const canSeeStockTab = isSuperAdmin || ['GERENTE_OBRA', 'ENGENHEIRO', 'ALMOXARIFE', 'MESTRE_OBRA'].includes(currentRole);
+  const canSeeMarketplaceTab = isSuperAdmin || ['GERENTE_OBRA', 'ENGENHEIRO', 'FINANCEIRO', 'FORNECEDOR', 'LOCADOR_MAQUINAS'].includes(currentRole);
+  const canSeeVendasTab = isSuperAdmin || ['INCORPORADOR', 'CORRETOR', 'INVESTIDOR', 'FINANCEIRO'].includes(currentRole);
+  const canSeeClientTab = isSuperAdmin || ['CLIENTE'].includes(currentRole);
+  const canSeePosVendasTab = isSuperAdmin || ['CLIENTE', 'GERENTE_OBRA', 'ENGENHEIRO'].includes(currentRole);
   const canSeeAuditTab = isSuperAdmin || ['AUDITOR'].includes(currentRole);
-  const canSeeClientTab = isSuperAdmin || ['GERENTE_OBRA', 'CLIENTE', 'INCORPORADOR'].includes(currentRole);
-  const canSeeMarketplaceTab = isSuperAdmin || ['GERENTE_OBRA', 'ENGENHEIRO', 'ALMOXARIFE', 'FINANCEIRO', 'FORNECEDOR', 'LOCADOR_MAQUINAS', 'MESTRE_OBRA'].includes(currentRole);
-  const canSeeVendasTab = isSuperAdmin || ['INCORPORADOR', 'CORRETOR', 'INVESTIDOR', 'GERENTE_OBRA'].includes(currentRole);
-  const canSeePosVendasTab = isSuperAdmin || ['CLIENTE', 'GERENTE_OBRA', 'INCORPORADOR'].includes(currentRole);
+  const canSeeRbacTab = isSuperAdmin || ['SUPER_ADMIN'].includes(currentRole);
+  const canSeeDashboardTab = currentRole !== 'CLIENTE';
 
-  // Auto redirect active tab when role changes
+  // Auto redirect active tab when role changes to prevent unauthorized view leakage
   useEffect(() => {
+    if (currentRole === 'CLIENTE') {
+      if (activeTab !== 'CLIENTE' && activeTab !== 'POSVENDAS') {
+        setActiveTab('CLIENTE');
+      }
+      return;
+    }
+
+    if (currentRole === 'CORRETOR' || currentRole === 'INVESTIDOR') {
+      if (activeTab !== 'VENDAS' && activeTab !== 'DASHBOARD' && activeTab !== 'MENSAGENS') {
+        setActiveTab('VENDAS');
+      }
+      return;
+    }
+
+    if (currentRole === 'ALMOXARIFE') {
+      if (activeTab !== 'ESTOQUE' && activeTab !== 'DASHBOARD' && activeTab !== 'MENSAGENS') {
+        setActiveTab('ESTOQUE');
+      }
+      return;
+    }
+
+    if (currentRole === 'FORNECEDOR' || currentRole === 'LOCADOR_MAQUINAS') {
+      if (activeTab !== 'MARKETPLACE' && activeTab !== 'DASHBOARD' && activeTab !== 'MENSAGENS') {
+        setActiveTab('MARKETPLACE');
+      }
+      return;
+    }
+
+    if (currentRole === 'AUDITOR') {
+      if (activeTab !== 'AUDITORIA' && activeTab !== 'PROJETOS' && activeTab !== 'DASHBOARD' && activeTab !== 'MENSAGENS') {
+        setActiveTab('AUDITORIA');
+      }
+      return;
+    }
+
     if (activeTab === '3D' && !canSee3dTab) setActiveTab('DASHBOARD');
     if (activeTab === 'PROJETOS' && !canSeeProjetosTab) setActiveTab('DASHBOARD');
     if (activeTab === 'AUDITORIA' && !canSeeAuditTab) setActiveTab('DASHBOARD');
