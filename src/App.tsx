@@ -31,16 +31,12 @@ import { B2bMarketplaceView } from './components/B2bMarketplaceView';
 import { RealEstateStorefrontView } from './components/RealEstateStorefrontView';
 import { WarrantyPostSalesView } from './components/WarrantyPostSalesView';
 import { LiveB2bChatView } from './components/LiveB2bChatView';
-import { DdeDocumentView } from './components/DdeDocumentView';
 import { 
   Box, LayoutDashboard, Package, History, UserCheck, 
   Sparkles, Layers, ShieldCheck, CheckCircle2, KeyRound, ShoppingCart, Building, Heart, FileText, Wifi, WifiOff, MessageSquare 
 } from 'lucide-react';
 
 export function App() {
-  // DDE Document Modal State
-  const [showDdeModal, setShowDdeModal] = useState<boolean>(false);
-
   // Toast notifications state
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
 
@@ -489,11 +485,6 @@ export function App() {
       {/* Floating Toast Notifier Container */}
       <ToastNotifier toasts={toasts} onDismiss={handleDismissToast} theme={theme} />
 
-      {/* DDE Document Modal */}
-      {showDdeModal && (
-        <DdeDocumentView theme={theme} onClose={() => setShowDdeModal(false)} />
-      )}
-
       {/* Top Header with RBAC Switcher & Active Company Badge */}
       <RbacHeader
         currentRole={currentRole}
@@ -503,7 +494,6 @@ export function App() {
         authUser={authUser}
         onLogout={handleLogout}
         activeCompany={activeCompany}
-        onOpenDde={() => setShowDdeModal(true)}
       />
 
       {/* Main Container */}

@@ -11,7 +11,6 @@ interface RbacHeaderProps {
   authUser: AuthUser | null;
   onLogout: () => void;
   activeCompany?: Company;
-  onOpenDde?: () => void;
 }
 
 export const RbacHeader: React.FC<RbacHeaderProps> = ({
@@ -21,8 +20,7 @@ export const RbacHeader: React.FC<RbacHeaderProps> = ({
   onToggleTheme,
   authUser,
   onLogout,
-  activeCompany,
-  onOpenDde
+  activeCompany
 }) => {
   const roleObj: UserRole = USER_ROLES[currentRole];
   const isDark = theme === 'dark';
@@ -63,15 +61,6 @@ export const RbacHeader: React.FC<RbacHeaderProps> = ({
 
           {/* Theme Toggle Button for Mobile */}
           <div className="flex md:hidden items-center gap-2">
-            {onOpenDde && (
-              <button
-                onClick={onOpenDde}
-                className="p-2 rounded-xl bg-orange-600/10 text-orange-500 border border-orange-500/30 font-bold text-xs flex items-center gap-1"
-                title="Documento DDE"
-              >
-                <FileText className="w-4 h-4" />
-              </button>
-            )}
             <button
               onClick={onToggleTheme}
               className={`p-2 rounded-xl border flex items-center justify-center text-xs font-bold transition ${
@@ -98,18 +87,6 @@ export const RbacHeader: React.FC<RbacHeaderProps> = ({
         {/* Right Section: Theme Toggle + RBAC Switcher + User Logout */}
         <div className="flex flex-wrap items-center justify-between md:justify-end gap-2.5 sm:gap-3">
           
-          {/* DDE Document Button */}
-          {onOpenDde && (
-            <button
-              onClick={onOpenDde}
-              className="hidden md:flex p-2.5 rounded-2xl bg-orange-600/10 hover:bg-orange-600/20 text-orange-500 border border-orange-500/30 items-center gap-2 text-xs font-bold transition shadow-sm"
-              title="Abrir Documento de Definição de Escopo (DDE)"
-            >
-              <FileText className="w-4 h-4 text-orange-500" />
-              <span className="hidden lg:inline">Documento DDE</span>
-            </button>
-          )}
-
           {/* Theme Toggle Button for Desktop */}
           <button
             onClick={onToggleTheme}
