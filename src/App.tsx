@@ -32,16 +32,14 @@ import { RealEstateStorefrontView } from './components/RealEstateStorefrontView'
 import { WarrantyPostSalesView } from './components/WarrantyPostSalesView';
 import { LiveB2bChatView } from './components/LiveB2bChatView';
 import { DdeDocumentView } from './components/DdeDocumentView';
-import { CopilotAiDrawer } from './components/CopilotAiDrawer';
 import { 
   Box, LayoutDashboard, Package, History, UserCheck, 
-  Sparkles, Layers, ShieldCheck, CheckCircle2, KeyRound, ShoppingCart, Building, Heart, FileText, Wifi, WifiOff, MessageSquare, Bot 
+  Sparkles, Layers, ShieldCheck, CheckCircle2, KeyRound, ShoppingCart, Building, Heart, FileText, Wifi, WifiOff, MessageSquare 
 } from 'lucide-react';
 
 export function App() {
   // DDE Document Modal State
   const [showDdeModal, setShowDdeModal] = useState<boolean>(false);
-  const [showCopilot, setShowCopilot] = useState<boolean>(false);
 
   // Toast notifications state
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
@@ -785,26 +783,6 @@ export function App() {
           )}
         </main>
       </div>
-
-      {/* Floating Copilot IA Assistant Button */}
-      <div className="fixed bottom-6 right-6 z-40">
-        <button
-          onClick={() => setShowCopilot(!showCopilot)}
-          className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 text-white rounded-full shadow-2xl shadow-orange-600/50 font-bold text-xs transition transform hover:scale-105 border border-orange-400/40"
-        >
-          <Bot className="w-5 h-5 text-white animate-bounce" />
-          <span className="hidden sm:inline">Copilot Obra360 IA</span>
-        </button>
-      </div>
-
-      {/* Copilot IA Assistant Drawer */}
-      {showCopilot && (
-        <CopilotAiDrawer
-          theme={theme}
-          currentRole={currentRole}
-          onClose={() => setShowCopilot(false)}
-        />
-      )}
 
       {/* Footer */}
       <footer className={`border-t py-6 px-4 text-center text-xs font-mono transition-colors ${
