@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  # 1. Banco Relacional Transacional (Core Business, IAM, Estoque)
+  postgres:
+    image: postgres:16-alpine
+    container_name: obra360-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: obra360_db
+      POSTGRES_USER: obra360_admin
+      POSTGRES_PASSWORD: secret_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  # 2. Banco NoSQL (Trilha de Auditoria, Logs Técnicos & Snapshots 3D)
+  mongo:
+    image: mongo:7.0
+    container_name: obra360-mongo
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodata:/data/db
+
+  # 3. Mensageria Orientada a Eventos
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: obra360-rabbitmq
+    restart: always
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+
+volumes:
+  pgdata:
+  mongodata:

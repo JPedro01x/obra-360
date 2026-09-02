@@ -1,0 +1,17 @@
+{
+  "short_name": "Obra360",
+  "name": "Obra360 - Plataforma Integrada da Construção Civil & Imobiliário",
+  "description": "Sistema Corporativo Multi-Tenant para Gestão de Obras, BIM 3D, Almoxarifado e Pós-Venda com Suporte Offline no Canteiro.",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#121214",
+  "theme_color": "#f97316",
+  "display": "standalone",
+  "orientation": "portrait"
+}
