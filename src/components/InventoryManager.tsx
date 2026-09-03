@@ -24,7 +24,14 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
 }) => {
   const isDark = theme === 'dark';
 
-  const [activeTab, setActiveTab] = useState<'ESTOQUE' | 'MOVIMENTACOES'>('ESTOQUE');
+  const [activeTab, setActiveTab] = useState<'ESTOQUE' | 'MOVIMENTACOES' | 'CALCULADORA'>('ESTOQUE');
+  const [calcArea, setCalcArea] = useState<number>(120);
+
+  const calcCement = Math.round(calcArea * 7);
+  const calcSteel = Math.round(calcArea * 8);
+  const calcBricks = (calcArea * 0.04).toFixed(1);
+  const calcSand = (calcArea * 0.12).toFixed(1);
+  const calcGravel = (calcArea * 0.10).toFixed(1);
   const [showModal, setShowModal] = useState<boolean>(false);
   const [movementType, setMovementType] = useState<'ENTRADA' | 'SAIDA'>('SAIDA');
   const [selectedProductId, setSelectedProductId] = useState<string>(stockItems[0]?.id || '');
@@ -123,6 +130,14 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
               }`}
             >
               Movimentações ({movements.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('CALCULADORA')}
+              className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl font-bold transition whitespace-nowrap ${
+                activeTab === 'CALCULADORA' ? 'bg-orange-600 text-white shadow-md' : `${textMuted} hover:${textTitle}`
+              }`}
+            >
+              🧮 Calculadora m²
             </button>
           </div>
 
@@ -254,6 +269,68 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* CALCULADORA AUTOMÁTICA DE INSUMOS POR M² */}
+      {activeTab === 'CALCULADORA' && (
+        <div className={`p-6 border rounded-3xl space-y-6 ${cardBg}`}>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-4 border-zinc-200 dark:border-[#27272a]">
+            <div>
+              <h3 className={`font-extrabold text-base sm:text-lg flex items-center gap-2 ${textTitle}`}>
+                🧮 Calculadora Automática de Insumos por Metragem ($m^2$)
+              </h3>
+              <p className={`text-xs mt-1 ${textMuted}`}>
+                Estimador automatizado de materiais estruturais com base na área construída total.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <label className={`text-xs font-bold whitespace-nowrap ${textTitle}`}>Área da Obra ($m^2$):</label>
+              <input
+                type="number"
+                min="10"
+                max="50000"
+                value={calcArea}
+                onChange={(e) => setCalcArea(Math.max(10, parseInt(e.target.value) || 10))}
+                className={`w-32 p-2.5 rounded-xl border text-center font-mono font-extrabold text-base ${
+                  isDark ? 'bg-[#121214] text-orange-400 border-[#27272a]' : 'bg-zinc-50 text-orange-600 border-zinc-300'
+                }`}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className={`p-4 border rounded-2xl ${innerBg}`}>
+              <span className="text-xs font-bold text-orange-500 block">Cimento Fck 30MPa</span>
+              <span className="text-2xl font-black font-mono mt-1 block">{calcCement}</span>
+              <span className={`text-[11px] ${textMuted}`}>Sacos (50kg)</span>
+            </div>
+
+            <div className={`p-4 border rounded-2xl ${innerBg}`}>
+              <span className="text-xs font-bold text-blue-500 block">Aço CA-50 (10mm)</span>
+              <span className="text-2xl font-black font-mono mt-1 block">{calcSteel}</span>
+              <span className={`text-[11px] ${textMuted}`}>Barras (12m)</span>
+            </div>
+
+            <div className={`p-4 border rounded-2xl ${innerBg}`}>
+              <span className="text-xs font-bold text-amber-500 block">Tijolos Baianos</span>
+              <span className="text-2xl font-black font-mono mt-1 block">{calcBricks}</span>
+              <span className={`text-[11px] ${textMuted}`}>Milheiros (14x19x29)</span>
+            </div>
+
+            <div className={`p-4 border rounded-2xl ${innerBg}`}>
+              <span className="text-xs font-bold text-emerald-500 block">Areia Média Lavada</span>
+              <span className="text-2xl font-black font-mono mt-1 block">{calcSand}</span>
+              <span className={`text-[11px] ${textMuted}`}>Metros Cúbicos ($m^3$)</span>
+            </div>
+
+            <div className={`p-4 border rounded-2xl ${innerBg}`}>
+              <span className="text-xs font-bold text-purple-500 block">Brita 1 Estrutural</span>
+              <span className="text-2xl font-black font-mono mt-1 block">{calcGravel}</span>
+              <span className={`text-[11px] ${textMuted}`}>Metros Cúbicos ($m^3$)</span>
+            </div>
+          </div>
         </div>
       )}
 

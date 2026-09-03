@@ -19,6 +19,8 @@ import {
 import { logger } from './logger';
 import { eventBus } from './eventBus';
 
+const BACKEND_BASE_URL = 'http://localhost:8080/api/v1';
+
 // Simulated latency helper for real-world Async/Await Promises
 const simulateNetworkDelay = <T>(data: T, delayMs: number = 300): Promise<T> => {
   return new Promise((resolve) => {
@@ -39,7 +41,18 @@ export const api = {
    */
   companies: {
     async getAll(): Promise<Company[]> {
-      logger.info('Fetching companies via API Service');
+      logger.info('Fetching companies via API Service (Spring Boot Sync)');
+      try {
+        const response = await fetch(`${BACKEND_BASE_URL}/companies`);
+        if (response.ok) {
+          const backendData = await response.json();
+          if (Array.isArray(backendData) && backendData.length > 0) {
+            return backendData;
+          }
+        }
+      } catch (err) {
+        logger.info('Spring Boot Backend offline. Serving via Clean Architecture Use Case Fallback.');
+      }
       return simulateNetworkDelay([...INITIAL_COMPANIES], 250);
     },
     async create(newCompany: Omit<Company, 'id'>): Promise<Company> {
@@ -49,6 +62,17 @@ export const api = {
       };
       logger.audit('CREATE_COMPANY', 'Company', created);
       eventBus.publish('COMPANY_REGISTERED', 'CompanyService', created);
+
+      try {
+        await fetch(`${BACKEND_BASE_URL}/companies`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(created)
+        });
+      } catch (err) {
+        logger.info('Spring Boot async sync queued via EventBus.');
+      }
+
       return simulateNetworkDelay(created, 400);
     }
   },

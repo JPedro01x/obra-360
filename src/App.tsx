@@ -380,14 +380,17 @@ export function App() {
 
   const handleImportFloorPlan = (presetName: string) => {
     const generated: BuildingElement[] = [
-      { id: 'ELEM-001', name: 'Sapata & Radier de Concreto (Planta 2D)', category: 'Fundação', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 1, materialUsed: 'Concreto Fck 30MPa', lastUpdatedBy: 'AI Parser', lastUpdatedAt: 'Agora', position: [0, 0, 0] },
-      { id: 'ELEM-002', name: 'Vigas Baldrame Impermeabilizadas', category: 'Fundação', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 2, materialUsed: 'Tinta Asfáltica', lastUpdatedBy: 'AI Parser', lastUpdatedAt: 'Agora', position: [0, 0, 0] },
-      { id: 'ELEM-003', name: 'Pilares Estruturais Mapeados (2D)', category: 'Estrutura', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 3, materialUsed: 'Concreto Fck 30MPa', lastUpdatedBy: 'AI Parser', lastUpdatedAt: 'Agora', position: [0, 0, 0] },
-      { id: 'ELEM-004', name: 'Laje Térreo Extraída da Planta', category: 'Estrutura', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 4, materialUsed: 'Laje Pré-Moldada H12', lastUpdatedBy: 'AI Parser', lastUpdatedAt: 'Agora', position: [0, 0, 0] }
+      { id: 'ELEM-001', name: `Radier & Sapata de Fundação (${presetName})`, category: 'Fundação', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 1, materialUsed: 'Concreto Armado Fck 30MPa', lastUpdatedBy: 'AI CAD Parser', lastUpdatedAt: 'Agora', position: [0, 0, 0] },
+      { id: 'ELEM-002', name: 'Vigas Baldrame Impermeabilizadas', category: 'Fundação', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 2, materialUsed: 'Tinta Asfáltica Manta 4mm', lastUpdatedBy: 'AI CAD Parser', lastUpdatedAt: 'Agora', position: [0, 0, 0] },
+      { id: 'ELEM-003', name: 'Pilares Estruturais CA-50 (Planta 2D)', category: 'Estrutura', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 3, materialUsed: 'Concreto CA-50', lastUpdatedBy: 'AI CAD Parser', lastUpdatedAt: 'Agora', position: [-4.8, 2.8, -3.2] },
+      { id: 'ELEM-004', name: 'Alvenaria Externa & Vedações (2D)', category: 'Alvenaria', status: 'EM_EXECUCAO', progressPercent: 85, assignedWeek: 4, materialUsed: 'Blocos Cerâmicos Baianos 14x19x29cm', lastUpdatedBy: 'AI CAD Parser', lastUpdatedAt: 'Agora', position: [4.9, 2.8, 0] },
+      { id: 'ELEM-005', name: 'Vedações Internas & Divisórias (2D)', category: 'Alvenaria', status: 'EM_EXECUCAO', progressPercent: 70, assignedWeek: 5, materialUsed: 'Blocos de Concreto Estrutural', lastUpdatedBy: 'AI CAD Parser', lastUpdatedAt: 'Agora', position: [0, 2.8, -3.3] },
+      { id: 'ELEM-006', name: 'Laje Térreo Pré-Moldada H12', category: 'Estrutura', status: 'EM_EXECUCAO', progressPercent: 50, assignedWeek: 6, materialUsed: 'Vigotas EPS H12', lastUpdatedBy: 'AI CAD Parser', lastUpdatedAt: 'Agora', position: [0, 4.4, 0] },
+      { id: 'ELEM-007', name: 'Estrutura de Telhado & Painéis Solares', category: 'Estrutura', status: 'PLANEJADO', progressPercent: 0, assignedWeek: 7, materialUsed: 'Telhas Cerâmicas & Placas Fotovoltaicas', lastUpdatedBy: 'AI CAD Parser', lastUpdatedAt: 'Agora', position: [0, 6.0, 0] }
     ];
 
     setElements(generated);
-    addToast('success', 'Modelo 3D Gerado por IA', `Planta "${presetName}" convertida com sucesso.`);
+    addToast('success', '✨ Modelo 3D BIM Extrudado da Planta 2D', `Estrutura 3D completa gerada automaticamente a partir da planta "${presetName}".`);
   };
 
   const handleAddMovement = async (newMov: Omit<StockMovement, 'id'>) => {

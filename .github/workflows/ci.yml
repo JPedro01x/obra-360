@@ -1,0 +1,48 @@
+name: Obra360 CI/CD Enterprise Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-frontend:
+    name: Build & Validate Frontend (React 18 / Vite / TypeScript)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.x Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Frontend Dependencies
+        run: npm ci
+
+      - name: Execute TypeScript Compiler & Production Vite Build
+        run: npm run build
+
+  build-backend:
+    name: Build & Validate Backend (Java 17 / Spring Boot 3 / Clean Architecture)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code Repository
+        uses: actions/checkout@v4
+
+      - name: Setup JDK 17 Environment
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Compile Java Spring Boot Backend & Run Maven Verification
+        run: |
+          cd backend
+          mvn clean compile

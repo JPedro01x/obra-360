@@ -41,9 +41,9 @@ export const BimViewer3D: React.FC<BimViewer3DProps> = ({
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [bimVersion, setBimVersion] = useState<string>('v2.4 (Revisão Estrutural Aprovada)');
   
-  // Timeline evolution state (Weeks 1 to 8) - Matching screenshot default: Semana 4
+  // Timeline evolution state (Weeks 1 to 8) - Paused by default
   const [selectedWeek, setSelectedWeek] = useState<number>(4);
-  const [isPlayingTimeline, setIsPlayingTimeline] = useState<boolean>(true);
+  const [isPlayingTimeline, setIsPlayingTimeline] = useState<boolean>(false);
 
   // Occurrences State (Section 4.7)
   const [occurrences, setOccurrences] = useState<ConstructionOccurrence[]>(INITIAL_OCCURRENCES);
