@@ -43,11 +43,13 @@ export function App() {
   const addToast = (type: 'success' | 'info' | 'warning' | 'error', title: string, message: string) => {
     const id = `TOAST-${Date.now()}`;
     const newToast: ToastNotification = { id, type, title, message };
-    setToasts((prev) => [...prev, newToast]);
+    
+    // Capped at 2 toasts max to prevent screen accumulation
+    setToasts((prev) => [...prev.slice(-1), newToast]);
 
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 4000);
+    }, 2000);
   };
 
   const handleDismissToast = (id: string) => {
@@ -247,7 +249,6 @@ export function App() {
     const nextTheme = theme === 'dark' ? 'light' : 'dark';
     setTheme(nextTheme);
     localStorage.setItem('obra360_theme', nextTheme);
-    addToast('info', 'Tema Alterado', `Modo ${nextTheme === 'dark' ? 'Escuro' : 'Claro'} ativado com sucesso.`);
   };
 
   const handleLoginSuccess = (user: AuthUser) => {
@@ -502,34 +503,28 @@ export function App() {
       {/* Main Container */}
       <div className="max-w-7xl w-full mx-auto p-4 lg:p-8 space-y-4">
         
-        {/* Async Cloud Connection & PWA Offline Status Banner */}
-        <div className={`border rounded-2xl px-4 py-2 flex items-center justify-between font-mono text-xs ${
-          !isOnline 
-            ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' 
-            : isDark ? 'bg-[#18181b] border-[#27272a]' : 'bg-white border-zinc-200'
-        }`}>
-          <div className="flex items-center gap-2">
-            {!isOnline ? (
-              <>
-                <WifiOff className="w-4 h-4 text-amber-400 animate-pulse" />
-                <span className="font-bold">📶 Modo Offline do Canteiro: Dados salvos localmente. Sincronização pendente.</span>
-              </>
-            ) : (
-              <>
-                <Wifi className={`w-4 h-4 ${isSyncingAsync ? 'text-amber-400 animate-pulse' : 'text-emerald-400'}`} />
-                <span className={isDark ? 'text-zinc-300' : 'text-zinc-700'}>
-                  {isSyncingAsync ? '⚡ Sincronizando alterações assincronamente...' : '✓ EventBus PubSub & Logger Estruturado Ativos (PWA Ready)'}
-                </span>
-              </>
-            )}
-          </div>
-
-          <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ${
-            !isOnline ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+        {/* Async Cloud Connection & PWA Offline Status Banner (Shown when syncing or offline) */}
+        {(!isOnline || isSyncingAsync) && (
+          <div className={`border rounded-2xl px-4 py-2 flex items-center justify-between font-mono text-xs ${
+            !isOnline 
+              ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' 
+              : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
           }`}>
-            {!isOnline ? 'PWA Offline Mode' : 'Event-Driven API v2.4'}
-          </span>
-        </div>
+            <div className="flex items-center gap-2">
+              {!isOnline ? (
+                <>
+                  <WifiOff className="w-4 h-4 text-amber-400 animate-pulse" />
+                  <span className="font-bold">Modo Offline do Canteiro: Dados salvos localmente.</span>
+                </>
+              ) : (
+                <>
+                  <Wifi className="w-4 h-4 text-emerald-400 animate-pulse" />
+                  <span>Sincronizando alterações assincronamente via EventBus PubSub...</span>
+                </>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Multi-Tenant Company Selector Bar */}
         <CompanySelectorHeader

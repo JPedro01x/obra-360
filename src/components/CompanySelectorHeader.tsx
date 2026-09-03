@@ -57,61 +57,55 @@ export const CompanySelectorHeader: React.FC<CompanySelectorHeaderProps> = ({
   };
 
   return (
-    <div className={`border rounded-3xl p-4 sm:p-5 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors ${cardBg}`}>
+    <div className={`border rounded-2xl p-3 sm:p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3 transition-colors ${cardBg}`}>
       
       {/* Multi-Tenant Active Company Switcher */}
-      <div className="relative">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-[10px] font-extrabold uppercase font-mono text-cyan-400 bg-cyan-500/10 px-2.5 py-0.5 rounded-full border border-cyan-500/20">
-            🏢 Organização Corporativa (Empresa Active Tenant)
-          </span>
-        </div>
-
+      <div className="relative flex-1">
         <button
           onClick={() => setIsOpenDropdown(!isOpenDropdown)}
-          className={`flex items-center gap-3 p-3 rounded-2xl border transition-all text-left ${
-            isDark ? 'bg-[#121214] border-[#27272a] hover:border-cyan-500/50' : 'bg-zinc-50 border-zinc-300 hover:border-cyan-500'
+          className={`flex items-center gap-3 p-2.5 rounded-xl border transition-all text-left w-full ${
+            isDark ? 'bg-[#121214] border-[#27272a] hover:border-cyan-500/50' : 'bg-zinc-50 border-zinc-200 hover:border-cyan-500'
           }`}
         >
-          <div className="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 shrink-0">
-            <Building className="w-5 h-5 text-cyan-400" />
+          <div className="p-2 rounded-lg bg-cyan-500/10 border border-cyan-500/20 shrink-0">
+            <Building className="w-4 h-4 text-cyan-400" />
           </div>
 
-          <div>
+          <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <h3 className={`font-extrabold text-sm sm:text-base leading-tight ${textTitle}`}>
+              <h3 className={`font-bold text-sm leading-tight truncate ${textTitle}`}>
                 {activeCompany.name}
               </h3>
               {activeCompany.verifiedBadge && (
-                <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 shrink-0">
-                  <ShieldCheck className="w-3 h-3" /> CNPJ Verificado
+                <span className="hidden sm:flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 shrink-0">
+                  <ShieldCheck className="w-3 h-3" /> Verificado
                 </span>
               )}
             </div>
 
-            <p className={`text-[11px] font-mono flex items-center gap-1.5 mt-0.5 ${textMuted}`}>
-              <span>CNPJ: {activeCompany.cnpj}</span> • <span className="text-orange-400 font-semibold">{activeCompany.segment}</span>
+            <p className={`text-[11px] font-mono flex items-center gap-2 mt-0.5 truncate ${textMuted}`}>
+              <span>{activeCompany.cnpj}</span> • <span className="text-orange-400 font-semibold">{activeCompany.segment}</span>
             </p>
           </div>
 
-          <ChevronDown className={`w-4 h-4 ml-2 transition-transform ${isOpenDropdown ? 'rotate-180 text-cyan-400' : textMuted}`} />
+          <ChevronDown className={`w-4 h-4 transition-transform shrink-0 ${isOpenDropdown ? 'rotate-180 text-cyan-400' : textMuted}`} />
         </button>
 
         {/* Dropdown Menu of Companies */}
         {isOpenDropdown && (
-          <div className={`absolute top-full left-0 mt-2 z-50 w-full sm:w-[460px] border rounded-3xl p-3 shadow-2xl space-y-2 backdrop-blur-md ${
-            isDark ? 'bg-[#18181b]/95 border-[#27272a]' : 'bg-white/95 border-zinc-300'
+          <div className={`absolute top-full left-0 mt-2 z-50 w-full sm:w-[420px] border rounded-2xl p-2.5 shadow-2xl space-y-1.5 backdrop-blur-md ${
+            isDark ? 'bg-[#18181b]/95 border-[#27272a]' : 'bg-white/95 border-zinc-200'
           }`}>
-            <div className="flex justify-between items-center px-2 py-1 border-b border-zinc-700/30">
-              <span className="text-[10px] font-bold uppercase font-mono text-zinc-400">Selecione a Empresa / Organização:</span>
+            <div className="flex justify-between items-center px-2 py-1 border-b border-zinc-700/20">
+              <span className="text-[10px] font-bold uppercase font-mono text-zinc-400">Alternar Organização SaaS:</span>
               <button
                 onClick={() => {
                   setIsOpenDropdown(false);
                   setShowAddCompanyModal(true);
                 }}
-                className="text-[10px] font-bold text-cyan-400 hover:underline flex items-center gap-1"
+                className="text-[11px] font-bold text-orange-500 hover:underline flex items-center gap-1"
               >
-                <Plus className="w-3 h-3" /> Cadastrar Nova Empresa
+                <Plus className="w-3 h-3" /> Cadastrar Empresa
               </button>
             </div>
 

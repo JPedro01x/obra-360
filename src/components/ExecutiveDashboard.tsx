@@ -44,34 +44,31 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
   };
 
   return (
-    <div className="flex flex-col gap-4 sm:gap-6">
+    <div className="flex flex-col gap-6">
       
-      {/* Top Banner indicating the exact specific role dashboard */}
-      <div className={`border rounded-3xl p-4 sm:p-6 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 transition-colors ${cardBg}`}>
-        <div>
-          <div className="flex items-center gap-2">
-            <Award className="w-5 h-5 sm:w-6 sm:h-6 text-orange-500 shrink-0" />
-            <h2 className={`font-extrabold text-lg sm:text-xl ${textTitle}`}>
-              Dashboard Exclusivo: {roleObj.title}
-            </h2>
+      {/* Sleek Minimal Header Strip */}
+      <div className={`border rounded-2xl p-4 flex items-center justify-between gap-4 transition-colors ${cardBg}`}>
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-orange-500/10 border border-orange-500/20">
+            <Award className="w-5 h-5 text-orange-500 shrink-0" />
           </div>
-          <p className={`text-[11px] sm:text-xs mt-1 ${textMuted}`}>
-            Visão customizada e métricas de trabalho para <strong>{roleObj.department}</strong> ({roleObj.level})
-          </p>
+          <div>
+            <h2 className={`font-extrabold text-base ${textTitle}`}>
+              Painel {roleObj.title}
+            </h2>
+            <p className={`text-xs ${textMuted}`}>
+              {roleObj.department} • {roleObj.level}
+            </p>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handlePrintPDF}
-            className="flex items-center gap-1.5 bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs px-3 py-1.5 sm:py-2 rounded-2xl shadow-md transition"
-            title="Gerar Relatório Executivo em PDF Impresso"
-          >
-            <Printer className="w-4 h-4" /> Relatório PDF
-          </button>
-          <span className={`text-[10px] sm:text-xs font-bold px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-2xl border ${roleObj.badgeColor}`}>
-            ● Modo {roleObj.id}
-          </span>
-        </div>
+        <button
+          onClick={handlePrintPDF}
+          className="flex items-center gap-1.5 bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs px-3.5 py-2 rounded-xl shadow-md transition"
+          title="Gerar Relatório Executivo em PDF Impresso"
+        >
+          <Printer className="w-4 h-4" /> Exportar PDF
+        </button>
       </div>
 
       {/* ========================================================================= */}

@@ -6,13 +6,14 @@ import {
   Package, ArrowDownRight, ArrowUpRight, Plus, 
   FileText, ShieldAlert, CheckCircle2, MapPin, Search, Lock, Download 
 } from 'lucide-react';
+import { MaterialCalculatorFactory } from '../utils/materialCalculatorStrategy';
 
 interface InventoryManagerProps {
   stockItems: StockItem[];
   movements: StockMovement[];
   currentRole: RoleId;
   theme: ThemeMode;
-  onAddMovement: (mov: Omit<StockMovement, 'id'>) => void;
+  onAddMovement: (newMov: Omit<StockMovement, 'id' | 'timestamp'>) => void;
 }
 
 export const InventoryManager: React.FC<InventoryManagerProps> = ({
@@ -27,11 +28,15 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
   const [activeTab, setActiveTab] = useState<'ESTOQUE' | 'MOVIMENTACOES' | 'CALCULADORA'>('ESTOQUE');
   const [calcArea, setCalcArea] = useState<number>(120);
 
-  const calcCement = Math.round(calcArea * 7);
-  const calcSteel = Math.round(calcArea * 8);
-  const calcBricks = (calcArea * 0.04).toFixed(1);
-  const calcSand = (calcArea * 0.12).toFixed(1);
-  const calcGravel = (calcArea * 0.10).toFixed(1);
+  // GoF Design Pattern: Strategy & Factory
+  const calcStrategy = MaterialCalculatorFactory.getStrategy('CONCRETO_ARMADO');
+  const calcResult = calcStrategy.calculate(calcArea);
+
+  const calcCement = calcResult.cementBags;
+  const calcSteel = calcResult.steelKg;
+  const calcBricks = calcResult.bricksThousands;
+  const calcSand = calcResult.sandM3;
+  const calcGravel = calcResult.gravelM3;
   const [showModal, setShowModal] = useState<boolean>(false);
   const [movementType, setMovementType] = useState<'ENTRADA' | 'SAIDA'>('SAIDA');
   const [selectedProductId, setSelectedProductId] = useState<string>(stockItems[0]?.id || '');
