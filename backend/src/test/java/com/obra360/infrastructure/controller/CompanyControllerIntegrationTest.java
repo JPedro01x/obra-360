@@ -20,7 +20,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+
 @WebMvcTest(CompanyController.class)
+@AutoConfigureMockMvc(addFilters = false)
 @DisplayName("Testes de Integração de API (Spring WebMvcTest MockMvc)")
 class CompanyControllerIntegrationTest {
 

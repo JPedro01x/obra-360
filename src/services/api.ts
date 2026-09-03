@@ -99,7 +99,7 @@ export const api = {
    */
   documents: {
     async getByProjectId(projectId: string): Promise<ProjectDocument[]> {
-      const filtered = INITIAL_DOCUMENTS.filter(d => d.projectId === projectId || d.projectId === 'PRJ-001');
+      const filtered = INITIAL_DOCUMENTS.filter((d: ProjectDocument) => d.projectId === projectId || d.projectId === 'PRJ-001');
       return simulateNetworkDelay(filtered, 300);
     },
     async upload(newDoc: Omit<ProjectDocument, 'id' | 'updatedAt'>): Promise<ProjectDocument> {
@@ -124,7 +124,7 @@ export const api = {
    */
   occurrences: {
     async getByProjectId(projectId: string): Promise<ConstructionOccurrence[]> {
-      const filtered = INITIAL_OCCURRENCES.filter(o => o.projectId === projectId || o.projectId === 'PRJ-001');
+      const filtered = INITIAL_OCCURRENCES.filter((o: ConstructionOccurrence) => o.projectId === projectId || o.projectId === 'PRJ-001');
       return simulateNetworkDelay(filtered, 250);
     },
     async create(newOcc: Omit<ConstructionOccurrence, 'id' | 'createdAt'>): Promise<ConstructionOccurrence> {

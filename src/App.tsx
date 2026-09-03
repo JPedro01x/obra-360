@@ -28,9 +28,12 @@ import { RbacMatrixView } from './components/RbacMatrixView';
 import { LoginView } from './components/LoginView';
 import { ToastNotifier } from './components/ToastNotifier';
 import { B2bMarketplaceView } from './components/B2bMarketplaceView';
+import { NotFoundView } from './components/NotFoundView';
 import { RealEstateStorefrontView } from './components/RealEstateStorefrontView';
 import { WarrantyPostSalesView } from './components/WarrantyPostSalesView';
 import { LiveB2bChatView } from './components/LiveB2bChatView';
+import { AiConstructionAssistantView } from './components/AiConstructionAssistantView';
+import { LgpdPrivacyCenterView } from './components/LgpdPrivacyCenterView';
 import { 
   Box, LayoutDashboard, Package, History, UserCheck, 
   Sparkles, Layers, ShieldCheck, CheckCircle2, KeyRound, ShoppingCart, Building, Heart, FileText, Wifi, WifiOff, MessageSquare 
@@ -172,8 +175,12 @@ export function App() {
     return authUser ? authUser.role : 'ENGENHEIRO';
   });
 
-  // Active Tab State
-  const [activeTab, setActiveTab] = useState<'3D' | 'PROJETOS' | 'DASHBOARD' | 'ESTOQUE' | 'AUDITORIA' | 'CLIENTE' | 'RBAC' | 'MARKETPLACE' | 'VENDAS' | 'POSVENDAS' | 'MENSAGENS'>('3D');
+  // Active Tab State (with 404 Route Guard Support, AI Voice Assistant & LGPD Privacy Center)
+  const [activeTab, setActiveTab] = useState<'3D' | 'PROJETOS' | 'DASHBOARD' | 'ESTOQUE' | 'AUDITORIA' | 'CLIENTE' | 'RBAC' | 'MARKETPLACE' | 'VENDAS' | 'POSVENDAS' | 'MENSAGENS' | 'IA' | 'LGPD' | 'NOT_FOUND'>('3D');
+
+  useEffect(() => {
+    (window as any).__setObra360ActiveTab = setActiveTab;
+  }, []);
 
   // Theme state persisted in localStorage
   const [theme, setTheme] = useState<ThemeMode>(() => {
@@ -363,9 +370,12 @@ export function App() {
   const handleAddElement = async (newElemData: Omit<BuildingElement, 'id' | 'lastUpdatedAt'>) => {
     setIsSyncingAsync(true);
     try {
-      const created = await api.elements.create(newElemData);
+      const created = await api.elements.create({
+        ...newElemData,
+        projectId: activeProject.id
+      });
       setElements((prev) => [...prev, created]);
-      addToast('success', 'Elemento 3D Criado Assincronamente', `${created.name} gerado no modelo espacial.`);
+      addToast('success', 'Elemento 3D Criado na Obra', `${created.name} integrado ao modelo da obra "${activeProject.name}".`);
     } finally {
       setIsSyncingAsync(false);
     }
@@ -380,18 +390,20 @@ export function App() {
   };
 
   const handleImportFloorPlan = (presetName: string) => {
+    const projId = activeProject.id;
     const generated: BuildingElement[] = [
-      { id: 'ELEM-001', name: `Radier & Sapata de Fundação (${presetName})`, category: 'Fundação', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 1, materialUsed: 'Concreto Armado Fck 30MPa', lastUpdatedBy: 'AI CAD Parser', lastUpdatedAt: 'Agora', position: [0, 0, 0] },
-      { id: 'ELEM-002', name: 'Vigas Baldrame Impermeabilizadas', category: 'Fundação', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 2, materialUsed: 'Tinta Asfáltica Manta 4mm', lastUpdatedBy: 'AI CAD Parser', lastUpdatedAt: 'Agora', position: [0, 0, 0] },
-      { id: 'ELEM-003', name: 'Pilares Estruturais CA-50 (Planta 2D)', category: 'Estrutura', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 3, materialUsed: 'Concreto CA-50', lastUpdatedBy: 'AI CAD Parser', lastUpdatedAt: 'Agora', position: [-4.8, 2.8, -3.2] },
-      { id: 'ELEM-004', name: 'Alvenaria Externa & Vedações (2D)', category: 'Alvenaria', status: 'EM_EXECUCAO', progressPercent: 85, assignedWeek: 4, materialUsed: 'Blocos Cerâmicos Baianos 14x19x29cm', lastUpdatedBy: 'AI CAD Parser', lastUpdatedAt: 'Agora', position: [4.9, 2.8, 0] },
-      { id: 'ELEM-005', name: 'Vedações Internas & Divisórias (2D)', category: 'Alvenaria', status: 'EM_EXECUCAO', progressPercent: 70, assignedWeek: 5, materialUsed: 'Blocos de Concreto Estrutural', lastUpdatedBy: 'AI CAD Parser', lastUpdatedAt: 'Agora', position: [0, 2.8, -3.3] },
-      { id: 'ELEM-006', name: 'Laje Térreo Pré-Moldada H12', category: 'Estrutura', status: 'EM_EXECUCAO', progressPercent: 50, assignedWeek: 6, materialUsed: 'Vigotas EPS H12', lastUpdatedBy: 'AI CAD Parser', lastUpdatedAt: 'Agora', position: [0, 4.4, 0] },
-      { id: 'ELEM-007', name: 'Estrutura de Telhado & Painéis Solares', category: 'Estrutura', status: 'PLANEJADO', progressPercent: 0, assignedWeek: 7, materialUsed: 'Telhas Cerâmicas & Placas Fotovoltaicas', lastUpdatedBy: 'AI CAD Parser', lastUpdatedAt: 'Agora', position: [0, 6.0, 0] }
+      { id: `ELEM-${Date.now()}-1`, projectId: projId, name: `Radier & Sapata de Fundação (${presetName})`, category: 'Fundação', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 1, materialUsed: 'Concreto Armado Fck 30MPa', lastUpdatedBy: 'AI CAD Parser', lastUpdatedAt: 'Agora', position: [0, 0, 0] },
+      { id: `ELEM-${Date.now()}-2`, projectId: projId, name: 'Vigas Baldrame Impermeabilizadas', category: 'Fundação', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 2, materialUsed: 'Tinta Asfáltica Manta 4mm', lastUpdatedBy: 'AI CAD Parser', lastUpdatedAt: 'Agora', position: [0, 0, 0] },
+      { id: `ELEM-${Date.now()}-3`, projectId: projId, name: 'Pilares Estruturais CA-50 (Planta 2D)', category: 'Estrutura', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 3, materialUsed: 'Concreto CA-50', lastUpdatedBy: 'AI CAD Parser', lastUpdatedAt: 'Agora', position: [-4.8, 2.8, -3.2] },
+      { id: `ELEM-${Date.now()}-4`, projectId: projId, name: 'Alvenaria Externa & Vedações (2D)', category: 'Alvenaria', status: 'EM_EXECUCAO', progressPercent: 85, assignedWeek: 4, materialUsed: 'Blocos Cerâmicos Baianos 14x19x29cm', lastUpdatedBy: 'AI CAD Parser', lastUpdatedAt: 'Agora', position: [4.9, 2.8, 0] },
+      { id: `ELEM-${Date.now()}-5`, projectId: projId, name: 'Vedações Internas & Divisórias (2D)', category: 'Alvenaria', status: 'EM_EXECUCAO', progressPercent: 70, assignedWeek: 5, materialUsed: 'Blocos de Concreto Estrutural', lastUpdatedBy: 'AI CAD Parser', lastUpdatedAt: 'Agora', position: [0, 2.8, -3.3] },
+      { id: `ELEM-${Date.now()}-6`, projectId: projId, name: 'Laje Térreo Pré-Moldada H12', category: 'Estrutura', status: 'EM_EXECUCAO', progressPercent: 50, assignedWeek: 6, materialUsed: 'Vigotas EPS H12', lastUpdatedBy: 'AI CAD Parser', lastUpdatedAt: 'Agora', position: [0, 4.4, 0] },
+      { id: `ELEM-${Date.now()}-7`, projectId: projId, name: 'Estrutura de Telhado & Painéis Solares', category: 'Estrutura', status: 'PLANEJADO', progressPercent: 0, assignedWeek: 7, materialUsed: 'Telhas Cerâmicas & Placas Fotovoltaicas', lastUpdatedBy: 'AI CAD Parser', lastUpdatedAt: 'Agora', position: [0, 6.0, 0] }
     ];
 
-    setElements(generated);
-    addToast('success', '✨ Modelo 3D BIM Extrudado da Planta 2D', `Estrutura 3D completa gerada automaticamente a partir da planta "${presetName}".`);
+    // Append to existing elements, preserving project isolation
+    setElements((prev) => [...prev.filter(e => e.projectId !== projId), ...generated]);
+    addToast('success', '✨ Modelo 3D BIM Extrudado da Planta 2D', `Estrutura 3D da obra "${activeProject.name}" gerada automaticamente a partir da planta "${presetName}".`);
   };
 
   const handleAddMovement = async (newMov: Omit<StockMovement, 'id'>) => {
@@ -544,150 +556,197 @@ export function App() {
           theme={theme}
         />
 
-        {/* Main Navigation Bar */}
-        <nav className={`border rounded-3xl px-4 py-2 transition-colors ${
-          isDark ? 'bg-[#18181b]/70 border-[#27272a]' : 'bg-white/80 border-zinc-200 shadow-sm'
+              {/* Navigation Bar - Ultra-Clean & Mobile Responsive Layout */}
+        <nav className={`border rounded-2xl p-1.5 shadow-md ${
+          isDark ? 'bg-[#18181b] border-[#27272a]' : 'bg-white border-zinc-200'
         }`}>
-          <div className="flex items-center gap-1 overflow-x-auto py-1">
-            
-            {canSee3dTab && (
-              <button
-                onClick={() => setActiveTab('3D')}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition whitespace-nowrap ${
-                  activeTab === '3D'
-                    ? 'bg-orange-600 text-white shadow-lg shadow-orange-600/30'
-                    : isDark ? 'text-zinc-400 hover:text-white hover:bg-[#27272a]' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
-                }`}
-              >
-                <Box className="w-4 h-4" /> Modelo 3D Interativo & BIM
-              </button>
-            )}
+          {/* Mobile Viewport Dropdown Selector */}
+          <div className="block md:hidden p-1">
+            <select
+              value={activeTab}
+              onChange={(e) => setActiveTab(e.target.value as any)}
+              className={`w-full p-2.5 rounded-xl border text-xs font-bold ${
+                isDark ? 'bg-[#121214] border-[#27272a] text-white' : 'bg-zinc-50 border-zinc-300 text-zinc-900'
+              }`}
+            >
+              <option value="DASHBOARD">📊 Painel Executivo ({getDashboardTabLabel(currentRole)})</option>
+              {canSee3dTab && <option value="3D">🏛️ Modelo 3D Interativo & BIM</option>}
+              {canSeeProjetosTab && <option value="PROJETOS">📐 Central de Projetos (2D/3D BIM)</option>}
+              <option value="IA">✨ IA Preditiva & Voz (Gemini)</option>
+              <option value="MENSAGENS">💬 Chat B2B & Mensagens</option>
+              {canSeeMarketplaceTab && <option value="MARKETPLACE">🛒 Marketplace B2B (Cotação)</option>}
+              {canSeeStockTab && <option value="ESTOQUE">📦 Almoxarifado & Estoque NFe</option>}
+              {canSeeVendasTab && <option value="VENDAS">🏢 Portal de Vendas Imobiliárias</option>}
+              {canSeeClientTab && <option value="CLIENTE">👤 Portal do Proprietário</option>}
+              {canSeePosVendasTab && <option value="POSVENDAS">🛡️ Garantia & Pós-Vendas</option>}
+              {canSeeRbacTab && <option value="RBAC">🔑 Permissões (RBAC / IAM)</option>}
+              {canSeeAuditTab && <option value="AUDITORIA">📜 Auditoria & ISO 9001</option>}
+              <option value="LGPD">⚖️ Privacidade & LGPD (Art. 18)</option>
+            </select>
+          </div>
 
-            {canSeeProjetosTab && (
-              <button
-                onClick={() => setActiveTab('PROJETOS')}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition whitespace-nowrap ${
-                  activeTab === 'PROJETOS'
-                    ? 'bg-orange-600 text-white shadow-lg shadow-orange-600/30'
-                    : isDark ? 'text-zinc-400 hover:text-white hover:bg-[#27272a]' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
-                }`}
-              >
-                <FileText className="w-4 h-4" /> Central de Projetos (2D/3D BIM)
-              </button>
-            )}
-
+          {/* Desktop & Tablet Navigation Row */}
+          <div className="hidden md:flex items-center gap-1.5 overflow-x-auto scrollbar-thin py-0.5 px-1">
             <button
               onClick={() => setActiveTab('DASHBOARD')}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition whitespace-nowrap ${
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
                 activeTab === 'DASHBOARD'
-                  ? 'bg-orange-600 text-white shadow-lg shadow-orange-600/30'
+                  ? 'bg-orange-600 text-white shadow-md shadow-orange-600/30'
                   : isDark ? 'text-zinc-400 hover:text-white hover:bg-[#27272a]' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
               }`}
             >
               <LayoutDashboard className="w-4 h-4" /> {getDashboardTabLabel(currentRole)}
             </button>
 
+            {canSee3dTab && (
+              <button
+                onClick={() => setActiveTab('3D')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
+                  activeTab === '3D'
+                    ? 'bg-orange-600 text-white shadow-md shadow-orange-600/30'
+                    : isDark ? 'text-zinc-400 hover:text-white hover:bg-[#27272a]' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
+                }`}
+              >
+                <Box className="w-4 h-4" /> Modelo 3D & BIM
+              </button>
+            )}
+
+            {canSeeProjetosTab && (
+              <button
+                onClick={() => setActiveTab('PROJETOS')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
+                  activeTab === 'PROJETOS'
+                    ? 'bg-orange-600 text-white shadow-md shadow-orange-600/30'
+                    : isDark ? 'text-zinc-400 hover:text-white hover:bg-[#27272a]' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
+                }`}
+              >
+                <FileText className="w-4 h-4" /> Projetos
+              </button>
+            )}
+
+            <button
+              onClick={() => setActiveTab('IA')}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
+                activeTab === 'IA'
+                  ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
+                  : isDark ? 'text-purple-400 hover:text-white hover:bg-[#27272a]' : 'text-purple-600 hover:text-purple-900 hover:bg-purple-50'
+              }`}
+            >
+              <Sparkles className="w-4 h-4 text-purple-400" /> IA Voice & Gemini
+            </button>
+
             <button
               onClick={() => setActiveTab('MENSAGENS')}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition whitespace-nowrap ${
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
                 activeTab === 'MENSAGENS'
-                  ? 'bg-orange-600 text-white shadow-lg shadow-orange-600/30'
+                  ? 'bg-orange-600 text-white shadow-md shadow-orange-600/30'
                   : isDark ? 'text-zinc-400 hover:text-white hover:bg-[#27272a]' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
               }`}
             >
-              <MessageSquare className="w-4 h-4" /> Chat B2B & Central de Mensagens
+              <MessageSquare className="w-4 h-4" /> Chat B2B
             </button>
 
             {canSeeMarketplaceTab && (
               <button
                 onClick={() => setActiveTab('MARKETPLACE')}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition whitespace-nowrap ${
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
                   activeTab === 'MARKETPLACE'
-                    ? 'bg-orange-600 text-white shadow-lg shadow-orange-600/30'
+                    ? 'bg-orange-600 text-white shadow-md shadow-orange-600/30'
                     : isDark ? 'text-zinc-400 hover:text-white hover:bg-[#27272a]' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
                 }`}
               >
-                <ShoppingCart className="w-4 h-4" /> Marketplace B2B (Cotação & Máquinas)
+                <ShoppingCart className="w-4 h-4" /> Marketplace
               </button>
             )}
 
             {canSeeStockTab && (
               <button
                 onClick={() => setActiveTab('ESTOQUE')}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition whitespace-nowrap ${
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
                   activeTab === 'ESTOQUE'
-                    ? 'bg-orange-600 text-white shadow-lg shadow-orange-600/30'
+                    ? 'bg-orange-600 text-white shadow-md shadow-orange-600/30'
                     : isDark ? 'text-zinc-400 hover:text-white hover:bg-[#27272a]' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
                 }`}
               >
-                <Package className="w-4 h-4" /> Almoxarifado & Estoque
+                <Package className="w-4 h-4" /> Estoque NFe
               </button>
             )}
 
             {canSeeVendasTab && (
               <button
                 onClick={() => setActiveTab('VENDAS')}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition whitespace-nowrap ${
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
                   activeTab === 'VENDAS'
-                    ? 'bg-orange-600 text-white shadow-lg shadow-orange-600/30'
+                    ? 'bg-orange-600 text-white shadow-md shadow-orange-600/30'
                     : isDark ? 'text-zinc-400 hover:text-white hover:bg-[#27272a]' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
                 }`}
               >
-                <Building className="w-4 h-4" /> Portal de Vendas Imobiliárias
+                <Building className="w-4 h-4" /> Imóveis
               </button>
             )}
 
             {canSeeClientTab && (
               <button
                 onClick={() => setActiveTab('CLIENTE')}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition whitespace-nowrap ${
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
                   activeTab === 'CLIENTE'
-                    ? 'bg-orange-600 text-white shadow-lg shadow-orange-600/30'
+                    ? 'bg-orange-600 text-white shadow-md shadow-orange-600/30'
                     : isDark ? 'text-zinc-400 hover:text-white hover:bg-[#27272a]' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
                 }`}
               >
-                <UserCheck className="w-4 h-4" /> Portal do Proprietário
+                <UserCheck className="w-4 h-4" /> Proprietário
               </button>
             )}
 
             {canSeePosVendasTab && (
               <button
                 onClick={() => setActiveTab('POSVENDAS')}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition whitespace-nowrap ${
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
                   activeTab === 'POSVENDAS'
-                    ? 'bg-orange-600 text-white shadow-lg shadow-orange-600/30'
+                    ? 'bg-orange-600 text-white shadow-md shadow-orange-600/30'
                     : isDark ? 'text-zinc-400 hover:text-white hover:bg-[#27272a]' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
                 }`}
               >
-                <ShieldCheck className="w-4 h-4" /> Garantia & Pós-Vendas
+                <ShieldCheck className="w-4 h-4" /> Pós-Vendas
               </button>
             )}
 
             {canSeeRbacTab && (
               <button
                 onClick={() => setActiveTab('RBAC')}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition whitespace-nowrap ${
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
                   activeTab === 'RBAC'
-                    ? 'bg-orange-600 text-white shadow-lg shadow-orange-600/30'
+                    ? 'bg-orange-600 text-white shadow-md shadow-orange-600/30'
                     : isDark ? 'text-zinc-400 hover:text-white hover:bg-[#27272a]' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
                 }`}
               >
-                <KeyRound className="w-4 h-4" /> Permissões (RBAC / IAM)
+                <KeyRound className="w-4 h-4" /> IAM
               </button>
             )}
 
             {canSeeAuditTab && (
               <button
                 onClick={() => setActiveTab('AUDITORIA')}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition whitespace-nowrap ${
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
                   activeTab === 'AUDITORIA'
-                    ? 'bg-orange-600 text-white shadow-lg shadow-orange-600/30'
+                    ? 'bg-orange-600 text-white shadow-md shadow-orange-600/30'
                     : isDark ? 'text-zinc-400 hover:text-white hover:bg-[#27272a]' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
                 }`}
               >
-                <History className="w-4 h-4" /> Auditoria (MongoDB)
+                <History className="w-4 h-4" /> Auditoria
               </button>
             )}
+
+            <button
+              onClick={() => setActiveTab('LGPD')}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
+                activeTab === 'LGPD'
+                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+                  : isDark ? 'text-emerald-400 hover:text-white hover:bg-[#27272a]' : 'text-emerald-600 hover:text-emerald-900 hover:bg-emerald-50'
+              }`}
+            >
+              <ShieldCheck className="w-4 h-4 text-emerald-400" /> LGPD
+            </button>
           </div>
         </nav>
 
@@ -729,6 +788,10 @@ export function App() {
                 <LiveB2bChatView currentRole={currentRole} theme={theme} activeCompany={activeCompany} onSendToast={addToast} />
               )}
 
+              {activeTab === 'IA' && (
+                <AiConstructionAssistantView currentRole={currentRole} theme={theme} onSendToast={addToast} />
+              )}
+
               {activeTab === 'MARKETPLACE' && canSeeMarketplaceTab && (
                 <B2bMarketplaceView currentRole={currentRole} theme={theme} onSendToast={addToast} />
               )}
@@ -758,6 +821,18 @@ export function App() {
 
               {activeTab === 'AUDITORIA' && canSeeAuditTab && (
                 <AuditLogViewer auditLogs={auditLogs} currentRole={currentRole} theme={theme} />
+              )}
+
+              {activeTab === 'LGPD' && (
+                <LgpdPrivacyCenterView currentRole={currentRole} theme={theme} authUser={authUser} onSendToast={addToast} />
+              )}
+
+              {activeTab === 'NOT_FOUND' && (
+                <NotFoundView
+                  theme={theme}
+                  onGoHome={() => setActiveTab('DASHBOARD')}
+                  onGoProjects={() => setActiveTab('PROJETOS')}
+                />
               )}
 
               {activeTab === 'CLIENTE' && canSeeClientTab && (

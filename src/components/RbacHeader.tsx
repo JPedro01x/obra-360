@@ -58,30 +58,19 @@ export const RbacHeader: React.FC<RbacHeaderProps> = ({
         {/* Right Section: RBAC Profile Switcher & Actions */}
         <div className="flex items-center gap-2.5">
           
-          {/* RBAC Profile Switcher Pill */}
-          <div className={`flex items-center gap-2 border rounded-2xl p-1 shadow-sm ${
+          {/* Authenticated User Badge (Strict Authentication - No quick role switching) */}
+          <div className={`flex items-center gap-2 border rounded-2xl px-3 py-1.5 shadow-sm ${
             isDark ? 'bg-[#18181b] border-[#27272a]' : 'bg-zinc-100 border-zinc-200'
           }`}>
-            <div className={`flex items-center gap-1.5 px-2.5 py-1 ${isDark ? 'text-zinc-400' : 'text-zinc-600'}`}>
-              <ShieldCheck className="w-4 h-4 text-orange-500 shrink-0" />
-              <span className="text-xs font-semibold hidden md:inline">Perfil:</span>
+            <ShieldCheck className="w-4 h-4 text-orange-500 shrink-0" />
+            <div className="flex flex-col">
+              <span className={`text-[11px] font-bold ${isDark ? 'text-white' : 'text-zinc-900'}`}>
+                {authUser ? authUser.name : roleObj.title}
+              </span>
+              <span className={`text-[9px] font-mono font-semibold ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                {roleObj.title}
+              </span>
             </div>
-
-            <select
-              value={currentRole}
-              onChange={(e) => onSelectRole(e.target.value as RoleId)}
-              className={`font-semibold text-xs rounded-xl px-2.5 py-1.5 border focus:ring-2 focus:ring-orange-500 focus:outline-none cursor-pointer ${
-                isDark 
-                  ? 'bg-[#121214] text-white border-[#27272a]' 
-                  : 'bg-white text-zinc-900 border-zinc-300'
-              }`}
-            >
-              {Object.values(USER_ROLES).map((role) => (
-                <option key={role.id} value={role.id}>
-                  {role.title}
-                </option>
-              ))}
-            </select>
           </div>
 
           {/* Theme Toggle Button */}

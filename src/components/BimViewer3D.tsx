@@ -59,7 +59,12 @@ export const BimViewer3D: React.FC<BimViewer3DProps> = ({
   const [aiStep, setAiStep] = useState<number>(0);
   const [selectedPreset, setSelectedPreset] = useState<string>('Casa 3 Quartos (120m²)');
 
-  const selectedElement = elements.find((e) => e.id === selectedElementId);
+  // Filter 3D elements for the specific active project (Obra-por-Obra Isolation)
+  const projectElements = activeProject 
+    ? elements.filter((e) => !e.projectId || e.projectId === activeProject.id)
+    : elements;
+
+  const selectedElement = projectElements.find((e) => e.id === selectedElementId);
   const userPermissions = USER_ROLES[currentRole]?.permissions || [];
   
   // Can edit 3D model
@@ -282,8 +287,8 @@ export const BimViewer3D: React.FC<BimViewer3DProps> = ({
       meshesGroup.add(p2);
     }
 
-    // Dynamic Elements added by user
-    elements.forEach((elem) => {
+    // Dynamic Elements added by user (Obra-por-Obra Dynamic Customization)
+    projectElements.forEach((elem) => {
       if (elem.assignedWeek <= selectedWeek && elem.position && (elem.position[0] !== 0 || elem.position[1] !== 0 || elem.position[2] !== 0)) {
         const dynGeo = elem.category === 'Estrutura' 
           ? new THREE.BoxGeometry(0.6, 3.2, 0.6) 
@@ -348,7 +353,7 @@ export const BimViewer3D: React.FC<BimViewer3DProps> = ({
       domElem.removeEventListener('click', handleCanvasClick);
       window.removeEventListener('resize', handleResize);
     };
-  }, [elements, isDark, viewMode, selectedWeek]);
+  }, [elements, projectElements, activeProject, isDark, viewMode, selectedWeek]);
 
   // AI 2D -> 3D Generation Simulation Handler
   const startAiGeneration = () => {

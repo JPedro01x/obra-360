@@ -143,6 +143,7 @@ export interface AuthUser {
 
 export interface BuildingElement {
   id: string;
+  projectId?: string;
   name: string;
   category: 'Fundação' | 'Estrutura' | 'Alvenaria' | 'Instalações' | 'Acabamento';
   status: 'PLANEJADO' | 'EM_EXECUCAO' | 'CONCLUIDO';

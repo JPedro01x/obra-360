@@ -59,11 +59,15 @@ CREATE TABLE IF NOT EXISTS tb_b2b_rfqs (
     deadline TIMESTAMP
 );
 
--- SEEDS INICIAIS DE PRODUÇÃO (CORPORATE SEEDS)
-INSERT INTO tb_companies (id, name, cnpj, segment, plan, verified_badge, active_projects_count, members_count, city_state, phone)
-VALUES ('CMP-001', 'Construtora Apex & Engenharia LTDA', '12.345.678/0001-90', 'Construtora / Empreiteira', 'Enterprise Multi-Tenant', TRUE, 4, 42, 'São Paulo / SP', '(11) 3040-5000')
-ON CONFLICT (id) DO NOTHING;
+-- 5. Usuários e Perfis RBAC (tb_users - 13 Níveis de Acesso)
+CREATE TABLE IF NOT EXISTS tb_users (
+    id VARCHAR(255) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    role VARCHAR(50) NOT NULL,
+    company_id VARCHAR(255) NOT NULL,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    avatar_url VARCHAR(500),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
-INSERT INTO tb_stock_items (id, sku, name, category, quantity, unit, min_stock, last_supplier)
-VALUES ('STK-001', 'CIM-30MPA', 'Cimento Votoran / Cauê Fck 30MPa (Saco 50kg)', 'Insumos Estruturais', 320, 'Sacos', 100, 'Votoran Cimentos S/A')
-ON CONFLICT (id) DO NOTHING;
