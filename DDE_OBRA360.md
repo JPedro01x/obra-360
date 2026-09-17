@@ -196,47 +196,55 @@ Os requisitos do sistema são classificados em 3 níveis rigorosos de priorizaç
 
 ---
 
-## 2. JUSTIFICATIVA E FUNDAMENTAÇÃO TEÓRICA, MERCADOLÓGICA E TECNOLÓGICA (EXTREMAMENTE AMPLIADO)
+## 2. JUSTIFICATIVA E FUNDAMENTAÇÃO TEÓRICA, MERCADOLÓGICA E TECNOLÓGICA (ULTRADETALHADO)
 
 ### 2.1 Cenário Macroeconômico da Construção Civil no Brasil e no Mundo
-A construção civil assume papel de relevância estratégica incomparável no desenvolvimento socioeconômico global. Segundo dados consolidados da consultoria internacional McKinsey & Company, a indústria da construção civil movimenta anualmente mais de **US$ 12 trilhões**, representando cerca de **13% do Produto Interno Bruto (PIB) mundial**. O setor é a base física sobre a qual se sustentam todas as demais atividades econômicas, provendo a infraestrutura de habitação, transporte, energia, saneamento, saúde e comércio.
+A construção civil assume papel de relevância estratégica incomparável no desenvolvimento socioeconômico global, atuando como o motor infraestrutural básico sobre o qual se estruturam todas as demais atividades produtivas da sociedade humana. Segundo dados consolidados da consultoria internacional McKinsey & Company e do Fórum Econômico Mundial, a cadeia global da construção civil movimenta anualmente mais de **US$ 12 trilhões**, o que representa aproximadamente **13% do Produto Interno Bruto (PIB) mundial**. Trata-se da indústria responsável por construir e manter o ambiente físico de cidades, rodovias, ferrovias, portos, aeroportos, usinas de energia, redes de saneamento, hospitais, edifícios comerciais e moradias residenciais.
 
-No cenário nacional brasileiro, de acordo com indicadores do Instituto Brasileiro de Geografia e Estatística (IBGE, 2023) e da Câmara Brasileira da Indústria da Construção (CBIC, 2023), o setor da construção civil responde por aproximadamente **6,2% do PIB nacional**. Trata-se de um dos maiores geradores de empregos do país, alocando diretamente mais de **2,7 milhões de trabalhadores formais** e estimando-se mais de 4 milhões de ocupações informais ou indiretas.
+No cenário nacional brasileiro, de acordo com indicadores oficiais do Instituto Brasileiro de Geografia e Estatística (IBGE, 2023) e da Câmara Brasileira da Indústria da Construção (CBIC, 2023), o setor da construção civil responde por aproximadamente **6,2% do PIB nacional**. Trata-se de um dos maiores geradores de postos de trabalho do país, alocando diretamente mais de **2,7 milhões de trabalhadores formais** com carteira assinada, estimando-se que a cadeia ampla (incluindo trabalhadores informais, terceirizados e prestadores de serviços associados) ultrapasse **7 milhões de ocupações**.
 
-#### 2.1.1 Efeito Multiplicador e Impacto Socioeconômico
-A construção civil possui o maior **efeito multiplicador da economia brasileira**: a cada R$ 1,00 investido na construção civil, geram-se R$ 2,50 de retorno na economia global do país. A cadeia produtiva da construção movimenta de forma encadeada mais de **60 setores industriais e de serviços derivados**, incluindo:
-- Indústria pesada de transformação (siderurgia, cimento, cal, alumínio, produtos cerâmicos, vidros plásticos);
-- Setor de logística e transportes pesados;
-- Engenharia consultiva, arquitetura e geotecnia;
-- Mercado financeiro, securitário e de crédito imobiliário;
-- Comércio atacadista e varejista de materiais de construção.
+#### 2.1.1 Efeito Multiplicador e Impacto Socioeconômico Encadeado
+A construção civil distingue-se de outros setores industriais pelo seu elevadíssimo **efeito multiplicador da economia**:
+- **Multiplicador de Produto:** A cada R$ 1,00 investido na construção civil, geram-se R$ 2,50 de movimentação econômica indireta nos demais setores da economia brasileira.
+- **Integração de Cadeia Produtiva:** A construção civil movimenta de forma direta e encadeada mais de **60 setores industriais e de serviços derivados**, incluindo:
+  1. *Indústria Pesada de Transformação:* Siderurgia (aço CA-50/60), cimento Portland, cal, alumínio, produtos cerâmicos, vidros temperados/laminados e plásticos de engenharia (PVC/PPR).
+  2. *Setor Logístico e de Transportes Pesados:* Frotas de caminhões basculantes, betoneiras, guindastes e movimentação de carga.
+  3. *Engenharia Consultiva, Arquitetura e Geotecnia:* Projetos executivos, sondagens de solo, laudos estruturais e licenciamento ambiental.
+  4. *Mercado Financeiro, Securitário e de Crédito Imobiliário:* Financiamento habitacional (SBPE/FGTS), securitização de recebíveis (CRI/LCI) e apólices de seguro de garantia de término de obra.
+  5. *Comércio Atacadista e Varejista de Materiais:* Redes de distribuição e revenda de insumos da construção.
 
-#### 2.1.2 O Déficit Habitacional e a Necessidade de Eficiência
-No Brasil, pesquisas da Fundação João Pinheiro (FJP) e da CBIC apontam um **déficit habitacional superior a 5,8 milhões de moradias**, concentrado principalmente nas famílias de menor renda. Para combater esse déficit de forma sustentável, o mercado imobiliário e as construtoras demandam soluções tecnológicas que reduzam drasticamente o custo por metro quadrado ($C_{m^2}$), eliminem o desperdício de insumos e acelerem os prazos de entrega das obras sem comprometer a qualidade habitacional.
+#### 2.1.2 O Déficit Habitacional e a Urgência de Eficiência Operacional
+No Brasil, estudos da Fundação João Pinheiro (FJP) em parceria com o Ministério das Cidades e a CBIC apontam um **déficit habitacional estrutural superior a 5,8 milhões de moradias**, concentrado precipuamente em famílias com renda de até 3 salários mínimos. Para combater esse déficit através de programas habitacionais de grande escala (como o *Minha Casa, Minha Vida*) sem provocar pressões inflacionárias ou estouros orçamentários, o mercado imobiliário e as construtoras demandam soluções tecnológicas capazes de reduzir drasticamente o custo por metro quadrado ($C_{m^2}$), eliminar o desperdício físico de materiais e acelerar os prazos de entrega das edificações sem comprometer os requisitos regulatórios de desempenho da norma **ABNT NBR 15575**.
 
 ---
 
 ### 2.2 As Dores Estruturais e o "Custo da Ineficiência" no Canteiro de Obras
 
-Apesar do seu papel econômico gigantesco, o setor da construção civil convive com gargalos estruturais históricos de gestão. A ineficiência operacional no canteiro decorre de 4 pilares de falha sistêmica:
+Apesar de sua relevância econômica colossal, o setor da construção civil convive com gargalos estruturais históricos de gestão e baixa maturidade digital. A ineficiência operacional no canteiro decorre de 6 pilares de falha sistêmica:
 
 #### 1. Assimetria de Informação e Ilhas de Dados Desconectadas
-Em um projeto tradicional, os escritórios de arquitetura, os engenheiros estruturais, o setor de compras/financeiro, o almoxarife do canteiro e os mestres de obras operam em "ilhas de informação" isoladas. O fluxo de dados ocorre através de planilhas descentralizadas, e-mails ou mensagens instantâneas informais sem registro. A falta de um repositório único da verdade gera decisões baseadas em dados desatualizados, redundância de tarefas e atritos constantes entre equipes.
+Em empreendimentos tradicionais, os escritórios de arquitetura, os engenheiros estruturais/MEP, o setor de compras/suprimentos, o departamento financeiro, o almoxarife do canteiro e os mestres de obras atuam em "ilhas de informação" isoladas. O fluxo de dados opera através de planilhas eletrônicas locais descentralizadas (sujeitas a erros de fórmula e corrupção de arquivos), e-mails informais e conversas de mensagens instantâneas (WhatsApp) sem auditabilidade ou histórico corporativo. A falta de uma fonte única da verdade (*Single Source of Truth*) conduz a decisões estratégicas baseadas em dados defasados, redundância de cadastros e atritos operacionais permanentes.
 
 #### 2. Inexistência de Rastreabilidade Logística e Financeira em Tempo Real
-A ausência de integração direta entre a chegada de materiais no canteiro e o controle de estoque impede que os gestores saibam o saldo físico real de insumos críticos (cimento, aço, areia, conexões). Sem o acompanhamento em tempo real, ocorrem compras de emergência com preços superfaturados, paralisações da mão de obra por falta de material ou desvios não detectados de estoque.
+A ausência de integração direta entre a chegada física de insumos no canteiro e o controle de estoque impede que os gestores conheçam o saldo real de materiais críticos (cimento, aço, areia, conexões). Sem rastreabilidade em tempo real, ocorrem compras de emergência com preços superfaturados, paralisações dispendiosas da mão de obra por falta de insumo ou desvios não detectados de estoque.
 
 #### 3. Desperdício Crônico e o "Custo do Retrabalho"
-Estudos da Escola Politécnica da USP demonstram que o retrabalho no canteiro (demolir e refazer elementos mal executados ou fora de posição) é o principal vilão do estouro orçamentário. O retrabalho ocorre precipuamente porque a equipe de execução utiliza pranchas impressas antigas ou porque não foi realizada a compatibilização espacial prévia entre os projetos de arquitetura, estrutura e instalações (MEP).
+Pesquisas da Escola Politécnica da USP (POLI/USP) e do Instituto de Pesquisas Tecnológicas (IPT) demonstram que o retrabalho no canteiro (demolir e refazer elementos mal executados ou fora de posição) representa o principal fator de estouro de orçamento em obras civis. O retrabalho ocorre precipuamente porque a equipe de campo utiliza pranchas de projeto impressas antigas/desatualizadas ou porque não foi realizada a compatibilização tridimensional prévia entre as disciplinas de arquitetura, estrutura e instalações elétricas/hidráulicas (MEP).
 
 #### 4. Vulnerabilidade Regulatória e Riscos de Litígio no Pós-Venda
-Com a consolidação da norma **ABNT NBR 15575** (Norma de Desempenho Habitacional) e a legislação do Código de Defesa do Consumidor, as construtoras passaram a responder por prazos de garantia de até 5 anos para subsistemas construtivos. Sem um registro histórico auditável (*Audit Trail*) e sem um Diário de Obra (RDO) estruturado demonstrando a qualidade da execução e o cumprimento das normas de segurança (NR-18), a construtora fica vulnerável a processos judiciais indenizatórios por vícios ocultos.
+Com a promulgação e consolidação da norma **ABNT NBR 15575** (Norma de Desempenho de Edificações Habitacionais) e a jurisprudência do Código de Defesa do Consumidor (CDC), as construtoras e incorporadoras passaram a responder por prazos rígidos de garantia de até 5 anos para subsistemas construtivos. Sem um registro histórico auditável (*Audit Trail*) e sem um Diário de Obra (RDO) estruturado demonstrando a qualidade dos materiais e o cumprimento das normas de segurança do trabalho (NR-18) e qualidade (ISO 9001), a construtora fica indefesa diante de processos judiciais indenizatórios por vícios ocultos na edificação.
+
+#### 5. Imprevisibilidade Financeira e Descontroles de Fluxo de Caixa
+Dados da consultoria McKinsey revelam que **85% das obras civis extrapolam o orçamento inicial planejado**. A falta de visibilidade do avanço físico real em relação ao desembolso financeiro impede a projeção acurada da Curva S, gerando crises súbitas de liquidez, inadimplência com fornecedores e atrasos na entrega das unidades aos investidores.
+
+#### 6. Opacidade no Relacionamento B2C com o Comprador Final
+O comprador de uma unidade imobiliária em construção é mantido alheio ao processo construtivo, recebendo informações escassas ou conflitantes sobre o status da obra. Essa falta de transparência gera ansiedade, desconfiança na marca da construtora, enxurrada de chamados repetitivos nas centrais de atendimento e insegurança jurídica na assinatura do contrato definitivo.
 
 ---
 
-### 2.3 A Revolução da Construção 4.0 e a Transformação Digital
+### 2.3 A Revolução da Construção 4.0 e os Pilares Tecnológicos do Obra360
 
-A **Construção 4.0** representa a aplicação dos conceitos da 4ª Revolução Industrial (Internet das Coisas, Inteligência Artificial, Computação em Nuvem, Modelagem 3D Paramétrica e Automação) ao canteiro de obras. A concepção do Obra360 ampara-se diretamente nos pilares da Construção 4.0:
+A **Construção 4.0** conceitua a integração direta das tecnologias disruptivas da 4ª Revolução Industrial ao ecossistema da construção civil. O **Obra360** foi projetado para incorporar nativamente os 5 pilares fundamentais da Construção 4.0:
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────────────┐
@@ -244,30 +252,36 @@ A **Construção 4.0** representa a aplicação dos conceitos da 4ª Revolução
 ├──────────────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                          │
 │  ┌────────────────────────┐   ┌────────────────────────┐   ┌────────────────────────┐    │
-│  │   1. Modelagem BIM     │   │ 2. Computação em Nuvem │   │  3. Inteligência IA    │    │
-│  │   Visualizador WebGL   │   │   SaaS Multi-Tenant    │   │  Gemini RDO por Voz    │    │
-│  │   Three.js & CAD 2D    │   │   Event-Driven PubSub  │   │  SEFAZ NFe 44 Dígitos  │    │
+│  │   1. Modelagem BIM     │   │ 2. Cloud SaaS Multi-   │   │  3. Inteligência IA    │    │
+│  │   Visualizador 3D/2D   │   │    Tenant & EventBus  │   │  Gemini RDO por Voz    │    │
+│  │   Three.js & WebGL     │   │    Segregação de CNPJ  │   │  SEFAZ NFe 44 Dígitos  │    │
 │  └────────────────────────┘   └────────────────────────┘   └────────────────────────┘    │
+│                                                                                          │
+│  ┌────────────────────────┐   ┌────────────────────────┐                                 │
+│  │  4. Mobile PWA Offline │   │  5. Governança NBR     │                                 │
+│  │  IndexedDB & Sync Async│   │    15575 / NR-18 / ISO │                                 │
+│  └────────────────────────┘   └────────────────────────┘                                 │
 │                                                                                          │
 └──────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-1. **Modelagem Tridimensional Paramétrica (BIM - Building Information Modeling):** Transição definitiva do desenho bidimensional estático para o modelo espacial tridimensional rico em propriedades de engenharia. O Obra360 democratiza o BIM ao permitir visualização 3D interativa em WebGL diretamente no navegador, sem exigir licenças de softwares proprietários caros para a equipe de campo.
-2. **SaaS Multi-Tenant B2B/B2C e Arquitetura Orientada a Eventos:** Permite que centenas de empresas (construtoras, fornecedores, imobiliárias) compartilhem a mesma plataforma com isolamento absoluto de dados, trocando mensagens e notificações instantâneas via barramento PubSub.
-3. **Inteligência Artificial Generativa e Automação Fiscal:** Emprego de IA (Gemini API) para transcrever e estruturar o Diário de Obra (RDO) a partir do ditado de voz dos operários no canteiro, além do processamento inteligente de Notas Fiscais Eletrônicas (NFe SEFAZ) via algoritmo do módulo 11.
-4. **Mobilidade PWA (Progressive Web App):** Aplicação web instalável com capacidade de operação offline, garantindo que o mestre de obras registre ocorrências mesmo em canteiros remotos sem sinal de internet.
+1. **Modelagem Tridimensional Paramétrica (BIM - Building Information Modeling):** Transição definitiva do desenho bidimensional estático (2D CAD) para o modelo espacial tridimensional rico em propriedades de engenharia (BIM 3D/4D/5D). O Obra360 democratiza o acesso ao BIM ao incorporar um visualizador 3D interativo via WebGL/Three.js direto no navegador, eliminando a necessidade de licenças de softwares proprietários caros para a equipe de campo.
+2. **Computação em Nuvem, SaaS Multi-Tenant & Arquitetura Orientada a Eventos:** Permite que centenas de organizações corporativas (construtoras, escritórios de projetos, fornecedores, locadoras e imobiliárias) operem em um ambiente web seguro com segregação rígida de dados por CNPJ, trocando mensagens e notificações assíncronas via barramento EventBus (PubSub).
+3. **Inteligência Artificial Generativa & Automação Fiscal:** Emprego da API Gemini IA para transcrever e estruturar o Diário de Obra (RDO) a partir de relatos em áudio gravados pelos operários no canteiro, além da validação fiscal automatizada de XMLs de Notas Fiscais Eletrônicas (NF-e/CT-e) via algoritmo do Dígito Verificador Módulo 11 da SEFAZ.
+4. **Mobilidade PWA & Resiliência Offline-First:** Aplicação web responsiva construída como Progressive Web App (PWA), capaz de operar offline no canteiro através de armazenamento local (*IndexedDB/LocalStorage*) e realizar a sincronização automática dos dados assim que a conexão de dados for reestabelecida.
+5. **Governança de Qualidade, Segurança e Pós-Venda (NBR 15575 / NR-18 / ISO 9001):** Digitalização completa de relatórios de não-conformidade, checklists de segurança do trabalho, vistorias técnicas de chaves e gestão de chamados de assistência técnica com SLA de 24 horas.
 
 ---
 
 ### 2.4 Evidências Empíricas, Estatísticas Oficiais e Formulagem Matemática
 
-Para fundamentar quantitativamente a necessidade do Obra360, compilaram-se estatísticas de órgãos de pesquisa e formularam-se modelos matemáticos determinísticos:
+Para respaldar quantitativa e cientificamente a relevância do Obra360, compilaram-se indicadores de órgãos renomados e desenvolveram-se 4 modelos matemáticos determinísticos para o núcleo da aplicação:
 
-#### 2.4.1 Compilação de Dados Estatísticos Oficiais do Setor
-- **Produtividade Global (McKinsey & Company):** O crescimento da produtividade na construção mundial estagnou em **1,0% a.a. nas últimas duas décadas** (contra 2,8% a.a. na manufatura). A adoção de ferramentas digitais possui o potencial verificado de **elevar a produtividade em 14% a 15%** e reduzir custos em até 6%.
-- **Perdas e Retrabalhos (CBIC / USP / IPT):** O retrabalho consome entre **5,0% e 8,0% do custo total da obra**. As perdas físicas de materiais atingem: **15% a 20%** em cimento/argamassa, **8% a 12%** em aço estrutural e **10% a 15%** em tijolos/blocos cerâmicos.
-- **Atrasos de Cronograma (FGV-IBRE INCC-M 2024):** **72,0% dos empreendimentos residenciais e comerciais** sofrem atrasos superiores a 90 dias. Causas: 38% atrasos de fornecedores B2B; 26% erros de projetos/compatibilização; 20% descontrole de mão de obra; 16% clima não documentado.
-- **Custo de Pós-Venda (CBIC 2023):** Assistência técnica e reparações pós-entrega consomem de **2,0% a 4,0% do VGV total** quando não há histórico auditável de fiscalização técnica durante a obra.
+#### 2.4.1 Compilação de Indicadores Estatísticos Oficiais do Setor
+- **Produtividade Global (McKinsey & Company):** A produtividade na construção civil mundial cresceu apenas **1,0% a.a. nas últimas duas décadas** (contra 2,8% a.a. na manufatura global). A digitalização completa dos fluxos de trabalho tem o potencial verificado de **elevar a produtividade em 14% a 15%** e reduzir o custo global da obra em até 6%.
+- **Perdas Físicas e Retrabalhos (CBIC / POLI-USP / IPT):** O retrabalho consome entre **5,0% e 8,0% do custo total da edificação**. As perdas físicas diretas de materiais no canteiro atingem patamares alarmantes: **15% a 20%** em cimento e argamassa, **8% a 12%** em aço estrutural CA-50/60 e **10% a 15%** em blocos cerâmicos/tijolos.
+- **Atrasos no Cronograma Físico (FGV-IBRE INCC-M 2024):** **72,0% dos empreendimentos imobiliários no Brasil** registram atrasos na entrega superiores a 90 dias. As causas raízes apuradas são: 38% atrasos na entrega por fornecedores B2B; 26% erros de compatibilização de projetos; 20% descontrole na alocação de mão de obra; 16% intempéries climáticas não documentadas no RDO.
+- **Custo de Pós-Venda e Assistência Técnica (CBIC 2023):** Sem uma gestão preventiva e auditável durante a obra, os custos com reparos em garantia pós-entrega consomem entre **2,0% e 4,0% do Valor Geral de Vendas (VGV)** total do empreendimento.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────────────┐
@@ -276,57 +290,72 @@ Para fundamentar quantitativamente a necessidade do Obra360, compilaram-se estat
 │ Métrica / Indicador                      │ Fonte e Valor Apurado                         │
 ├──────────────────────────────────────────┼───────────────────────────────────────────────┤
 │ Crescimento anual de produtividade       │ McKinsey & Company: 1,0% a.a. (Manufatura: 2,8%)│
-│ Custo perdido com retrabalho no Brasil   │ CBIC / USP: 5,0% a 8,0% do custo total        │
-│ Perda física de materiais no canteiro    │ CBIC / USP: 15,0% a 20,0% dos insumos         │
+│ Custo perdido com retrabalho no Brasil   │ CBIC / POLI-USP: 5,0% a 8,0% do custo total   │
+│ Perda física de materiais no canteiro    │ CBIC / IPT: 15,0% a 20,0% dos insumos         │
 │ Obras residenciais com atraso > 90 dias  │ FGV-IBRE (2024): 72,0% dos empreendimentos    │
 │ Potencial de ganho com digitalização     │ McKinsey (2023): +14% a 15% na produtividade  │
-│ Custo de assistência técnica sem gestão │ CBIC (2023): 2,0% a 4,0% do VGV do projeto    │
+│ Custo de assistência técnica sem gestão  │ CBIC (2023): 2,0% a 4,0% do VGV do projeto    │
 └──────────────────────────────────────────┴───────────────────────────────────────────────┘
 ```
 
 #### 2.4.2 Formulagem Matemática e Algoritmos Computacionais do Obra360
 
-O núcleo de regras de negócio do Obra360 ampara-se em 4 modelos matemáticos formais:
+O motor de regras de negócio do Obra360 ampara-se em 4 formulações matemáticas rigorosas:
 
 ##### 1. Taxa de Consumo Real de Insumo por Metro Quadrado Executado ($C_{m^2}$):
-$$C_{m^2} = \frac{\sum_{i=1}^{n} Qty_{SKU_i}}{\text{Área Executada } (m^2)}$$
-*Regra de Auditoria:* Se $C_{m^2} > C_{previsto} \times (1 + \delta)$, onde $\delta = 0{,}03$ (3% de margem tolerável), o sistema emite alerta automático de desvio para o Engenheiro Residente.
+Calcula a eficiência logísticas de consumo de insumos por área física concluída:
+$$C_{m^2} = \frac{\sum_{i=1}^{n} \text{Quantidade\_Entregue}_{SKU_i}}{\text{Área Executada } (m^2)}$$
+
+*Regra de Auditoria Automática:*
+$$\text{Se } C_{m^2} > C_{\text{previsto}} \times (1 + \delta), \quad \text{onde } \delta = 0{,}03 \text{ (3\% de tolerância)},$$
+o sistema dispara um evento assíncrono de alerta de estouro de consumo para o Engenheiro Residente e o setor de Compras.
 
 ##### 2. Modelo da Curva S Sigmoidal Físico-Financeira Apropriada ($S(t)$):
+Modela o progresso acumulado físico e financeiro do empreendimento ao longo do tempo $t$:
 $$S(t) = \frac{\text{Orçamento\_Total}}{1 + e^{-k(t - t_0)}}$$
-Onde $k$ representa a taxa de aceleração da execução e $t_0$ o ponto de inflexão de custo máximo do cronograma.
+Onde $k$ representa a taxa de aceleração da execução e $t_0$ o ponto de inflexão de custo máximo do cronograma físico.
 
 ##### 3. Algoritmo SEFAZ Módulo 11 para Validação da Chave de NFe de 44 Dígitos:
-Dada a chave de 43 dígitos $d_1, d_2, \dots, d_{43}$, aplicam-se os pesos $w_i \in [2, 9]$ da direita para a esquerda:
-$$Suma = \sum_{i=1}^{43} (d_i \times w_i) \implies Resto = Suma \bmod 11$$
-$$DV = \begin{cases} 0 & \text{se } Resto = 0 \text{ ou } Resto = 1 \\ 11 - Resto & \text{se } Resto \ge 2 \end{cases}$$
+Dada a chave de acesso fiscal de 43 dígitos $d_1, d_2, \dots, d_{43}$, aplicam-se os pesos $w_i \in [2, 9]$ da direita para a esquerda:
+$$\text{Soma} = \sum_{i=1}^{43} (d_i \times w_i) \implies \text{Resto} = \text{Soma} \bmod 11$$
+$$\text{DV} = \begin{cases} 0 & \text{se } \text{Resto} = 0 \text{ ou } \text{Resto} = 1 \\ 11 - \text{Resto} & \text{se } \text{Resto} \ge 2 \end{cases}$$
 
-##### 4. Simulação de Amortização Financeira (SAC e PRICE) em 360 Meses ($P_t$):
-- **Tabela SAC:** $A = \frac{SD_0}{N}, \quad J_t = SD_{t-1} \times i, \quad P_t = A + J_t$
-- **Tabela PRICE:** $P = SD_0 \times \left[ \frac{i (1+i)^N}{(1+i)^N - 1} \right]$
-- **Correção Monetária Acumulada:** $SD_{t} = SD_{t-1} \times (1 + \text{INCC}_{\text{acumulado}})$.
+O sistema valida se o 44º dígito informado na chave de acesso coincide exatamente com o $\text{DV}$ calculated. Se for divergente, a Nota Fiscal Eletrônica é rejeitada sumariamente.
+
+##### 4. Simulação de Amortização Financeira Habitacional em 360 Meses ($P_t$):
+- **Sistema de Amortização Constante (Tabela SAC):**
+  $$A = \frac{SD_0}{N}, \quad J_t = SD_{t-1} \times i, \quad P_t = A + J_t$$
+- **Sistema de Prestação Constante (Tabela PRICE):**
+  $$P = SD_0 \times \left[ \frac{i (1+i)^N}{(1+i)^N - 1} \right]$$
+- **Reajuste Monetário pelo INCC-M Acumulado:**
+  $$SD_t = SD_{t-1} \times (1 + \text{INCC}_{\text{acumulado}})$$
 
 ---
 
 ### 2.5 Justificativa Acadêmica e Escolha dos Padrões Arquiteturais de Engenharia de Software
 
-Do ponto de vista da Engenharia de Software Corporativa, o desenvolvimento do Obra360 justifica-se pela aplicação rigorosa das melhores práticas de arquitetura de software:
+Do ponto de vista da Engenharia de Software Corporativa, o desenvolvimento da plataforma Obra360 justifica-se pela adoção rigorosa dos padrões arquiteturais mais consolidados da indústria:
 
-1. **Clean Architecture em 4 Camadas (Robert C. Martin):**  
-   Garante independência de frameworks externos, testabilidade total e longevidade do sistema através da divisão estrita entre:
-   - *Domain:* Entidades puras e regras de negócio da construção civil;
-   - *Use Cases:* Casos de uso da aplicação (ex: `ImportNfeSefazUseCase`, `RenderModel3DUseCase`);
-   - *Adapters:* Controladores REST, DTOs e mapeadores de banco de dados;
-   - *Frameworks/UI:* Spring Boot 3.2, React 18, Three.js e PostgreSQL.
+#### 1. Clean Architecture em 4 Camadas Desacopladas (Robert C. Martin)
+A Arquitetura Limpa garante a independência de frameworks externos, facilidade de manutenção e testabilidade total através da segregação estrita:
+- **Domain Layer:** Contém as entidades puras do domínio (`Company`, `StockItem`, `ConstructionOccurrence`, `BuildingElement`) e regras de negócio essenciais, livres de dependências externas.
+- **Application Layer (Use Cases):** Implementa os fluxos de trabalho do sistema (`CreateCompanyUseCase`, `RegisterStockMovementUseCase`, `LgpdAnonymizationUseCase`, `ExtrudeFloorplan3DUseCase`).
+- **Infrastructure / Adapters Layer:** Implementa os repositórios Spring Data JPA, adaptadores Kafka de mensageria, integração SEFAZ e controladores REST Spring MVC.
+- **Presentation / UI Layer:** Interface gráfica em React 18, TypeScript, Tailwind CSS e engine 3D WebGL via Three.js.
 
-2. **Domain-Driven Design (DDD - Eric Evans):**  
-   Estrutura o software em torno dos *Bounded Contexts* (Contextos Delimitados) do domínio imobiliário e da construção, utilizando a Linguagem Ubíqua acordada com os engenheiros de campo.
+#### 2. Domain-Driven Design (DDD - Eric Evans)
+O projeto adota uma Linguagem Ubíqua (*Ubiquitous Language*) alinhada à Engenharia Civil. Os conceitos do domínio são modelados com precisão usando:
+- **Value Objects:** Objetos imutáveis como `NfeKey` com validação de regras fiscais acoplada.
+- **Aggregates & Repositories:** Delimitação de fronteiras de consistência transacional para itens de estoque e movimentações.
+- **Domain Events:** Eventos de domínio como `StockMinReachedEvent` disparados quando o saldo físico de um insumo atinge o limite crítico.
 
-3. **Arquitetura Orientada a Eventos (Event-Driven PubSub):**  
-   Assegura alta performance e desacoplamento. Alterações de estoque ou status do 3D disparam eventos assíncronos que atualizam dashboards e enviam notificações sem bloquear a thread principal.
+#### 3. Event-Driven Architecture & Outbox Pattern (Mensageria Assíncrona)
+Para evitar acoplamento rígido entre módulos e garantir resiliência diante de falhas temporárias de banco de dados ou rede, o Obra360 adota a **Arquitetura Orientada a Eventos**:
+- **Outbox Pattern:** Gravam-se os eventos de domínio na tabela `outbox_events` na mesma transação ACID do banco de dados, garantindo entrega garantida (*At-Least-Once Delivery*).
+- **Kafka / EventBus Scheduler:** O serviço `OutboxPublisherScheduler` consome os eventos pendentes e os publica no barramento Kafka/EventBus para consumo pelos ouvintes (`StockEventListenerConsumer`).
 
-4. **Controle de Acesso IAM/RBAC e Segregação de Funções (SoD):**  
-   Implementação de 11 perfis de acesso granulares em estrita observância às normas de governança corporativa e auditoria interna (ISO 9001), impedindo conflitos de interesse (ex: aprovação de compra e liberação de pagamento pelo mesmo perfil).
+#### 4. Role-Based Access Control (RBAC) e Segregação Multi-Tenant
+A plataforma implementa matriz de segurança granular com 15 perfis hierárquicos (*SUPER_ADMIN, GERENTE_OBRA, ENGENHEIRO, MESTRE_OBRA, ALMOXARIFE, FINANCEIRO, CLIENTE, AUDITOR, INCORPORADOR, ARQUITETO, FORNECEDOR, LOCADOR_MAQUINAS, CORRETOR, INVESTIDOR*). Cada requisição HTTP passa por filtro de segurança que valida o tenant (`company_id`) e a permissão do perfil ativo, garantindo **isolamento de dados absoluto** entre empresas concorrentes.
 
 ---
 
