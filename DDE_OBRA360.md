@@ -1,62 +1,198 @@
-# DOCUMENTO DE DEFINIÇÃO DE ESCOPO (DDE) — VERSÃO 3.2 (JUSTIFICATIVA EXAUSTIVA)
+# DOCUMENTO DE DEFINIÇÃO DE ESCOPO (DDE) — VERSÃO 3.4 (INTRODUÇÃO E CICLO DE VIDA EXPANDIDOS)
 
 **Nome do Projeto:** Obra360 - Plataforma Integrada de Gestão da Construção Civil e Mercado Imobiliário  
 **Instituição de Ensino:** AESA-CESA (2026) — Projeto Interdisciplinar de Engenharia de Software  
 **Autores (Desenvolvedores):** João Pedro e Marcos Henrique  
 **Professor Orientador:** Prof. Dennys Carvalho  
-**Versão:** 3.2 (Versão com Seção de Justificativa Teórica, Mercadológica e Tecnológica Totalmente Explicitada e Ampliada)  
+**Versão:** 3.4 (Versão com Seção de Introdução, Ciclo de Vida End-to-End e Pós-Venda Expandidos)  
 **Data de Emissão:** 17/09/2026  
 
 ---
 
 ## 1. INTRODUÇÃO E CONTEXTUALIZAÇÃO DO PROBLEMA
 
-### 1.1 Introdução e Visão de Futuro
-O setor da construção civil e do mercado imobiliário representa uma das engrenagens mais vitais da economia mundial e nacional, impactando diretamente o Produto Interno Bruto (PIB), a geração de empregos formais e informais, a arrecadação tributária e o desenvolvimento da infraestrutura urbana e social. Segundo dados consolidados da consultoria internacional McKinsey & Company e da Câmara Brasileira da Indústria da Construção (CBIC), a cadeia global da construção movimenta anualmente mais de 12 trilhões de dólares, sendo responsável pela estruturação do ambiente construído das cidades modernas.
+### 1.1 Introdução, Visão de Futuro e a Revolução da Construção 4.0
+O setor da construção civil e do mercado imobiliário representa uma das engrenagens mais vitais da economia mundial e nacional, impactando diretamente o Produto Interno Bruto (PIB), a geração de empregos formais e informais, a arrecadação tributária e o desenvolvimento da infraestrutura urbana e social. Segundo dados consolidados da consultoria internacional McKinsey & Company e da Câmara Brasileira da Indústria da Construção (CBIC), a cadeia global da construção movimenta anualmente mais de **US$ 12 trilhões**, sendo responsável por cerca de 13% do PIB mundial e pela estruturação do ambiente construído de todas as cidades modernas.
 
-No entanto, à medida que os conceitos de *Smart Cities* (Cidades Inteligentes), Construção 4.0, industrialização de componentes pré-moldados e a metodologia BIM (*Building Information Modeling*) ganham tração mundial, a indústria da construção civil enfrenta a urgência de superar seus gargalos históricos de gestão. O ecossistema moderno da construção exige que a informação navegue de forma transparente e instantânea entre o canteiro de obras, os escritórios de projetos, os centros de distribuição de suprimentos e os clientes compradores das unidades.
+Entretanto, historicamente, a indústria da construção civil é reconhecida como uma das menos digitalizadas e com menores índices de avanço de produtividade da economia global. Enquanto setores como a manufatura avançada e a tecnologia da informação registraram crescimentos contínuos de produtividade superiores a 2,8% ao ano nas últimas duas décadas, a construção civil estagnou em taxas inferiores a 1% ao ano. Essa baixa eficiência decorre de uma profunda fragmentação de dados, assimetria de informações entre os agentes do setor, uso de ferramentas informais descentralizadas (planilhas locais, e-mails e mensagens instantâneas sem auditabilidade) e severa falta de integração entre as fases de projeto, suprimentos, execução física e pós-venda.
 
-O **Obra360** surge como uma solução tecnológica de vanguarda, projetada sob os rigorosos preceitos da Engenharia de Software Corporativa. Concebido como uma **Plataforma Corporativa Web e Ecossistema Digital Integrado (SaaS Multi-Tenant B2B/B2C)**, a solução tem por finalidade centralizar, automatizar, desburocratizar e conferir rastreabilidade auditável total a todas as fases do ciclo de vida de um empreendimento imobiliário ou de infraestrutura urbana. A plataforma abrange desde a concepção inicial da oportunidade e estudo de viabilidade técnica e financeira do terreno, passando pelo planejamento físico-financeiro detalhado, modelagem espacial 2D/3D BIM, cotações B2B automatizadas por integração com Nota Fiscal Eletrônica (NFe SEFAZ), diário de obra inteligente com auxílio de Inteligência Artificial Generativa (Gemini IA), fiscalização de segurança do trabalho (NR-18) e qualidade (ISO 9001), até a comercialização de unidades, entrega formal das chaves e gestão contínua de garantias pós-obra (ABNT NBR 15575).
+No contexto contemporâneo, à medida que os conceitos de *Smart Cities* (Cidades Inteligentes), Construção 4.0, industrialização de componentes pré-moldados e a metodologia BIM (*Building Information Modeling*) ganham tração mundial, surge a urgência inadiável de transformar a gestão das obras civis. O ecossistema moderno da construção exige que a informação navegue de forma transparente, íntegra, segura e instantânea entre o canteiro de obras, os escritórios de engenharia/arquitetura, os centros de distribuição de suprimentos B2B, as instituições financeiras, os corretores de imóveis e os clientes compradores das unidades imobiliárias.
 
----
-
-### 1.2 A "Dor" Central e a Problematização Detalhada no Canteiro de Obras
-A execução de obras civis de qualquer porte — desde residências unifamiliares até grandes complexos prediais ou obras de infraestrutura pesada — envolve a convergência de dezenas de organizações terceirizadas, centenas de insumos heterogêneos e múltiplos perfis profissionais atuando simultaneamente sob prazos rígidos, orçamentos elevados e margens de lucro cada vez mais estreitas. No cenário tradicional brasileiro e internacional, as informações estratégicas e operacionais encontram-se pulverizadas em canais informais de mensagens instantâneas (sem registro formal), planilhas eletrônicas locais descentralizadas (sujeitas a erros manuais e corrupção de dados), pranchas de projeto impressas desatualizadas no canteiro e sistemas legados isolados que não se comunicam.
-
-Essa profunda assimetria de informações gera desdobramentos altamente críticos para a gestão corporativa e financeira do empreendimento:
-
-1. **Descontrole Financeiro e Logístico de Materiais:** A ausência de sincronização em tempo real entre a frente de trabalho no canteiro de obras e o almoxarifado impede a apuração exata do consumo de insumos por metro quadrado ($m^2$) executado. Esse cenário culmina em compras duplicadas, faltas de insumos críticos que paralisam a mão de obra, desvio indevido de materiais e estouro recorrente do orçamento base planejado.
-2. **Uso de Versões Obsoletas de Projetos Executivos:** A falta de versionamento centralizado e homologado de arquivos arquitetônicos, estruturais e de instalações hidráulicas/elétricas conduz a erros graves de execução no canteiro de obras. É frequente a identificação de interferências espaciais apenas no momento da montagem no canteiro, demandando demolições não planejadas, atrasos severos e retrabalhos extremamente dispendiosos.
-3. **Falhas na Comunicação e Opacidade com o Cliente Final:** O comprador de uma unidade imobiliária em construção ou o investidor do empreendimento permanece privado de informações claras, didáticas e confiáveis sobre o avanço físico real da edificação. A falta de transparência gera desconfiança, volume excessivo de chamados repetitivos nas centrais de atendimento de pós-venda e insegurança jurídica na relação de consumo.
-4. **Ausência de Rastreabilidade e Não Conformidades Regulatórias:** O descumprimento não detectado de normas técnicas obrigatórias de segurança do trabalho (NR-18) e critérios de qualidade habitacional (ISO 9001 e ABNT NBR 15575) decorre da falta de processos padronizados de fiscalização de campo e do registro imutável de ocorrências técnicas. Isso expõe a construtora a multas dos órgãos fiscalizadores, interdições de canteiro e futuros litígios judiciais indenizatórios por vícios ocultos na construção.
+O **Obra360** surge exatamente para suprir essa lacuna histórica. Projetado sob os mais rigorosos preceitos da Engenharia de Software Corporativa, da Ciência de Dados e da Gestão da Qualidade, a solução consolida-se como uma **Plataforma Corporativa Web e Ecossistema Digital Integrado (SaaS Multi-Tenant B2B/B2C)**. O sistema centraliza, automatizes, desburocratiza e confere rastreabilidade auditável imutável a todas as etapas do ciclo de vida de um empreendimento imobiliário ou de infraestrutura urbana. A plataforma abrange desde a concepção inicial da oportunidade e estudo de viabilidade técnica e financeira do terreno, passando pelo planejamento físico-financeiro detalhado, modelagem espacial 2D/3D BIM, cotações B2B automatizadas por integração com Nota Fiscal Eletrônica (NFe SEFAZ), diário de obra inteligente com auxílio de Inteligência Artificial Generativa (Gemini IA), fiscalização de segurança do trabalho (NR-18) e qualidade (ISO 9001), comercialização de unidades com espelho de vendas e simulador financeiro de 360 meses (SAC/PRICE com INCC-M), até a entrega formal das chaves e a gestão contínua de garantias pós-obra (ABNT NBR 15575 e NBR 14037 com SLA de 24 horas).
 
 ---
 
-### 1.3 A Solução Proposta: Obra360 (Plataforma Integrada B2B/B2C)
-O **Obra360** foi projetado para atuar como o **núcleo operacional e estratégico** de empreendimentos de variadas tipologias construtivas — incluindo casas residenciais unifamiliares, condomínios horizontais fechados, edifícios e prédios residenciais/comerciais de múltiplos pavimentos, complexos hospitalares, galpões logísticos industriais, usinas de geração de energia fotovoltaica, túneis, pontes e obras de infraestrutura urbana.
+### 1.2 Visão Geral e Estrutura do Documento de Definição de Escopo (DDE)
+Este Documento de Definição de Escopo (DDE v3.4) atua como a especificação técnica formal e o contrato arquitetural do sistema Obra360. Ele formaliza os limites operacionais, as responsabilidades de software, a modelagem de dados e as diretrizes de desenvolvimento para o projeto de Engenharia de Software desenvolvido no âmbito da instituição AESA-CESA (2026).
 
-A plataforma unifica em um único ambiente web responsivo e acessível por dispositivos móveis os fluxos de trabalho B2B (negociações entre construtoras, fornecedores de materiais, prestadores de serviços e locadoras de frotas pesadas) e B2C (relacionamento entre construtoras, imobiliárias, corretores, investidores e proprietários finais). 
+A elaboração deste documento e a especificação de seus requisitos orientam-se estritamente pelos padrões internacionais de Engenharia de Requisitos estabelecidos pelas normas:
+- **IEEE Std 830-1998:** *Recommended Practice for Software Requirements Specifications*, garantindo clareza, rastreabilidade, consistência, verficabilidade e modificabilidade dos requisitos.
+- **ISO/IEC/IEEE 29148:2018:** *Systems and software engineering — Life cycle processes — Requirements engineering*, estabelecendo uma estrutura rigorosa para o ciclo de vida dos requisitos de software corporativos.
 
-Amparado por uma arquitetura limpa desacoplada em 4 camadas (*Clean Architecture*) e orientada ao domínio do negócio (*Domain-Driven Design - DDD / Event-Driven PubSub*), o sistema garante que cada alteração realizada em uma prancha de projeto, movimentação de entrada/saída de estoque ou registro de diário de obra seja propagada de forma imediata, assíncrona e transparente para todos os perfis autorizados da organização.
-
-```
-┌──────────────────────────────────────────────────────────────────────────────────────────┐
-│                                ECOSSISTEMA INTEGRADO OBRA360                             │
-└──────────────────────────────────────────────────────────────────────────────────────────┘
-    │                │                │                │                │                │
-    ▼                ▼                ▼                ▼                ▼                ▼
-┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
-│  Planejamento│ │ Projetos 2D/ │ │ Almoxarifado │ │ Fiscalização │ │ Comercial &  │ │ Pós-Vendas & │
-│  & Viabilidade│ │ 3D BIM & AI  │ │  & NFe B2B   │ │ NR-18 / ISO  │ │  Vendas 360  │ │ NBR 15575    │
-└──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
-```
+O documento é organizado de forma modular e lógica nas seguintes seções fundamentais:
+1. **Introdução e Contextualização do Problema:** Objetivos, visão geral, ciclo de vida end-to-end, justificativa mercadológica, premissas, restrições, critérios de aceitação, exclusões de escopo, stakeholders e matriz de riscos.
+2. **Justificativa e Fundamentação Teórica, Mercadológica e Tecnológica:** Análise macroeconômica, dados estatísticos (McKinsey, CBIC, IBGE, FGV IBRE), dores estruturais, modelos matemáticos ($C_{m^2}$, Curva S, SEFAZ Módulo 11, SAC/PRICE) e fundamentação de arquitetura de software (Clean Architecture, DDD, PubSub).
+3. **Mapeamento de Requisitos Funcionais (RF-01 a RF-30):** Detalhamento exaustivo dos 30 requisitos funcionais organizados por módulos do sistema.
+4. **Catálogo de Regras de Negócio (RN-01 a RN-50):** Especificação das 50 regras de negócio impositivas que regem os cálculos, validações e fluxos de trabalho.
+5. **Requisitos Não-Funcionais e Atributos de Qualidade (RNF-01 a RNF-15):** Especificações de desempenho, segurança RBAC/LGPD, disponibilidade, manutenibilidade e usabilidade.
+6. **Modelagem Arquitetural e Estruturação de Dados:** Diagramas C4 Model (Contexto, Contêiner e Componente), Diagrama de Entidade-Relacionamento (DER/MER) e Matriz de Permissões RBAC.
+7. **Matriz de Rastreabilidade e Encerramento:** Mapeamento bidirecional entre requisitos, regras de negócio e componentes de código.
 
 ---
 
-### 1.4 Estrutura do Documento e Metodologia da Engenharia de Software
-A elaboração deste Documento de Definição de Escopo (DDE v3.2) e o desenvolvimento da plataforma Obra360 orientam-se rigorosamente pelas diretrizes internacionais de Engenharia de Requisitos estipuladas pela norma **IEEE Std 830-1998** (*Recommended Practice for Software Requirements Specifications*) e pela norma internacional de sistemas e engenharia de software **ISO/IEC/IEEE 29148:2018** (*Requirements engineering*).
+### 1.3 Identificação do Projeto e Informações Institucionais
+- **Nome do Projeto:** Obra360 - Plataforma Integrada de Gestão da Construção Civil e Mercado Imobiliário
+- **Instituição de Ensino:** AESA-CESA (2026) — Projeto Interdisciplinar de Engenharia de Software
+- **Autores / Desenvolvedores:** João Pedro e Marcos Henrique
+- **Professor Orientador:** Prof. Dennys Carvalho
+- **Natureza Tecnológica:** Plataforma Corporativa Web / Software as a Service (SaaS Multi-Tenant B2B/B2C)
+- **Versão do Documento:** Versão 3.4 (Versão Totalmente Ampliada com Seção 1 Explicitada e Reestruturada)
+- **Data de Emissão:** 17/09/2026
 
-A abordagem adota um ciclo de vida de requisitos iterativo e incremental, subdividido em 4 etapas fundamentais: Elicitação junto aos stakeholders, Análise e Categorização SoD, Especificação Formal com modelos C4/DER e Validação com Matriz de Rastreabilidade.
+---
+
+### 1.4 Objetivos do Projeto
+
+#### 1.4.1 Objetivo Geral
+Projetar, arquitetar, implementar, testar e validar uma plataforma corporativa web e ecossistema digital integrado Multi-Tenant para a Construção Civil e Mercado Imobiliário, fundamentada nos princípios da *Clean Architecture*, *Domain-Driven Design (DDD)* e *Event-Driven Architecture (PubSub)*, visando centralizar a gestão técnica, logística, financeira, tributária, regulatória e comercial de empreendimentos imobiliários e obras de infraestrutura durante todo o seu ciclo de vida.
+
+#### 1.4.2 Objetivos Específicos
+1. **Engenharia de Requisitos Rigorosa:** Elicitar, analisar, estruturar e documentar 30 Requisitos Funcionais, 50 Regras de Negócio e 15 Requisitos Não-Funcionais em estreita conformidade com as normas IEEE Std 830 e ISO/IEC/IEEE 29148.
+2. **Clean Architecture em 4 Camadas Desacopladas:** Construir o núcleo da aplicação backend em Java (Spring Boot) segregado rigorosamente nas camadas *Domain*, *Use Cases/Application*, *Adapters/Infrastructure* e *Presentation/UI*, garantindo independência de frameworks e facilidade de testes unitários.
+3. **Barramento de Mensageria Assíncrona (PubSub / EventBus):** Implementar um barramento de eventos assíncronos não-bloqueantes para notificação em tempo real de movimentações de estoque, alertas de estoque mínimo SKU, aprovações de pranchas de projeto e marcos do cronograma físico.
+4. **Modelagem de Domínio DDD RICA:** Estruturar o modelo de dados em entidades ricas com comportamentos encapsulados, *Value Objects* imutáveis (como a validação fiscal de chave NF-e), *Aggregates* bem delimitados e padrões *Repository* e *Factory*.
+5. **Módulo de Almoxarifado & Conciliação Fiscal SEFAZ (Módulo 11):** Desenvolver controle de estoque em tempo real com recepção de arquivos XML de Notas Fiscais Eletrônicas (NF-e/CT-e) e validação matemática do Dígito Verificador através do algoritmo Módulo 11 da SEFAZ.
+6. **Suporte Operacional a 9 Tipologias de Empreendimentos:** Prover motor de configuração capaz de gerenciar obras de Casas Residenciais, Condomínios Fechados, Prédios & Edifícios, Hospitais & Saúde, Galpões Logísticos, Túneis, Energia Solar, Infraestrutura & Pontes e Empreendimentos Comerciais/Industriais.
+7. **Fiscalização ISO 9001 e Laudos de Segurança NR-18:** Criar módulo de registro de ocorrências técnicas no canteiro com foto em tempo real, geolocalização, responsável atribuído, severidade (Alta, Média, Baixa) e checklist de conformidade regulatória com a norma NR-18.
+8. **Portal do Proprietário & Diário Transparente de Obra:** Disponibilizar canal de comunicação transparente para clientes compradores e investidores acompanharem o avanço físico percentual, relatórios de Curva S, galeria de fotos do canteiro e cronograma atualizado.
+9. **Storefront Imobiliário B2C & Simulador Financeiro de 360 Meses:** Implementar vitrine pública com espelho de vendas interativo e calculadora de amortização pelas tabelas SAC e PRICE com correção monetária pelo INCC-M (FGV IBRE).
+10. **Entrega Digital de Chaves e Pós-Venda (NBR 15575 / NBR 14037):** Estruturar processo digital de vistoria técnica, aceite de chave com assinatura digital, entrega do Manual do Proprietário e gestão de chamados de assistência técnica pós-obra com SLA de 24 horas.
+11. **Design System Responsivo com Suporte a Temas (Dark / Light Mode):** Desenvolver interface web adaptável baseada em Tailwind CSS e TypeScript/React, com alternância de modo escuro e claro mantida em armazenamento local e suporte PWA offline-first.
+12. **Central de Comunicação B2B (Chat Corporativo):** Implementar módulo de mensagens instantâneas entre engenheiros residentes, almoxarifados, fornecedores de insumos, locadores de frotas e corretores de imóveis.
+
+---
+
+### 1.5 Justificativa Teórica, Mercadológica e Tecnológica
+A indústria da construção civil é historicamente reconhecida como uma das menos digitalizadas do mundo. De acordo com estudo global da consultoria McKinsey & Company (2020), o setor registrou crescimento de produtividade de apenas **1% ao ano** nas últimas duas décadas, em forte contraste com os 2,8% da manufatura global. No Brasil, indicadores da Câmara Brasileira da Indústria da Construção (CBIC, 2023) apontam que **até 8% do custo total de uma obra é perdido** devido a retrabalhos no canteiro, desperdício de materiais por falta de controle de estoque e atrasos provocados pela falta de compatibilização entre projetos.
+
+O **Obra360** justifica-se pelo seu elevado impacto na solução dessas dores estruturais. Ao substituir o modelo arcaico e pulverizado de planilhas locais, e-mails desconexos e conversas de WhatsApp sem auditoria por uma **Plataforma Corporativa Centralizada**, o sistema alcança:
+- **Redução de até 40% no Tempo de Homologação de Suprimentos:** Através de requisições de compras integradas e leilão reverso B2B diretamente conectado a fornecedores homologados.
+- **Eliminação de Execução baseada em Projetos Obsoletos:** Garantindo que apenas pranchas de projeto aprovadas e versionadas estejam disponíveis para visualização no canteiro de obras.
+- **Segurança Fiscal e Jurídica:** Validando matematicamente cada chave de acesso de Nota Fiscal Eletrônica (NF-e) recebida e registrando de forma imutável todas as evidências de conformidade com as normas ABNT NBR 15575 e NR-18.
+- **Previsibilidade Financeira e Transparência com o Cliente Final:** Proporcionando visibilidade do cronograma físico-financeiro para diretores, investidores e proprietários finais.
+
+---
+
+### 1.6 Identificação dos Requisitos e Critérios de Priorização
+
+#### 1.6.1 Convenção de Nomenclatura dos Requisitos
+Por convenção padronizada de Engenharia de Software, os requisitos e elementos do sistema são identificados de forma única pelo seu identificador entre colchetes:
+- O requisito funcional `[Cadastro de Usuários.RF-01]` localiza-se no bloco `[RF-01]` do módulo de Gestão de Identidades.
+- O requisito não funcional `[Disponibilidade.RNF-04]` localiza-se na seção de Confiabilidade no bloco `[RNF-04]`.
+- A regra de negócio `[Conciliação Fiscal.RN-12]` refere-se à décima segunda regra de domínio da aplicação.
+
+#### 1.6.2 Níveis de Prioridade dos Requisitos (Classificação MoSCoW / NBR/IEEE)
+Os requisitos do sistema são classificados em 3 níveis rigorosos de priorização:
+1. **Essencial (Must Have):** Funcionalidades indispensáveis e de execução obrigatória. A ausência de um requisito essencial inviabiliza a operação do sistema (ex: Autenticação Multi-tenant, Almoxarifado, Validação Módulo 11 SEFAZ).
+2. **Importante (Should Have):** Funcionalidades que agregam elevado valor operacional e de usabilidade. O sistema pode funcionar sem elas em caráter de contingência, mas com prejuízo de eficiência (ex: Visualizador BIM 3D WebGL, Chat Corporativo B2B, Simulador SAC/PRICE).
+3. **Desejável (Could Have):** Funcionalidades complementares que agregam refinamento à experiência do usuário, podendo ser implementadas em iterações futuras sem comprometer o núcleo da plataforma (ex: assistente preditivo Gemini IA, exportações avançadas).
+
+---
+
+### 1.7 Escopo do Produto e Entregáveis Tangíveis
+
+#### 1.7.1 Funcionalidades Previstas no Produto
+1. **Gestão Multi-Empresas (SaaS Multi-Tenant B2B/B2C):** Cadastro e comutação instantânea entre organizações corporativas com verificação de CNPJ (Construtoras, Projetistas, Fornecedores, Locadoras e Imobiliárias).
+2. **Motor de Configuração para 9 Tipologias de Empreendimentos:** Suporte técnico para Casas, Condomínios Fechados, Edifícios, Hospitais, Galpões, Túneis, Solar, Infraestrutura e Comercial.
+3. **Fiscalização de Ocorrências ISO 9001 e Laudos NR-18:** Registro de não-conformidades técnicas no canteiro com foto, responsável atribuído, classificação de severidade e checklists de segurança.
+4. **Controle de Almoxarifado & Conciliação NFe SEFAZ:** Gestão de movimentações por SKU com alertas de estoque mínimo e leitura de XML de Nota Fiscal com algoritmo Módulo 11.
+5. **Marketplace B2B (Cotações RFQ & Frotas Pesadas):** Emissão de solicitações de cotação com comparativo de fornecedores e contratação de equipamentos pesados.
+6. **Chat Corporativo B2B:** Central de mensagens instantâneas para integração em tempo real de equipes de campo, suprimentos, fornecedores e vendas.
+7. **Portal do Proprietário & Diário Transparente de Obra:** Espaço exclusivo para acompanhamento do avanço físico, fotos do canteiro e documentos do empreendimento.
+8. **Gestão de Garantias Pós-Venda (ABNT NBR 15575 / NBR 14037):** Central de chamados de assistência técnica com SLA de 24 horas e classificação por subsistemas construtivos.
+9. **Barramento de Mensageria Event-Driven (PubSub):** Disparo assíncrono de eventos de negócio com alertas visuais (*Toasts*) integrados na interface.
+10. **Matriz de Permissões RBAC (15 Perfis IAM):** Controle de acesso granular por papel de usuário (Super Admin, Engenheiro, Arquiteto, Almoxarife, Cliente, etc.).
+11. **Design System Responsivo com Suporte a Temas (Dark/Light Mode):** Interface moderna em Tailwind CSS com alternância persistente entre Modo Escuro e Claro.
+12. **Storefront Imobiliário & Simulador de Financiamento:** Vitrine pública de vendas de unidades com espelho em tempo real e simulação habitacional pelas tabelas SAC e PRICE com INCC-M.
+
+#### 1.7.2 Entregáveis Tangíveis (Acadêmicos e Técnicos)
+1. **Código-Fonte Completo do Projeto:** Repositório oficial no GitHub contendo backend Java Spring Boot, frontend React TypeScript Vite, scripts DDL de banco de dados e testes automáticos.
+2. **Documentação de Engenharia de Software (DDE v3.4):** Especificação completa contendo requisitos, regras de negócio, diagramas C4 Model (Níveis 1 a 3), DER/MER, Matriz RBAC e Rastreabilidade.
+3. **Sistema Funcional Implantado (Staging/Demonstração):** Aplicação executável e acessível pronta para avaliação funcional e homologação técnica.
+4. **Relatório Técnico e Manual do Usuário:** Documento contendo arquitetura, modelos de uso, guia de rotas OpenAPI/Swagger e instruções de implantação.
+
+---
+
+### 1.8 Premissas e Restrições do Projeto
+
+#### 1.8.1 Premissas do Projeto
+1. **Disponibilidade de Dispositivos e Navegadores Modernos:** Assume-se que os usuários operam navegadores modernos (Chrome, Edge, Safari, Firefox) com suporte nativo a aceleração gráfica WebGL para renderização 3D.
+2. **Interesse na Adoção do Ecossistema Multi-Tenant:** Assume-se haver adesão de construtoras, fornecedores de insumos e imobiliárias em utilizar a plataforma para transações corporativas B2B/B2C.
+3. **Uso de Dispositivos Móveis no Canteiro (PWA):** Assume-se que a equipe de campo utilizará smartphones ou tablets para registrar ocorrências, fotos e apontamentos de diário de obra.
+4. **Conectividade Intermitente e Sincronização Assíncrona:** Assume-se que os dados capturados offline no canteiro serão armazenados localmente e sincronizados assincronamente assim que a conexão for reestabelecida.
+5. **Manutenção de Dados Atualizados por Parceiros B2B:** Assume-se que fornecedores e locadoras manterão suas tabelas de preços, insumos e frotas atualizadas no marketplace.
+6. **Conformidade Legal com a LGPD:** Assume-se que o tratamento de dados pessoais de clientes e usuários estará respaldado pelas diretrizes da Lei Geral de Proteção de Dados (Lei nº 13.709/2018).
+
+#### 1.8.2 Restrições do Projeto
+1. **Prazo Limite Acadêmico:** O desenvolvimento, testes e validação da plataforma devem ser concluídos impreterivelmente dentro do calendário acadêmico da disciplina (AESA-CESA 2026).
+2. **Escopo Inicial Exclusivamente Web / PWA:** O sistema será entregue como aplicação web responsiva e Progressive Web App (PWA), sem publicação inicial em lojas nativas de aplicativos (App Store / Google Play).
+3. **Arquitetura Obrigatória (Clean Architecture & DDD):** O código backend deve obedecer estritamente aos preceitos da Arquitetura Limpa em 4 camadas desacopladas e modelagem orientada a domínio (DDD).
+4. **Comunicação Assíncrona e Mensageria PubSub:** As notificações e chamadas inter-serviços devem ser gerenciadas assincronamente via barramento EventBus/PubSub.
+5. **Restrição Orçamentária e Licenciamento Open Source:** O desenvolvimento utilizará exclusivamente bibliotecas, frameworks e ferramentas de código aberto (Open Source), sem custos de licenciamento proprietário.
+6. **Idioma Exclusivo em Português do Brasil (pt-BR):** Toda a interface gráfica, mensagens, relatórios e documentação técnica serão disponibilizados unicamente no idioma pt-BR.
+
+---
+
+### 1.9 Critérios de Aceitação do Projeto
+1. **Compilação Limpa (Zero Build Errors):** O projeto deve compilar totalmente sem erros tanto no backend Java Spring Boot quanto no frontend React TypeScript.
+2. **Integridade de Execução no Console (Zero Unhandled Errors):** A navegação por todas as telas e fluxos de trabalho não deve disparar exceções não tratadas no console do navegador ou logs do servidor.
+3. **Isolamento Rígido de Dados por Tenant:** 100% dos dados exibidos (projetos, insumos, movimentações, notas fiscais) devem pertencer estritamente à empresa (CNPJ) selecionada no cabeçalho corporativo.
+4. **Fidelidade da Matriz de Permissões RBAC:** A alternância entre os 15 perfis IAM deve ocultar ou liberar ações e telas com 100% de precisão funcional.
+5. **Validação Fiscal Módulo 11 SEFAZ com Precisão Absoluta:** O sistema deve validar e aceitar chaves de NF-e válidas e rejeitar sumariamente chaves com dígito verificador incorreto.
+6. **Conformidade com Design System e Dark Mode:** A interface gráfica deve manter padrão responsivo em Tailwind CSS, com alternância de temas claro/escuro persistida sem falhas visuais ou de contraste.
+7. **Repositório GitHub Organizado com Documentação:** O código-fonte deve estar publicado no GitHub com histórico de commits organizado, arquivo README completo e Swagger/OpenAPI documentado.
+
+---
+
+### 1.10 Exclusões Deliberadas do Escopo
+1. **Processamento Real de Pagamentos e Gateways Financeiros:** O sistema não realiza cobrança real em cartão de crédito ou emissão de boletos bancários reais; as negociações operam como simulador comercial e espelho de negociação.
+2. **Parsing Direto de Arquivos Binários Proprietários .RVT (Autodesk Revit):** O sistema não processa arquivos proprietários fechados no formato .rvt sem conversão prévia, operando nativamente com os padrões abertos da indústria .ifc, .dwg e .pdf.
+3. **Desenvolvimento de Aplicativos Nativos para Lojas (App Store e Google Play):** A mobilidade de campo é provida exclusivamente via tecnologia Progressive Web App (PWA), sem desenvolvimento em Swift ou Kotlin nativos.
+4. **Assinatura Digital com Certificação ICP-Brasil (A1/A3):** As aprovações técnicas e contratos utilizam carimbos digitais internos com auditoria por e-mail, IP e timestamp, sem integração com cartórios digitais externos.
+5. **Fornecimento e Instalação de Hardware IoT no Canteiro:** O projeto restringe-se estritamente ao software, não incluindo fornecimento de sensores de concreto, tags RFID ou câmeras físicas de monitoramento.
+6. **Renderização de Nuvens de Pontos de Alta Densidade (Point Cloud):** O motor gráfico WebGL/Three.js foca na renderização de malhas poligonais 3D BIM otimizadas, não realizando varredura de nuvem de pontos a laser com milhões de vértices.
+7. **Suporte Multilíngue e Internacionalização (i18n):** O sistema é disponibilizado e suportado exclusivamente em Português do Brasil (pt-BR), sem suporte a múltiplos idiomas ou moedas estrangeiras.
+
+---
+
+### 1.11 Mapeamento de Stakeholders Envolvidos
+- **Organizadores / Desenvolvedores:** João Pedro e Marcos Henrique (Responsáveis pela engenharia de requisitos, arquitetura de software, desenvolvimento full-stack, testes e documentação técnica).
+- **Professor Orientador:** Prof. Dennys Carvalho (Responsável pela orientação acadêmica, supervisão metodológica e avaliação final do projeto).
+- **Gestores Corporativos e Diretores de Construtoras:** Interessados no acompanhamento do VGV, margem de lucro, curva S físico-financeira e saúde global dos empreendimentos.
+- **Engenheiros Residentes e Arquitetos:** Responsáveis pela compatibilização de projetos 3D BIM, gestão do diário de obra e resolução de não-conformidades técnicas.
+- **Almoxarifes e Equipe de Campo:** Operadores do controle de estoque, receptores de notas fiscais NF-e no canteiro e apontadores de segurança do trabalho (NR-18).
+- **Fornecedores de Insumos e Locadores de Frotas (Parceiros B2B):** Participantes do marketplace B2B para envio de propostas de cotação e negociação via chat corporativo.
+- **Imobiliárias e Corretores de Imóveis:** Usuários da vitrine de unidades e espelho de vendas para intermediação imobiliária e simulação habitacional.
+- **Clientes Finais / Proprietários e Investidores:** Beneficiários do Portal do Cliente para acompanhamento transparente da obra, vistoria de entrega de chaves e chamados de garantia pós-venda.
+
+---
+
+### 1.12 Matriz de Riscos Iniciais e Plano de Mitigação
+1. **Mudança ou Expansão Descontrolada do Escopo (Scope Creep):**
+   - *Impacto:* Alto | *Probabilidade:* Média
+   - *Plano de Mitigação:* Congelamento formal do escopo através da aprovação deste DDE v3.4 e reuniões periódicas de alinhamento com o orientador.
+2. **Complexidade na Implementação da Arquitetura Clean/DDD e PubSub:**
+   - *Impacto:* Alto | *Probabilidade:* Média
+   - *Plano de Mitigação:* Adoção de convenções rígidas de pacotes no Spring Boot, uso de bibliotecas consolidadas e suíte de testes unitários desde as fases iniciais.
+3. **Curva de Aprendizado e Desempenho no Engine 3D BIM (WebGL/Three.js):**
+   - *Impacto:* Médio | *Probabilidade:* Média
+   - *Plano de Mitigação:* Implementação de técnicas de simplificação geométrica de arquivos IFC e suporte a fallback em visualização 2D DWG/PDF.
+4. **Instabilidade de Sinal de Internet no Canteiro de Obras:**
+   - *Impacto:* Alto | *Probabilidade:* Alta
+   - *Plano de Mitigação:* Utilização de arquitetura PWA offline-first com armazenamento local no dispositivo (*IndexedDB/LocalStorage*) e fila de sincronização assíncrona.
+5. **Atrasos no Cronograma de Testes de Integração e Homologação:**
+   - *Impacto:* Médio | *Probabilidade:* Baixa
+   - *Plano de Mitigação:* Utilização de metodologia de desenvolvimento ágil (Scrum/Kanban) com iterações semanais e testes de integração automatizados.
 
 ---
 
