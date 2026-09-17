@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { RoleId, ThemeMode, AuthUser, RegisteredAccount } from '../types';
 import { USER_ROLES } from '../data/mockData';
+import { api } from '../services/api';
 import { 
   KeyRound, ShieldCheck, Lock, Mail, User, 
   ArrowRight, Sparkles, Building, CheckCircle2, Sun, Moon, Eye, EyeOff, Check, AlertTriangle, UserX 
@@ -88,49 +89,57 @@ export const LoginView: React.FC<LoginViewProps> = ({
     }, 1000);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
-
-    const existingAccount = registeredAccounts.find(
-      (acc) => acc.email.toLowerCase() === email.trim().toLowerCase()
-    );
-
-    if (!existingAccount) {
-      setErrorMessage(
-        `Acesso Negado: O e-mail "${email}" não possui cadastro ativo no sistema. Apenas usuários contratados/cadastrados pelo Gerente de Obras ou Admin podem fazer login.`
-      );
-      return;
-    }
-
-    if (existingAccount.status !== 'ATIVO') {
-      setErrorMessage(`Acesso Bloqueado: A conta "${email}" está inativa ou suspensa.`);
-      return;
-    }
-
     setIsLoading(true);
 
     if (rememberMe) {
       localStorage.setItem(
         'obra360_remembered_credentials',
-        JSON.stringify({ email: existingAccount.email, role: existingAccount.role })
+        JSON.stringify({ email: email.trim(), role: selectedRole })
       );
     } else {
       localStorage.removeItem('obra360_remembered_credentials');
     }
 
-    setTimeout(() => {
+    try {
+      // Attempt real JWT authentication via Spring Boot Backend
+      const authUser = await api.auth.login(email.trim(), password);
       setIsLoading(false);
-      onLoginSuccess(
-        {
-          email: existingAccount.email,
-          name: existingAccount.name,
-          role: existingAccount.role,
-          token: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.${btoa(existingAccount.email)}`
-        },
-        rememberMe
+      onLoginSuccess(authUser, rememberMe);
+      return;
+    } catch (err: any) {
+      // Fallback for demo/offline resilience if Spring Boot backend is offline
+      const existingAccount = registeredAccounts.find(
+        (acc) => acc.email.toLowerCase() === email.trim().toLowerCase()
       );
-    }, 800);
+
+      if (err.message && err.message.includes('E-mail ou senha')) {
+        setIsLoading(false);
+        setErrorMessage(err.message);
+        return;
+      }
+
+      if (existingAccount && existingAccount.status === 'ATIVO') {
+        setIsLoading(false);
+        onLoginSuccess(
+          {
+            email: existingAccount.email,
+            name: existingAccount.name,
+            role: existingAccount.role,
+            token: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.${btoa(existingAccount.email)}`
+          },
+          rememberMe
+        );
+        return;
+      }
+
+      setIsLoading(false);
+      setErrorMessage(
+        err.message || `Acesso Negado: O e-mail "${email}" não possui cadastro ativo no sistema.`
+      );
+    }
   };
 
   const cardBg = isDark ? 'bg-[#18181b] border-[#27272a]' : 'bg-white border-zinc-200';

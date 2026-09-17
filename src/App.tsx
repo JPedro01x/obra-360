@@ -165,7 +165,6 @@ export function App() {
     return saved ? JSON.parse(saved) : INITIAL_REGISTERED_ACCOUNTS;
   });
 
-  // Auth state
   const [authUser, setAuthUser] = useState<AuthUser | null>(() => {
     const saved = localStorage.getItem('obra360_user');
     return saved ? JSON.parse(saved) : null;
@@ -174,6 +173,19 @@ export function App() {
   const [currentRole, setCurrentRole] = useState<RoleId>(() => {
     return authUser ? authUser.role : 'ENGENHEIRO';
   });
+
+  // Automatically restore real JWT session on app load if valid token exists in localStorage
+  useEffect(() => {
+    async function restoreJwtSession() {
+      const restoredUser = await api.auth.me();
+      if (restoredUser) {
+        setAuthUser(restoredUser);
+        setCurrentRole(restoredUser.role);
+        localStorage.setItem('obra360_user', JSON.stringify(restoredUser));
+      }
+    }
+    restoreJwtSession();
+  }, []);
 
   // Active Tab State (with 404 Route Guard Support, AI Voice Assistant & LGPD Privacy Center)
   const [activeTab, setActiveTab] = useState<'3D' | 'PROJETOS' | 'DASHBOARD' | 'ESTOQUE' | 'AUDITORIA' | 'CLIENTE' | 'RBAC' | 'MARKETPLACE' | 'VENDAS' | 'POSVENDAS' | 'MENSAGENS' | 'IA' | 'LGPD' | 'NOT_FOUND'>('3D');

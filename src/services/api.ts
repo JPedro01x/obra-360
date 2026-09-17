@@ -8,7 +8,7 @@
 import { 
   Project, ProjectDocument, ConstructionOccurrence, Company, 
   BuildingElement, StockItem, StockMovement, AuditLog, B2bMaterialRFQ, 
-  RegisteredAccount 
+  RegisteredAccount, AuthUser, RoleId 
 } from '../types';
 import { 
   INITIAL_COMPANIES, INITIAL_PROJECTS, INITIAL_DOCUMENTS, 
@@ -20,6 +20,17 @@ import { logger } from './logger';
 import { eventBus } from './eventBus';
 
 const BACKEND_BASE_URL = 'http://localhost:8080/api/v1';
+
+const getAuthHeaders = (): Record<string, string> => {
+  const token = localStorage.getItem('obra360_jwt_token');
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+  }
+  return headers;
+};
 
 // Simulated latency helper for real-world Async/Await Promises
 const simulateNetworkDelay = <T>(data: T, delayMs: number = 300): Promise<T> => {
@@ -35,6 +46,62 @@ const simulateNetworkDelay = <T>(data: T, delayMs: number = 300): Promise<T> => 
 /* ========================================================================= */
 
 export const api = {
+  /**
+   * Use Cases: Autenticação & Segurança JWT Real (Spring Boot Security)
+   */
+  auth: {
+    async login(email: string, password: string): Promise<AuthUser> {
+      logger.info(`Attempting real JWT login for ${email} at ${BACKEND_BASE_URL}/auth/login`);
+      const response = await fetch(`${BACKEND_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const formattedToken = data.token.startsWith('Bearer ') ? data.token : `Bearer ${data.token}`;
+        localStorage.setItem('obra360_jwt_token', formattedToken);
+        logger.info(`JWT Login successful for ${email}. Token persisted in localStorage.`);
+        
+        return {
+          email: data.email,
+          name: data.name,
+          role: data.role as RoleId,
+          token: formattedToken
+        };
+      } else if (response.status === 401) {
+        throw new Error('E-mail ou senha incorretos.');
+      } else {
+        throw new Error(`Erro na autenticação (HTTP ${response.status})`);
+      }
+    },
+
+    async me(): Promise<AuthUser | null> {
+      const token = localStorage.getItem('obra360_jwt_token');
+      if (!token) return null;
+
+      try {
+        const response = await fetch(`${BACKEND_BASE_URL}/auth/me`, {
+          method: 'GET',
+          headers: getAuthHeaders()
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          return {
+            email: data.email,
+            name: data.name,
+            role: data.role as RoleId,
+            token: token
+          };
+        }
+      } catch (err) {
+        logger.info('Could not validate JWT token with backend (Backend offline).');
+      }
+      return null;
+    }
+  },
   /**
    * Use Cases: Gestão de Organizações Multi-Tenant (Company Use Cases)
    * @requirement [Tenant.RF-01] Gestão Multi-Empresas (Multi-Tenant)
