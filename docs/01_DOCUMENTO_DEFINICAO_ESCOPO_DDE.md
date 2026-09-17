@@ -4,7 +4,7 @@
 **Instituição de Ensino:** AESA-CESA (2026) — Projeto Interdisciplinar de Engenharia de Software  
 **Autores (Desenvolvedores):** João Pedro e Marcos Henrique  
 **Professor Orientador:** Prof. Dennys Carvalho  
-**Versão:** 2.0 (Versão Acadêmica Expandida e Consolidada)  
+**Versão:** 2.1 (Mapeamento Modular Consolidado com RFs, RNs e RBAC por Módulo)  
 **Data de Emissão:** 17/09/2026  
 
 ---
@@ -49,7 +49,7 @@ A plataforma unifica em um único ambiente web responsivo os fluxos de trabalho 
 ---
 
 ### 1.4 Visão Geral do Documento
-Este Documento de Definição de Escopo (DDE) estabelece as balizas formais, técnicas e funcionais do projeto Obra360. Nas seções subsequentes, apresentam-se a fundamentação mercadológica amparada em dados estatísticos do setor, o mapeamento detalhado dos stakeholders e matriz de permissões (RBAC/IAM), a declaração do objetivo geral e objetivos específicos, a discriminação minuciosa dos módulos funcionais e entregáveis, a catalogação dos Requisitos Funcionais (RF) e Não Funcionais (RNF) priorizados, as premissas, restrições e exclusões deliberadas de escopo, os critérios objetivos de aceitação e a matriz de gerenciamento de riscos iniciais.
+Este Documento de Definição de Escopo (DDE v2.1) estabelece as balizas formais, técnicas e funcionais do projeto Obra360. Nas seções subsequentes, apresentam-se a fundamentação mercadológica amparada em dados estatísticos do setor, o mapeamento detalhado dos stakeholders e matriz de permissões (RBAC/IAM), a declaração dos objetivos do sistema, a discriminação minuciosa dos **12 módulos funcionais (agrupando Requisitos Funcionais - RFs, Regras de Negócio - RNs e Permissões por perfil)**, os Requisitos Não Funcionais (RNFs), as premissas, restrições e exclusões deliberadas de escopo, os critérios objetivos de aceitação e a matriz de gerenciamento de riscos.
 
 ---
 
@@ -100,7 +100,7 @@ A partir dessas evidências, justifica-se plenamente a concepção do Obra360. A
 Do ponto de vista da Engenharia de Software, o desenvolvimento do Obra360 justifica-se pela oportunidade de aplicar e consolidar os padrões arquiteturais mais avançados do mercado corporativo moderno:
 - **Clean Architecture em 4 Camadas:** Separação estrita das regras de negócio puras (Domain) em relação a Use Cases, Adapters e Frameworks de UI (React/Spring Boot), garantindo testabilidade, desacoplamento e longevidade do código-fonte.
 - **Domain-Driven Design (DDD):** Modelagem do sistema orientada pela Linguagem Ubíqua do domínio da construção civil (Canteiro, Diário de Obra, Insumo SKU, NFe, Terreno, Unidade Imobiliária, RDO, VBS/WBS).
-- **Arquitetura Orientada a Eventos (Event-Driven / PubSub):** Processamento não-bloqueante de movimentações de estoque, alertas de almoxarifado e atualizações de cronograma em tempo real.
+- **Arquitetura Orientada a Eventos (Event-Driven / PubSub):** Processamento não-bloqueante de movimentações de estoque, alertas de almoxarifado e atualizaciones de cronograma em tempo real.
 - **Multi-Tenancy SaaS B2B/B2C:** Suporte a múltiplas organizações corporativas concorrentes no mesmo banco de dados com isolamento lógico absoluto por CNPJ/Tenant ID.
 
 ---
@@ -147,7 +147,7 @@ Do ponto de vista da Engenharia de Software, o desenvolvimento do Obra360 justif
 
 ### 3.3 Perfis de Usuários e Matriz de Direitos/Restrições (SoD - Segregation of Duties)
 
-Para cumprir as diretrizes de controle interno, governança corporativa e segregação de funções (Segregation of Duties - SoD), o Obra360 estabelece **11 perfis de acesso granulares (Role-Based Access Control - RBAC / IAM)**. Cada perfil possui limites claros quanto ao que pode e não pode realizar no sistema:
+Para cumprir as diretrizes de controle interno, governança corporativa e segregação de funções (Segregation of Duties - SoD), o Obra360 estabelece **11 perfis de acesso granulares (Role-Based Access Control - RBAC / IAM)**:
 
 ```
                   ┌─────────────────────────────────────────────────┐
@@ -168,52 +168,6 @@ Para cumprir as diretrizes de controle interno, governança corporativa e segreg
 └────────────────────────────────┘                         └────────────────────────────────┘
 ```
 
-#### Detalhamento das Capacidades e Restrições por Perfil:
-
-1. **SUPER_ADMIN (Administrador Geral / Soberano):**
-   - **O que faz:** Acesso irrestrito a todas as funcionalidades do sistema; cadastra organizações (Tenants), gerencia contas de usuários, altera perfis IAM, visualiza logs imutáveis de auditoria e parametriza o sistema.
-   - **O que NÃO faz:** Não realiza operações simuladas de cliente final sem registrar rastreabilidade.
-
-2. **GERENTE_OBRA (Gerente de Empreendimento):**
-   - **O que faz:** Cria e edita dados de empreendimentos; aprova cronogramas físico-financeiros; visualiza relatórios de viabilidade e VGV; aprova grandes compras do almoxarifado.
-   - **O que NÃO faz:** Não pode alterar logs imutáveis de auditoria nem excluir registros de notas fiscais já processadas.
-
-3. **ENGENHEIRO (Engenheiro Residente):**
-   - **O que faz:** Mede e atualiza o progresso das etapas no modelo 3D BIM; aprova pranchas e documentos técnicos; registra medições de campo; responde a laudos de fiscalização.
-   - **O que NÃO faz:** Não pode alterar permissões de outros usuários nem efetuar lançamentos financeiros diretos sem aprovação.
-
-4. **ARQUITETO (Arquiteto / Projetista):**
-   - **O que faz:** Realiza upload e versionamento de projetos arquitetônicos 2D/3D (DWG, IFC, PDF); solicita revisões técnicas; manipula visualmente os componentes espaciais da obra.
-   - **O que NÃO faz:** Não pode dar baixa em estoque nem alterar tabelas de preços de vendas imobiliárias.
-
-5. **MESTRE_OBRA (Mestre de Obras / Encarregado de Campo):**
-   - **O que faz:** Preenche o Diário de Obra (RDO) por texto ou voz (Gemini IA); registra a presença da equipe de campo; lança ocorrências de não conformidade e laudos de segurança NR-18.
-   - **O que NÃO faz:** Não pode alterar orçamentos globais da obra, aprovar contratos B2B ou cadastrar novas unidades imobiliárias.
-
-6. **ALMOXARIFE (Almoxarife Chefe):**
-   - **O que faz:** Dá entrada de materiais via chave de 44 dígitos da NFe SEFAZ; registra saídas de insumos por SKU para frentes de trabalho; monitora estoque mínimo.
-   - **O que NÃO faz:** Não pode alterar projetos arquitetônicos, aprovar medições de engenharia nem modificar valores de vendas.
-
-7. **FINANCEIRO (Analista Financeiro / Suprimentos):**
-   - **O que faz:** Controla o orçamento orçado x realizado; acompanha pagamentos de compras B2B; analisa relatórios de conciliação fiscal e custos por metro quadrado.
-   - **O que NÃO faz:** Não pode alterar o status físico de conclusão de etapas no canteiro nem editar modelos 3D.
-
-8. **FORNECEDOR (Fornecedor de Materiais / Locador de Frotas B2B):**
-   - **O que faz:** Recebe Solicitações de Cotação (RFQ); envia propostas de preços e prazos; cadastra disponibilidade de frotas e máquinas pesadas no marketplace.
-   - **O que NÃO faz:** Não possui acesso aos dados internos da construtora, cronogramas de outras obras ou dados de clientes finais.
-
-9. **CORRETOR (Imobiliária / Corretor de Imóveis):**
-   - **O que faz:** Visualiza o espelho de vendas em tempo real; realiza reservas de unidades para clientes; efetua simulações de financiamento em até 360 meses.
-   - **O que NÃO faz:** Não pode alterar o status de execução do canteiro de obras, movimentar estoque nem acessar documentos técnicos confidenciais de engenharia.
-
-10. **INVESTIDOR (Investidor Imobiliário):**
-    - **O que faz:** Acompanha o progresso global do empreendimento, curva S financeiro, índice de VGV vendido e cronograma macro de entregas.
-    - **O que NÃO faz:** Não possui permissão para editar dados operacionais, cadastrar ocorrências ou alterar preços de unidades.
-
-11. **CLIENTE (Cliente Comprador Final):**
-    - **O que faz:** Acompanha exclusivamente o avanço físico e galeria de fotos da sua própria unidade/obra; consulta o Diário Transparente de Obra; abre chamados de garantia pós-obra (NBR 15575).
-    - **O que NÃO faz:** Não visualiza dados de outras unidades, informações de custos internos da construtora ou dados de fornecedores B2B.
-
 ---
 
 ## 4. OBJETIVOS DO PROJETO
@@ -224,205 +178,229 @@ Desenvolver e implementar uma plataforma corporativa web integrada baseada nos p
 ---
 
 ### 4.2 Objetivos Específicos
-
-Para alcançar o objetivo geral proposto, estabeleceram-se os seguintes objetivos específicos mensuráveis:
-
-1. **Levantar e Mapear Requisitos:** Realizar o levantamento abrangente de requisitos funcionais e não funcionais junto aos 11 perfis operacionais do ecossistema da construção civil.
-2. **Projetar Arquitetura Limpa em 4 Camadas:** Estruturar a arquitetura da aplicação desacoplada nas camadas de *Domain*, *Use Cases*, *Adapters/Presenters* e *Frameworks/UI*, garantindo testabilidade e independência de tecnologias externas.
-3. **Implementar Barramento de Mensageria Assíncrona:** Construir barramento de eventos *PubSub* (*EventBus*) para disparo e consumo não-bloqueante de eventos de movimentação de estoque, atualizações de cronograma e alertas de canteiro.
-4. **Desenvolver Módulo 3D/BIM Evolutivo e Extrusão 2D:** Implementar motor gráfico espacial baseado em WebGL/Three.js e IA CAD Parser para conversão e extrusão de plantas 2D em estruturas 3D interativas por obra.
-5. **Construir Controle de Almoxarifado com Conciliação NFe:** Desenvolver módulo logístico com suporte à consulta automática de Notas Fiscais Eletrônicas (chave de 44 dígitos SEFAZ), controle por SKU e alertas de estoque mínimo.
-6. **Integrar Marketplace B2B e Módulo de Frotas Pesadas:** Criar ambiente de cotações de materiais (RFQ) com comparativo de fornecedores e contratação de locação de máquinas pesadas.
-7. **Implementar Assistente de Canteiro por Voz (Gemini IA):** Incorporar suporte a ditado por voz via Web Speech API e inteligência artificial para estruturação automática do Diário de Obra (RDO).
-8. **Desenvolver Módulo de Fiscalização ISO 9001 e Laudos NR-18:** Criar sistema de registro de ocorrências técnicas com foto, severidade, responsável e laudos de segurança do trabalho.
-9. **Construir Portal do Proprietário e Módulo de Vendas:** Disponibilizar canal transparente de acompanhamento para o cliente final e espelho de vendas com simulador financeiro de 360 meses.
-10. **Implementar Central de Garantias Pós-Obra (NBR 15575):** Estruturar sistema de gestão de chamados de assistência técnica com SLA de 24 horas categorizado por subsistemas da edificação.
-11. **Desenvolver Central de Privacidade e Governança LGPD:** Implementar funcionalidades de exportação de dados em JSON (Art. 18 LGPD) e processo de anonimização/esquecimento de dados pessoais.
-12. **Validar a Solução por Testes Automatizados:** Garantir a qualidade do software por meio de testes unitários/integração no backend (JUnit 5 / Mockito) e testes E2E automatizados no frontend (Playwright).
+1. **Levantar e Mapear Requisitos:** Realizar o levantamento abrangente de requisitos funcionais e não funcionais junto aos 11 perfis operacionais.
+2. **Projetar Arquitetura Limpa em 4 Camadas:** Estruturar a aplicação nas camadas de *Domain*, *Use Cases*, *Adapters/Presenters* e *Frameworks/UI*.
+3. **Implementar Barramento de Mensageria Assíncrona:** Construir barramento de eventos *PubSub* (*EventBus*) para notificações em tempo real.
+4. **Desenvolver Módulo 3D/BIM Evolutivo e Extrusão 2D:** Implementar motor gráfico espacial baseado em WebGL/Three.js e IA CAD Parser.
+5. **Construir Controle de Almoxarifado com Conciliação NFe:** Desenvolver módulo logístico com suporte à consulta automática de NFe (44 dígitos SEFAZ) e controle por SKU.
+6. **Integrar Marketplace B2B e Módulo de Frotas Pesadas:** Criar ambiente de cotações de materiais (RFQ) e locação de máquinas pesadas.
+7. **Implementar Assistente de Canteiro por Voz (Gemini IA):** Incorporar suporte a ditado por voz e inteligência artificial para o Diário de Obra (RDO).
+8. **Desenvolver Módulo de Fiscalização ISO 9001 e NR-18:** Criar sistema de registro de não-conformidades técnicas e laudos de segurança.
+9. **Construir Portal do Proprietário e Módulo de Vendas:** Disponibilizar canal transparente de acompanhamento para o cliente final e espelho de vendas com simulador financeiro.
+10. **Implementar Central de Garantias Pós-Obra (NBR 15575):** Estruturar sistema de gestão de chamados de assistência técnica com SLA de 24 horas.
+11. **Desenvolver Central de Privacidade e Governança LGPD:** Implementar funcionalidades de exportação em JSON (Art. 18 LGPD) e esquecimento de dados.
+12. **Validar a Solução por Testes Automatizados:** Garantir a qualidade do software via testes unitários/integração (JUnit 5) e E2E (Playwright).
 
 ---
 
-## 5. ESCOPO DO PRODUTO E FUNCIONALIDADES PREVISTAS
+## 5. DETALHAMENTO DO ESCOPO POR MÓDULOS DO PROJETO
 
-### 5.1 Módulos e Capacidades do Sistema (Detalhamento dos Fluxos de Negócio)
-
-O sistema Obra360 é composto por **12 módulos funcionais integrados**, cujos fluxos de trabalho são descritos a seguir:
-
-#### 5.1.1 Módulo 1: Gestão Multi-Empresas (Multi-Tenant SaaS B2B/B2C) e Controle IAM/RBAC
-- **Descrição:** Permite o cadastro e a alternância instantânea de organizações corporativas (Construtoras, Projetistas, Fornecedores, Imobiliárias) com validação formal de CNPJ.
-- **Regra de Negócio:** Garantir o isolamento lógico absoluto dos dados entre empresas (*Tenant Isolation*). O usuário logado visualiza exclusivamente as informações vinculadas à organização ativa.
-
-#### 5.1.2 Módulo 2: Gestão de Empreendimentos e Categorias de Obras
-- **Descrição:** Cadastro completo de empreendimentos com suporte a múltiplas categorias (Casas, Condomínio Fechados, Prédios, Hospitais, Galpões, Túneis, Infraestrutura e Energia Solar).
-- **Regra de Negócio:** Cada obra possui indicadores próprios de progresso físico, orçamento aprovado, valor gasto, VGV, prazo planejado e engenheiro/arquiteto responsável.
-
-#### 5.1.3 Módulo 3: Modelagem 3D Evolutiva (BIM) e Extrusão de Plantas 2D (AI CAD Parser)
-- **Descrição:** Visualizador gráfico 3D interativo baseado em Three.js/WebGL com ferramenta de extrusão de plantas 2D (presets ou arquivos CAD) para geração tridimensional de sapatas, pilares, vigas, paredes, lajes e telhados.
-- **Regra de Negócio:** Cada obra possui seu modelo 3D isolado. Apenas perfis autorizados (Engenheiro, Arquiteto, Gerente, Admin) podem inserir, posicionar ou editar elementos estruturais. O sistema disponibiliza slider de linha do tempo (Semanas 1 a 8) para simulação evolutiva.
-
-#### 5.1.4 Módulo 4: Central de Projetos e Gerenciamento Documental Versionado (IFC / DWG / PDF)
-- **Descrição:** Repositório central de arquivos técnicos com controle rígido de versões (ex: `v1.0`, `v2.4`), status de aprovação (Em Elaboração, Aguardando Aprovação, Aprovado, Rejeitado) e suporte ao padrão aberto OpenBIM (IFC4).
-- **Regra de Negócio:** A substituição de um documento gera histórico imutável contendo autor, data, tamanho e notas de revisão, impedindo o uso de pranchas obsoletas no canteiro.
-
-#### 5.1.5 Módulo 5: Almoxarifado, Controle de Estoque por SKU e Conciliação NFe (44 dígitos)
-- **Descrição:** Gestão operacional de insumos do canteiro de obras com suporte a consulta de chave de 44 dígitos da Nota Fiscal Eletrônica (NFe SEFAZ), movimentações de Entrada/Saída por SKU e alertas automáticos de estoque mínimo.
-- **Regra de Negócio:** A baixa por chave NFe valida o dígito verificador de módulo 11 e preenche automaticamente o fornecedor, quantidade e preço unitário dos materiais.
-
-#### 5.1.6 Módulo 6: Marketplace B2B (Cotações RFQ & Frotas Pesadas)
-- **Descrição:** Módulo de negociação B2B para emissão de Solicitações de Cotação (RFQ) de insumos com quadro comparativo de fornecedores e contratação de locação de frotas/máquinas pesadas (escavadeiras, guindastes, caminhões).
-- **Regra de Negócio:** O fornecedor responde diretamente no portal B2B, permitindo ao gestor escolher a proposta mais vantajosa por menor preço ou menor prazo de entrega.
-
-#### 5.1.7 Módulo 7: Execução, Diário de Obra (RDO por Voz/Gemini IA) e Fiscalização ISO 9001 / NR-18
-- **Descrição:** Registro do Diário de Obra (RDO) por texto ou ditado de voz via Web Speech API e inteligência artificial (Gemini IA) para extração de insumos aplicados. Cadastro de não-conformidades técnicas com foto, severidade (Alta, Média, Baixa) e laudos de segurança NR-18.
-- **Regra de Negócio:** Ocorrências classificadas com severidade "Alta" disparam notificações de emergência via barramento de eventos para o Engenheiro Residente e Gerente.
-
-#### 5.1.8 Módulo 8: Comercialização Imobiliária (Espelho de Vendas, Unidades & Simulador Financeiro)
-- **Descrição:** Gestão do inventário de unidades imobiliárias com espelho de vendas interativo (Disponível, Reservado, Vendido), ficha detalhada da unidade e simulador de financiamento em até 360 meses.
-- **Regra de Negócio:** A reserva de uma unidade por um corretor altera seu status no espelho de vendas em tempo real para toda a rede imobiliária conectada ao tenant.
-
-#### 5.1.9 Módulo 9: Portal do Proprietário / Investidor e Diário Transparente de Obra
-- **Descrição:** Interface simplificada e transparente para o comprador final ou investidor acompanhar a porcentagem de avanço físico da obra, cronograma de entregas e galeria de fotos atualizada do canteiro.
-- **Regra de Negócio:** O cliente final visualiza apenas os dados públicos autorizados pela construtora, sem acesso a custos internos ou margens comerciais.
-
-#### 5.1.10 Módulo 10: Gestão de Garantias Pós-Obra e Assistência Técnica (ABNT NBR 15575 / SLA 24h)
-- **Descrição:** Central de atendimento de chamados de assistência técnica pós-entrega de chaves, com categorização por subsistemas da edificação (Estrutura, Hidráulica, Elétrica, Vedações) conforme a norma ABNT NBR 15575 e controle de SLA de 24 horas.
-- **Regra de Negócio:** Chamados não atendidos no prazo de 24 horas são automaticamente escalados para a gerência de pós-vendas com alerta visual prioritário.
-
-#### 5.1.11 Módulo 11: Chat Corporativo B2B e Central de Mensagens Instantâneas
-- **Descrição:** Canal interno de comunicação segura via mensagens instantâneas entre engenheiros, almoxarifado, fornecedores, corretoras e equipe financeira.
-- **Regra de Negócio:** As conversas são armazenadas com timestamp e vinculadas ao projeto correspondente, servindo como histórico de alinhamento operacional.
-
-#### 5.1.12 Módulo 12: Trilha Imutável de Auditoria (Audit Trail / ISO 9001) e Governança LGPD (Art. 18)
-- **Descrição:** Registro imutável de todas as ações sensíveis realizadas no sistema (quem alterou, o que alterou, quando e endereço IP). Central de privacidade com opção de exportação de dados em JSON (Portabilidade Art. 18 LGPD) e fluxo de solicitação de esquecimento/anonimização.
-- **Regra de Negócio:** Logs de auditoria não podem ser alterados ou apagados por nenhum perfil de usuário, garantindo auditabilidade para certificações ISO 9001.
+Nesta seção, o escopo do Obra360 é fatiado e apresentado individualmente por módulo funcional (**Módulos 1 a 12**). Cada módulo especifica seu fluxo operacional, **Regras de Negócio (RNs)**, **Requisitos Funcionais (RFs)**, nível de prioridade e os **Perfis Autorizados (RBAC/IAM)**.
 
 ---
 
-### 5.2 Entregáveis Tangíveis do Projeto
+### 5.1 Módulo 1: Gestão Multi-Empresas (Multi-Tenant SaaS B2B/B2C) e Controle IAM/RBAC
 
-O projeto resultará nos seguintes entregáveis formais ao final do período de desenvolvimento:
+#### 5.1.1 Descrição e Fluxo Operacional
+Responsável pelo gerenciamento do cadastro corporativo de empresas (Construtoras, Projetistas, Fornecedores, Imobiliárias) e controle centralizado de autenticação de usuários. O módulo realiza o comutamento (*tenant switching*) instantâneo e assegura a segregação lógica absoluta dos dados em nível de banco de dados.
 
-1. **Código-Fonte Completo da Aplicação:** Repositório Git público/privado no GitHub contendo o código-fonte do Frontend (React 18 + TypeScript + Vite + Tailwind CSS), Backend (Java 21 + Spring Boot 3.2 + Spring Security) e scripts de migração de banco de dados (Flyway SQL).
-2. **Documentação Arquitetural e de Requisitos:**
-   - Documento de Definição de Escopo (DDE) consolidado;
-   - Documentação de Requisitos Funcionais e Não Funcionais com Matriz de Rastreabilidade;
-   - Registros de Decisão Arquitetural (ADRs - *Architecture Decision Records*);
-   - Diagramas UML (Diagrama de Casos de Uso, Diagrama de Classes e Visão Geral da Arquitetura Hexagonal).
-3. **Infraestrutura como Código (IaC) e Scripts DevOps:**
-   - Scripts Terraform (`main.tf`, `variables.tf`, `outputs.tf`) para provisionamento de VPC, AWS EKS, Amazon RDS PostgreSQL e S3;
-   - Pipeline de Integração e Entrega Contínua `Jenkinsfile` automatizado em 6 estágios.
-4. **Base de Dados Estruturada:** Scripts SQL DDL de criação de tabelas e relacionamentos do PostgreSQL.
-5. **Suíte de Testes Automatizados:** Suíte de testes unitários e de integração no backend (JUnit 5) e testes E2E no frontend (Playwright).
-6. **Manuais do Usuário e Manuais Operacionais:**
-   - Manual do Usuário detalhado por tela (`05_MANUAL_DO_USUARIO_TELAS.md`);
-   - Guia de Integração Jenkins CI/CD (`06_INTEGRACAO_JENKINS_CICD.md`);
-   - Guia de Sistema de Logs e Auditoria (`07_SISTEMA_DE_LOGS_E_AUDITORIA.md`).
+#### 5.1.2 Regras de Negócio (RN) do Módulo 1
+- **RN-01 (Isolamento Lógico do Tenant):** Nenhuma consulta, relatório ou operação pode cruzar dados entre empresas (Tenants) distintas sem permissão explícita de plataforma (`SUPER_ADMIN`).
+- **RN-02 (Validação de Registro CNPJ/CPF):** O cadastro de organizações exige validação do algoritmo do CNPJ (14 dígitos), e usuários individuais exigem validação de CPF (11 dígitos).
+- **RN-03 (Segregação de Funções - SoD):** Um mesmo usuário não pode acumular papéis operacionais conflitantes no mesmo tenant (ex: Almoxarife e Analista Financeiro de Compras).
+
+#### 5.1.3 Requisitos Funcionais (RF) do Módulo 1
+| ID | Nome do Requisito | Descrição Detalhada | Prioridade | Perfis Autorizados (IAM/RBAC) |
+|---|---|---|---|---|
+| **RF-01** | Autenticação e Gestão IAM/RBAC | Autenticação por e-mail/senha com tokens JWT Stateless, suporte a MFA e controle granular dos 11 perfis SoD. | Essencial | **Todos os Perfis** (login) / `SUPER_ADMIN` (gestão) |
+| **RF-02** | Gestão Multi-Tenant (Empresas) | Cadastro, edição e alternância de organizações corporativas com isolamento de dados por Tenant ID. | Essencial | `SUPER_ADMIN`, `GERENTE_OBRA` |
 
 ---
 
-## 6. REQUISITOS DO SISTEMA (RASTREABILIDADE)
+### 5.2 Módulo 2: Gestão de Empreendimentos e Categorias de Obras
 
-### 6.1 Convenção de Identificação e Classificação de Prioridades
-Os requisitos utilizam os prefixos **RF** (Requisito Funcional) e **RNF** (Requisito Não Funcional), acompanhados da classificação de prioridade conforme a convenção acadêmica:
-- **Essencial:** Indispensável para a operação. O sistema não funciona sem ele.
-- **Importante:** Agrega alto valor e qualidade operacional. Recomendado para a versão atual.
-- **Desejável:** Funcionalidade complementar que pode ser estendida em versões futuras sem prejuízo do núcleo.
+#### 5.2.1 Descrição e Fluxo Operacional
+Permite o cadastro e a parametrização de obras e projetos imobiliários de diferentes tipologias construtivas (Casas, Condomínios Fechados, Edifícios, Hospitais, Galpões Logísticos, Obras de Infraestrutura, Túneis e Energia Solar Fotovoltaica).
 
----
+#### 5.2.2 Regras de Negócio (RN) do Módulo 2
+- **RN-04 (Indicadores Exclusivos por Obra):** Cada empreendimento possui seu próprio cronograma físico-financeiro, centro de custos, orçamento aprovado, VGV e equipe técnica vinculada.
+- **RN-05 (Responsabilidade Técnica Obrigatória):** Toda obra cadastrada deve possuir obrigatoriamente pelo menos um Engenheiro Residente e/ou Arquiteto responsável vinculado à ART/RRT.
 
-### 6.2 Requisitos Funcionais (RF-01 a RF-20)
-
-```
-┌──────────────────────────────────────────────────────────────────────────────────────────┐
-│                                REQUISITOS FUNCIONAIS (RF)                                │
-├───────┬──────────────────────────────────────────────┬──────────────┬────────────────────┤
-│ ID    │ Descrição Detalhada                          │ Prioridade   │ Módulo Relacionado │
-├───────┼──────────────────────────────────────────────┼──────────────┼────────────────────┤
-│ RF-01 │ Autenticação e Gestão de Usuários (IAM/RBAC):│ Essencial    │ Módulo 1           │
-│       │ Permite login por e-mail/senha com suporte a │              │                    │
-│       │ 11 perfis de acesso granulares (SoD).        │              │                    │
-├───────┼──────────────────────────────────────────────┼──────────────┼────────────────────┤
-│ RF-02 │ Gestão Multi-Tenant (Empresas):              │ Essencial    │ Módulo 1           │
-│       │ Permite cadastrar e alternar organizações    │              │                    │
-│       │ com validação de CNPJ e isolamento de dados. │              │                    │
-├───────┼──────────────────────────────────────────────┼──────────────┼────────────────────┤
-│ RF-03 │ Cadastro de Empreendimentos e Categorias:    │ Essencial    │ Módulo 2           │
-│       │ Permite criar obras especificando categoria  │              │                    │
-│       │ (Casas, Prédios, Hospitais, Infraestrutura). │              │                    │
-├───────┼──────────────────────────────────────────────┼──────────────┼────────────────────┤
-│ RF-04 │ Visualização 3D BIM Interativa:              │ Essencial    │ Módulo 3           │
-│       │ Renderiza modelo espacial 3D em Three.js     │              │                    │
-│       │ isolado por obra com inspeção de elementos.  │              │                    │
-├───────┼──────────────────────────────────────────────┼──────────────┼────────────────────┤
-│ RF-05 │ Edição Estrutural 3D (Construtor BIM):       │ Importante   │ Módulo 3           │
-│       │ Permite que engenheiros/arquitetos insiram   │              │                    │
-│       │ e posicionem pilares, vigas e paredes em 3D. │              │                    │
-├───────┼──────────────────────────────────────────────┼──────────────┼────────────────────┤
-│ RF-06 │ Extrusão de Plantas 2D (AI CAD Parser):      │ Importante   │ Módulo 3           │
-│       │ Converte automaticamente plantas 2D em       │              │                    │
-│       │ estruturas tridimensionais extrudadas.       │              │                    │
-├───────┼──────────────────────────────────────────────┼──────────────┼────────────────────┤
-│ RF-07 │ Linha do Tempo Evolutiva da Obra (Slider):   │ Importante   │ Módulo 3           │
-│       │ Simula o avanço físico semanal (Semanas 1-8) │              │                    │
-│       │ com atualização da geometria 3D.             │              │                    │
-├───────┼──────────────────────────────────────────────┼──────────────┼────────────────────┤
-│ RF-08 │ Repositório de Documentos Versionado:        │ Essencial    │ Módulo 4           │
-│       │ Armazena pranchas e arquivos IFC/DWG/PDF     │              │                    │
-│       │ com controle estrito de revisão e aprovação. │              │                    │
-├───────┼──────────────────────────────────────────────┼──────────────┼────────────────────┤
-│ RF-09 │ Conciliação de Estoque via NFe (44 dígitos): │ Essencial    │ Módulo 5           │
-│       │ Consulta chave SEFAZ, valida dígito Mod11    │              │                    │
-│       │ e dá entrada automática de produtos por SKU. │              │                    │
-├───────┼──────────────────────────────────────────────┼──────────────┼────────────────────┤
-│ RF-10 │ Controle de Movimentações de Estoque:        │ Essencial    │ Módulo 5           │
-│       │ Registra saídas de insumos para frentes de   │              │                    │
-│       │ trabalho e emite alertas de estoque mínimo.  │              │                    │
-├───────┼──────────────────────────────────────────────┼──────────────┼────────────────────┤
-│ RF-11 │ Marketplace B2B e Cotações (RFQ):            │ Importante   │ Módulo 6           │
-│       │ Permite emitir cotações de insumos e analisar│              │                    │
-│       │ propostas comparativas de fornecedores.      │              │                    │
-├───────┼──────────────────────────────────────────────┼──────────────┼────────────────────┤
-│ RF-12 │ Contratação de Frotas e Máquinas Pesadas:    │ Importante   │ Módulo 6           │
-│       │ Módulo de reserva e locação de escavadeiras, │              │                    │
-│       │ guindastes e caminhões por hora/dia.         │              │                    │
-├───────┼──────────────────────────────────────────────┼──────────────┼────────────────────┤
-│ RF-13 │ Diário de Obra (RDO) por Voz (Gemini IA):    │ Importante   │ Módulo 7           │
-│       │ Permite ditar relatórios diários por áudio   │              │                    │
-│       │ com extração automática de insumos via IA.   │              │                    │
-├───────┼──────────────────────────────────────────────┼──────────────┼────────────────────┤
-│ RF-14 │ Fiscalização ISO 9001 e Laudos NR-18:        │ Essencial    │ Módulo 7           │
-│       │ Registra ocorrências técnicas com fotos,     │              │                    │
-│       │ severidade (Alta/Média/Baixa) e responsáveis.│              │                    │
-├───────┼──────────────────────────────────────────────┼──────────────┼────────────────────┤
-│ RF-15 │ Espelho de Vendas Imobiliárias em Tempo Real:│ Importante   │ Módulo 8           │
-│       │ Exibe grid de unidades (Disponível, Reservado│              │                    │
-│       │ e Vendido) para gestão da rede corretora.    │              │                    │
-├───────┼──────────────────────────────────────────────┼──────────────┼────────────────────┤
-│ RF-16 │ Simulador Financeiro de Financiamento:       │ Desejável    │ Módulo 8           │
-│       │ Simula parcelas de financiamento imobiliário │              │                    │
-│       │ em até 360 meses com tabelas SAC/PRICE.      │              │                    │
-├───────┼──────────────────────────────────────────────┼──────────────┼────────────────────┤
-│ RF-17 │ Portal do Proprietário / Diário Transparente:│ Essencial    │ Módulo 9           │
-│       │ Disponibiliza progresso físico (%) e galeria │              │                    │
-│       │ de fotos para acompanhamento do cliente.     │              │                    │
-├───────┼──────────────────────────────────────────────┼──────────────┼────────────────────┤
-│ RF-18 │ Garantia Pós-Obra e Chamados NBR 15575:      │ Importante   │ Módulo 10          │
-│       │ Gestão de assistência técnica com SLA 24h    │              │                    │
-│       │ categorizada por subsistema construtivo.     │              │                    │
-├───────┼──────────────────────────────────────────────┼──────────────┼────────────────────┤
-│ RF-19 │ Chat Corporativo B2B Instantâneo:            │ Desejável    │ Módulo 11          │
-│       │ Central de mensagens entre engenharia,       │              │                    │
-│       │ almoxarifado, fornecedores e corretores.     │              │                    │
-├───────┼──────────────────────────────────────────────┼──────────────┼────────────────────┤
-│ RF-20 │ Auditoria Imutável e Portabilidade LGPD:     │ Essencial    │ Módulo 12          │
-│       │ Gera log imutável de ações e permite exportar│              │                    │
-│       │ dados pessoais em JSON (Art. 18 LGPD).       │              │                    │
-└───────┴──────────────────────────────────────────────┴──────────────┴────────────────────┘
-```
+#### 5.2.3 Requisitos Funcionais (RF) do Módulo 2
+| ID | Nome do Requisito | Descrição Detalhada | Prioridade | Perfis Autorizados (IAM/RBAC) |
+|---|---|---|---|---|
+| **RF-03** | Cadastro de Empreendimentos e Categorias | Permite criar e parametrizar obras especificando localização, área total, categoria construtiva, prazos e orçamento macro. | Essencial | `SUPER_ADMIN`, `GERENTE_OBRA`, `ENGENHEIRO` |
 
 ---
 
-### 6.3 Requisitos Não Funcionais (RNF-01 a RNF-10)
+### 5.3 Módulo 3: Modelagem 3D Evolutiva (BIM) e Extrusão de Plantas 2D (AI CAD Parser)
+
+#### 5.3.1 Descrição e Fluxo Operacional
+Motor gráfico tridimensional WebGL/Three.js integrado a uma ferramenta procedural de extrusão de plantas 2D (presets ou arquivos CAD). Permite a visualização, montagem e simulação do avanço físico da estrutura da obra ao longo do tempo.
+
+#### 5.3.2 Regras de Negócio (RN) do Módulo 3
+- **RN-06 (Modelo 3D Exclusivo por Obra):** Cada empreendimento possui seu próprio modelo tridimensional isolado e parametrizável.
+- **RN-07 (Autoria de Modificação Estrutural):** Apenas perfis técnicos credenciados (`ENGENHEIRO`, `ARQUITETO`, `GERENTE_OBRA`, `SUPER_ADMIN`) têm permissão para inserir, posicionar, encaixar ou excluir elementos 3D (vigas, pilares, lajes, telhados, paredes).
+- **RN-08 (Linha do Tempo Evolutiva):** A movimentação do slider de tempo (Semanas 1 a 8) deve recalcular e destacar volumetricamente as etapas executadas (cor verde/azul) versus pendentes (cor cinza/transparente).
+
+#### 5.3.3 Requisitos Funcionais (RF) do Módulo 3
+| ID | Nome do Requisito | Descrição Detalhada | Prioridade | Perfis Autorizados (IAM/RBAC) |
+|---|---|---|---|---|
+| **RF-04** | Visualização 3D BIM Interativa | Renderiza modelo espacial 3D em Three.js/WebGL com navegação (órbita, pan, zoom) e inspeção de propriedades de elementos. | Essencial | **Todos os Perfis** (visibilidade conforme regra de domínio) |
+| **RF-05** | Edição Estrutural 3D (Construtor BIM) | Permite que engenheiros e arquitetos insiram e encaixem sapatas, pilares, vigas, paredes, lajes, telhados e portas no espaço 3D. | Importante | `SUPER_ADMIN`, `GERENTE_OBRA`, `ENGENHEIRO`, `ARQUITETO` |
+| **RF-06** | Extrusão de Plantas 2D (AI CAD Parser) | Converte proceduralmente plantas baixas 2D em estruturas tridimensionais extrudadas com pés-direitos configuráveis. | Importante | `SUPER_ADMIN`, `ENGENHEIRO`, `ARQUITETO` |
+| **RF-07** | Linha do Tempo Evolutiva (Slider) | Simula visualmente o avanço físico semanal da obra (Semanas 1 a 8) com atualização da geometria 3D. | Importante | **Todos os Perfis** |
+
+---
+
+### 5.4 Módulo 4: Central de Projetos e Gerenciamento Documental Versionado (IFC / DWG / PDF)
+
+#### 5.4.1 Descrição e Fluxo Operacional
+Repositório centralizado de arquivos técnicos de engenharia e arquitetura com suporte aos padrões OpenBIM (IFC4), desenhos cad (DWG) e documentos executivos (PDF).
+
+#### 5.4.2 Regras de Negócio (RN) do Módulo 4
+- **RN-09 (Imutabilidade de Revisões Documentais):** O envio de uma nova versão de projeto não sobrescreve o arquivo anterior; gera uma nova revisão (`v1.1`, `v2.0`) com autor, timestamp e notas de alteração.
+- **RN-10 (Bloqueio de Download Obsoleto no Canteiro):** Documentos com status "Rejeitado" ou "Obsoleto" ficam indisponíveis para visualização na frente de trabalho para evitar erros de execução.
+
+#### 5.4.3 Requisitos Funcionais (RF) do Módulo 4
+| ID | Nome do Requisito | Descrição Detalhada | Prioridade | Perfis Autorizados (IAM/RBAC) |
+|---|---|---|---|---|
+| **RF-08** | Repositório Documental Versionado | Armazena pranchas e arquivos IFC/DWG/PDF com controle de revisão, histórico de aprovação e fluxo de assinatura técnica. | Essencial | `SUPER_ADMIN`, `GERENTE_OBRA`, `ENGENHEIRO`, `ARQUITETO` |
+
+---
+
+### 5.5 Módulo 5: Almoxarifado, Controle de Estoque por SKU e Conciliação NFe (44 dígitos)
+
+#### 5.5.1 Descrição e Fluxo Operacional
+Gestão logística do canteiro de obras, englobando a recepção de materiais por Nota Fiscal Eletrônica (NFe SEFAZ), controle de movimentações de Entrada/Saída por código SKU e monitoramento de estoque de segurança.
+
+#### 5.5.2 Regras de Negócio (RN) do Módulo 5
+- **RN-11 (Validação SEFAZ Módulo 11):** A consulta e importação por chave de NFe exige a validação do algoritmo do dígito verificador de 44 dígitos da SEFAZ.
+- **RN-12 (Alerta de Estoque Mínimo):** Insumos cujo saldo em estoque atingir o limite crítico cadastrado disparam automaticamente notificações de compra para os setores financeiro e de suprimentos.
+
+#### 5.5.3 Requisitos Funcionais (RF) do Módulo 5
+| ID | Nome do Requisito | Descrição Detalhada | Prioridade | Perfis Autorizados (IAM/RBAC) |
+|---|---|---|---|---|
+| **RF-09** | Conciliação de Estoque via NFe | Leitura/digitação da chave de 44 dígitos, validação de módulo 11 e preenchimento automático de insumos, quantidades e preços. | Essencial | `SUPER_ADMIN`, `GERENTE_OBRA`, `ALMOXARIFE`, `FINANCEIRO` |
+| **RF-10** | Controle de Movimentações por SKU | Registro de entradas, saídas para frentes de trabalho, saldo em tempo real e alerta visual de estoque mínimo. | Essencial | `SUPER_ADMIN`, `ENGENHEIRO`, `MESTRE_OBRA`, `ALMOXARIFE` |
+
+---
+
+### 5.6 Módulo 6: Marketplace B2B (Cotações RFQ & Frotas Pesadas)
+
+#### 5.6.1 Descrição e Fluxo Operacional
+Portal de negociações B2B para abertura de editas de Solicitação de Cotação (RFQ - *Request for Quotation*) de insumos e contratação/reserva de frotas e máquinas pesadas (escavadeiras, guindastes, betoneiras, caminhões).
+
+#### 5.6.2 Regras de Negócio (RN) do Módulo 6
+- **RN-13 (Isonomia e Cotação Cega B2B):** Os fornecedores B2B cadastrados não enxergam os valores das propostas concorrentes durante o período aberto da cotação.
+- **RN-14 (Vinculação de Frotas ao Projeto):** A reserva de máquinas e frotas pesadas exige a indicação prévia do empreendimento pagador e o período contratado (horas ou diárias).
+
+#### 5.6.3 Requisitos Funcionais (RF) do Módulo 6
+| ID | Nome do Requisito | Descrição Detalhada | Prioridade | Perfis Autorizados (IAM/RBAC) |
+|---|---|---|---|---|
+| **RF-11** | Marketplace B2B e Cotações (RFQ) | Emissão de solicitações de cotação de materiais, envio de propostas por fornecedores e geração de quadro comparativo. | Importante | `SUPER_ADMIN`, `GERENTE_OBRA`, `FINANCEIRO`, `FORNECEDOR` |
+| **RF-12** | Contratação de Frotas Pesadas | Módulo de reserva e contratação de locação de escavadeiras, guindastes e caminhões por período com cálculo de custos. | Importante | `SUPER_ADMIN`, `GERENTE_OBRA`, `ENGENHEIRO`, `FORNECEDOR` |
+
+---
+
+### 5.7 Módulo 7: Execução, Diário de Obra (RDO por Voz/Gemini IA) e Fiscalização ISO 9001 / NR-18
+
+#### 5.7.1 Descrição e Fluxo Operacional
+Ferramenta de campo para preenchimento do Diário de Obra (RDO) assistido por voz e IA (Gemini), acompanhada do registro de auditorias de qualidade ISO 9001 e ocorrências de segurança do trabalho conforme a norma NR-18.
+
+#### 5.7.2 Regras de Negócio (RN) do Módulo 7
+- **RN-15 (Fechamento Diário de RDO):** O RDO deve ser preenchido até as 23h59 do dia corrente. Alterações retroativas exigem justificativa formal aceita pelo Engenheiro Residente.
+- **RN-16 (Paralisação por Severidade Alta NR-18):** Ocorrências de segurança classificadas com severidade "Alta" emitem alerta imediato via barramento PubSub para a gerência e paralisam a etapa afetada.
+
+#### 5.7.3 Requisitos Funcionais (RF) do Módulo 7
+| ID | Nome do Requisito | Descrição Detalhada | Prioridade | Perfis Autorizados (IAM/RBAC) |
+|---|---|---|---|---|
+| **RF-13** | Diário de Obra (RDO) por Voz / Gemini IA | Ditado de relatórios diários via Web Speech API e estruturação automática de efetivo, clima e insumos via IA. | Importante | `SUPER_ADMIN`, `GERENTE_OBRA`, `ENGENHEIRO`, `MESTRE_OBRA` |
+| **RF-14** | Fiscalização ISO 9001 e Laudos NR-18 | Cadastro de não-conformidades técnicas com foto, severidade (Alta/Média/Baixa), responsável e laudos de segurança. | Essencial | `SUPER_ADMIN`, `GERENTE_OBRA`, `ENGENHEIRO`, `MESTRE_OBRA`, `AUDITOR` |
+
+---
+
+### 5.8 Módulo 8: Comercialização Imobiliária (Espelho de Vendas, Unidades & Simulador Financeiro)
+
+#### 5.8.1 Descrição e Fluxo Operacional
+Módulo voltado à gestão de vendas do inventário de unidades imobiliárias (apartamentos, lotes, salas comerciais), exibindo espelho de vendas em tempo real e simulador de parcelamento.
+
+#### 5.8.2 Regras de Negócio (RN) do Módulo 8
+- **RN-17 (Bloqueio de Reserva Concorrente):** Ao selecionar uma unidade para reserva, o sistema altera seu status para "Reservado" por até 48 horas, impedindo reservas duplicadas por outros corretores.
+- **RN-18 (Tabelas e Reajustes Financeiros):** As simulações de parcelamento devem aplicar rigorosamente os parâmetros de juros e índices de reajuste (INCC/IGP-M) cadastrados pela incorporadora.
+
+#### 5.8.3 Requisitos Funcionais (RF) do Módulo 8
+| ID | Nome do Requisito | Descrição Detalhada | Prioridade | Perfis Autorizados (IAM/RBAC) |
+|---|---|---|---|---|
+| **RF-15** | Espelho de Vendas Imobiliárias em Tempo Real | Grid interativo de unidades (Disponível, Reservado e Vendido) atualizado em tempo real para a rede de corretores. | Importante | `SUPER_ADMIN`, `GERENTE_OBRA`, `FINANCEIRO`, `CORRETOR`, `INVESTIDOR` |
+| **RF-16** | Simulador Financeiro de Financiamento | Simulação de parcelas e financiamento em até 360 meses utilizando tabelas SAC e PRICE com índices de correção. | Desejável | `SUPER_ADMIN`, `CORRETOR`, `CLIENTE`, `INVESTIDOR` |
+
+---
+
+### 5.9 Módulo 9: Portal do Proprietário / Investidor e Diário Transparente de Obra
+
+#### 5.9.1 Descrição e Fluxo Operacional
+Canal B2C de relacionamento e transparência, permitindo que o cliente comprador ou investidor acompanhe o progresso físico da construção, relatórios fotográficos e comunicados oficiais.
+
+#### 5.9.2 Regras de Negócio (RN) do Módulo 9
+- **RN-19 (Privacidade das Informações B2C):** O comprador final visualiza apenas os dados públicos autorizados do empreendimento e a evolução específica do seu bloco/unidade.
+- **RN-20 (Curadoria de Conteúdo Público):** Fotos e relatórios publicados no Diário Transparente devem passar por aprovação prévia do Engenheiro Residente ou Gerente.
+
+#### 5.9.3 Requisitos Funcionais (RF) do Módulo 9
+| ID | Nome do Requisito | Descrição Detalhada | Prioridade | Perfis Autorizados (IAM/RBAC) |
+|---|---|---|---|---|
+| **RF-17** | Portal do Proprietário / Diário Transparente | Painel de acompanhamento com percentual de avanço físico (%/m²), galeria de imagens e atualizações de cronograma. | Essencial | `SUPER_ADMIN`, `CLIENTE`, `INVESTIDOR` |
+
+---
+
+### 5.10 Módulo 10: Gestão de Garantias Pós-Obra e Assistência Técnica (ABNT NBR 15575 / SLA 24h)
+
+#### 5.10.1 Descrição e Fluxo Operacional
+Central de pós-venda para abertura e triagem de chamados de manutenção e garantia pós-entrega das chaves, estruturada conforme os prazos de garantia dos subsistemas previstos na ABNT NBR 15575.
+
+#### 5.10.2 Regras de Negócio (RN) do Módulo 10
+- **RN-21 (Vigência por Subsistema Habitacional):** O sistema valida a data de entrega das chaves e a tabela de garantia legal de cada subsistema (ex: 5 anos para estrutura e hidráulica embutida).
+- **RN-22 (Escalonamento por Estouro de SLA 24h):** Chamados abertos que não receberem primeiro atendimento técnico em até 24 horas são escalados automaticamente para a diretoria de pós-vendas.
+
+#### 5.10.3 Requisitos Funcionais (RF) do Módulo 10
+| ID | Nome do Requisito | Descrição Detalhada | Prioridade | Perfis Autorizados (IAM/RBAC) |
+|---|---|---|---|---|
+| **RF-18** | Garantia Pós-Obra e Chamados NBR 15575 | Abertura e gestão de chamados de assistência técnica com fotos, categorização NBR 15575 e controle de SLA de 24h. | Importante | `SUPER_ADMIN`, `GERENTE_OBRA`, `ENGENHEIRO`, `CLIENTE` |
+
+---
+
+### 5.11 Módulo 11: Chat Corporativo B2B e Central de Mensagens Instantâneas
+
+#### 5.11.1 Descrição e Fluxo Operacional
+Canal de comunicação instantânea em tempo real para alinhamento entre equipes operacionais do canteiro, almoxarifado, engenheiros, fornecedores B2B e corretores imobiliários.
+
+#### 5.11.2 Regras de Negócio (RN) do Módulo 11
+- **RN-23 (Vinculação Contextual de Conversas):** Os tópicos de chat devem ser associados ao empreendimento, cotação RFQ ou chamado de garantia correspondente, preservando o histórico auditável.
+
+#### 5.11.3 Requisitos Funcionais (RF) do Módulo 11
+| ID | Nome do Requisito | Descrição Detalhada | Prioridade | Perfis Autorizados (IAM/RBAC) |
+|---|---|---|---|---|
+| **RF-19** | Chat Corporativo B2B Instantâneo | Mensageria em tempo real para comunicação interna e externa entre os perfis cadastrados no tenant. | Desejável | **Todos os Perfis Cadastrados** |
+
+---
+
+### 5.12 Módulo 12: Trilha Imutável de Auditoria (Audit Trail / ISO 9001) e Governança LGPD (Art. 18)
+
+#### 5.12.1 Descrição e Fluxo Operacional
+Módulo de governança corporativa e segurança da informação. Mantém registro imutável de todas as transações do sistema (para auditorias de qualidade ISO 9001) e atende aos direitos dos titulares de dados (LGPD).
+
+#### 5.12.2 Regras de Negócio (RN) do Módulo 12
+- **RN-24 (Imutabilidade Absoluta da Auditoria):** Os registros de log (autor, ação, data/hora, IP, payload) são gravados em regime *append-only* e jamais podem ser alterados ou apagados por qualquer perfil.
+- **RN-25 (Direito ao Esquecimento e Anonimização LGPD):** A solicitação de exclusão de dados pessoais (Art. 18 LGPD) executa o mascaramento irreversível de PII, preservando os registros fiscais e operacionais históricos.
+
+#### 5.12.3 Requisitos Funcionais (RF) do Módulo 12
+| ID | Nome do Requisito | Descrição Detalhada | Prioridade | Perfis Autorizados (IAM/RBAC) |
+|---|---|---|---|---|
+| **RF-20** | Auditoria Imutável e Portabilidade LGPD | Registro imutável de logs de ações e central de privacidade com exportação de dados do titular em formato JSON estruturado. | Essencial | `SUPER_ADMIN`, `AUDITOR`, `CLIENTE` (dados próprios) |
+
+---
+
+## 6. REQUISITOS NÃO FUNCIONAIS (RNF-01 a RNF-10)
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────────────┐
@@ -481,7 +459,7 @@ Os requisitos utilizam os prefixos **RF** (Requisito Funcional) e **RNF** (Requi
 ## 7. PREMISSAS, RESTRIÇÕES E EXCLUSÕES DO ESCOPO
 
 ### 7.1 Premissas do Projeto
-1. **Disponibilidade de Dispositivos e Navegadores Modernos:** Assume-se que os usuários de campo e escritório dispõem de dispositivos (computadores ou smartphones) com navegadores atualizados e suporte à aceleração gráfica WebGL.
+1. **Disponibilidade de Dispositivos e Navegadores Modernos:** Assume-se que os usuários de campo e escritório dispõem de dispositivos com navegadores atualizados e suporte à aceleração gráfica WebGL.
 2. **Adesão de Parceiros B2B:** Assume-se que fornecedores de insumos e empresas de locação de máquinas aceitarão cadastrar-se na plataforma para responder cotações (RFQ).
 3. **Conectividade Intermitente no Canteiro:** Assume-se que dados inseridos offline no PWA serão mantidos em cache seguro e sincronizados assincronamente ao restabelecer a conexão com a internet.
 
@@ -502,14 +480,12 @@ Para evitar a expansão descontrolada de escopo (*Scope Creep*) durante o semest
 3. **Desenvolvimento de Aplicativos Nativos para Lojas (iOS/Android):** Não serão desenvolvidos apps em Swift ou Kotlin para publicação na App Store ou Google Play Store; a mobilidade é atendida via Progressive Web App (PWA).
 4. **Assinatura Digital com Certificado ICP-Brasil (A1/A3):** A aprovação de projetos utiliza carimbo digital interno com auditoria imutável por e-mail, IP e timestamp, sem integração com cartórios virtuais externos.
 5. **Fornecimento e Instalação de Hardware IoT no Canteiro:** O escopo limita-se ao software, excluindo o fornecimento de sensores físicos de concreto ou tags RFID.
-6. **Renderização de Nuvens de Pontos (Point Cloud):** O motor gráfico 3D não processará arquivos de escaneamento a laser com milhões de pontos; a visualização foca em malhas poligonais procedimentos BIM.
+6. **Renderização de Nuvens de Pontos (Point Cloud):** O motor gráfico 3D não processará arquivos de escaneamento a laser com milhões de pontos; a visualização foca em malhas poligonais procedurais BIM.
 7. **Suporte Multilíngue e Internacionalização (i18n):** A plataforma será disponibilizada e suportada exclusivamente no idioma Português do Brasil (pt-BR).
 
 ---
 
 ## 8. CRITÉRIOS DE ACEITAÇÃO DO PROJETO
-
-O projeto será considerado aceito e concluído com sucesso mediante o cumprimento comprovado das seguintes condições objetivas e testáveis:
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────────────┐
@@ -544,8 +520,6 @@ O projeto será considerado aceito e concluído com sucesso mediante o cumprimen
 
 ## 9. GERENCIAMENTO DE RISCOS INICIAIS E PLANO DE MITIGAÇÃO
 
-Identificaram-se os principais riscos que poderiam impactar a execução do projeto, acompanhados das respectivas estratégias de prevenção e mitigação:
-
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────────────┐
 │                                 MATRIZ DE RISCOS DO PROJETO                              │
@@ -568,6 +542,17 @@ Identificaram-se os principais riscos que poderiam impactar a execução do proj
 │       │ e documentações técnicas      │             │           │ contínuo em Markdown.  │
 └───────┴───────────────────────────────┴─────────────┴───────────┴────────────────────────┘
 ```
+
+---
+
+## 10. ENTREGÁVEIS TANGÍVEIS E ENCERRAMENTO
+
+### 10.1 Entregáveis Tangíveis
+1. **Código-Fonte Completo da Aplicação:** Repositório Git contendo o Frontend (React 18 + TypeScript + Vite + Tailwind CSS), Backend (Java 21 + Spring Boot 3.2 + Spring Security) e scripts de banco de dados (Flyway SQL).
+2. **Documentação Arquitetural e de Requisitos:** DDE v2.1 consolidado, especificação de requisitos, registros de decisão arquitetural (ADRs) e diagramas UML.
+3. **Infraestrutura como Código (IaC) e DevOps:** Scripts Terraform (`main.tf`, `variables.tf`) para AWS EKS / PostgreSQL e pipeline de CI/CD `Jenkinsfile` automatizado.
+4. **Suíte de Testes Automatizados:** Suíte de testes unitários/integração no backend (JUnit 5) e testes E2E no frontend (Playwright).
+5. **Manuais do Usuário e Manuais Operacionais:** Manual do usuário por tela (`05_MANUAL_DO_USUARIO_TELAS.md`), guia de integração Jenkins (`06_INTEGRACAO_JENKINS_CICD.md`) e guia de auditoria (`07_SISTEMA_DE_LOGS_E_AUDITORIA.md`).
 
 ---
 
