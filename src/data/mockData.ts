@@ -6,11 +6,47 @@ import {
 } from '../types';
 
 /* ========================================================================= */
-/* MULTI-TENANT ENTERPRISE COMPANIES (PROD CLEAN SLATE)                      */
+/* MULTI-TENANT ENTERPRISE COMPANIES                                         */
 /* ========================================================================= */
 
-export const INITIAL_COMPANIES: Company[] = [];
-
+export const INITIAL_COMPANIES: Company[] = [
+  {
+    id: 'CMP-001',
+    name: 'Construtora Apex & Engenharia LTDA',
+    cnpj: '12.345.678/0001-90',
+    segment: 'Construtora & Incorporadora',
+    plan: 'Enterprise SaaS Pro',
+    verifiedBadge: true,
+    activeProjectsCount: 4,
+    membersCount: 42,
+    cityState: 'São Paulo / SP',
+    phone: '(11) 3040-5000'
+  },
+  {
+    id: 'CMP-002',
+    name: 'Silva & Associados Arquitetura & Projetos BIM',
+    cnpj: '98.765.432/0001-10',
+    segment: 'Escritório de Arquitetura/Engenharia',
+    plan: 'Parceiro B2B Homologado',
+    verifiedBadge: true,
+    activeProjectsCount: 6,
+    membersCount: 15,
+    cityState: 'São Paulo / SP',
+    phone: '(11) 3210-9900'
+  },
+  {
+    id: 'CMP-003',
+    name: 'Votoran & Gerdau Suprimentos B2B',
+    cnpj: '45.112.334/0001-55',
+    segment: 'Fornecedor B2B Insumos',
+    plan: 'Parceiro B2B Homologado',
+    verifiedBadge: true,
+    activeProjectsCount: 12,
+    membersCount: 120,
+    cityState: 'Sorocaba / SP',
+    phone: '(15) 2101-8800'
+  }
+];
 
 export const USER_ROLES: Record<RoleId, UserRole> = {
   SUPER_ADMIN: {
@@ -156,12 +192,107 @@ export const USER_ROLES: Record<RoleId, UserRole> = {
 };
 
 /* ========================================================================= */
-/* ENTERPRISE PROJECTS & DOCUMENTS (PROD CLEAN SLATE)                       */
+/* ENTERPRISE PROJECTS & DOCUMENTS                                           */
 /* ========================================================================= */
 
-export const INITIAL_PROJECTS: Project[] = [];
-export const INITIAL_DOCUMENTS: ProjectDocument[] = [];
-export const INITIAL_OCCURRENCES: ConstructionOccurrence[] = [];
+export const INITIAL_PROJECTS: Project[] = [
+  {
+    id: 'PRJ-001',
+    companyId: 'CMP-001',
+    name: 'Residencial Villa Nova (Torre A & B)',
+    type: 'Prédios & Edifícios',
+    location: 'São Paulo / SP',
+    clientOrOwner: 'Apex Incorporadora S/A',
+    responsibleEngineer: 'Carlos Engenheiro',
+    responsibleArchitect: 'Lucas Arquiteto',
+    plannedDeadline: '15/12/2026',
+    budget: 15400000,
+    spentBudget: 11980000,
+    vgv: 35000000,
+    status: 'EM_EXECUCAO',
+    progressPercent: 78,
+    unitsCount: 120,
+    activeTeamsCount: 8
+  },
+  {
+    id: 'PRJ-002',
+    companyId: 'CMP-001',
+    name: 'Parque Solar Horizonte 50MW',
+    type: 'Energia Solar',
+    location: 'Campinas / SP',
+    clientOrOwner: 'Horizonte Energia Renovável',
+    responsibleEngineer: 'Amanda Gerente',
+    responsibleArchitect: 'Lucas Arquiteto',
+    plannedDeadline: '30/08/2027',
+    budget: 28000000,
+    spentBudget: 12600000,
+    vgv: 60000000,
+    status: 'EM_EXECUCAO',
+    progressPercent: 45,
+    unitsCount: 1,
+    activeTeamsCount: 12
+  }
+];
+
+export const INITIAL_DOCUMENTS: ProjectDocument[] = [
+  {
+    id: 'DOC-001',
+    projectId: 'PRJ-001',
+    title: 'Prancha 2D Alvenaria & Divisórias Térreo',
+    category: 'Arquitetônico',
+    version: 'v2.1',
+    status: 'APROVADO',
+    author: 'Lucas Arquiteto',
+    authorRole: 'Arquiteto Responsável',
+    updatedAt: '12/09/2026',
+    fileSize: '4.2 MB',
+    fileType: 'DWG 2D',
+    notes: 'Prancha aprovada e liberada para o canteiro de obras.'
+  },
+  {
+    id: 'DOC-002',
+    projectId: 'PRJ-001',
+    title: 'Projeto Estrutural Armação de Vigas CA-50',
+    category: 'Estrutural',
+    version: 'v1.4',
+    status: 'AGUARDANDO_APROVACAO',
+    author: 'Carlos Engenheiro',
+    authorRole: 'Engenheiro Residente',
+    updatedAt: '14/09/2026',
+    fileSize: '12.8 MB',
+    fileType: 'IFC 3D',
+    notes: 'Aguardando validação do ensaio de concreto.'
+  }
+];
+
+export const INITIAL_OCCURRENCES: ConstructionOccurrence[] = [
+  {
+    id: 'OCC-NR18-001',
+    projectId: 'PRJ-001',
+    title: 'Ausência de Linha de Vida no 5º Pavimento',
+    category: 'Segurança NR-18',
+    severity: 'ALTA',
+    description: 'Identificado operador de armação sem trava-quedas acoplado à linha de vida no bordo livre.',
+    status: 'EM_CORRECAO',
+    assignedTo: 'Técnico de Segurança do Trabalho',
+    reportedBy: 'Carlos Engenheiro',
+    createdAt: '16/09/2026',
+    hasPhoto: true
+  },
+  {
+    id: 'OCC-ISO-002',
+    projectId: 'PRJ-001',
+    title: 'Fissura Superficial após Desforma de Viga V-12',
+    category: 'Não Conformidade',
+    severity: 'MEDIA',
+    description: 'Fissuração por retração plástica observada na desforma. Necessário laudo de escoramento.',
+    status: 'EM_CORRECAO',
+    assignedTo: 'Engenheiro de Qualidade',
+    reportedBy: 'Lucas Arquiteto',
+    createdAt: '17/09/2026',
+    hasPhoto: true
+  }
+];
 
 /* ========================================================================= */
 /* REGISTERED ACCOUNTS FOR LOGIN (14 ROLES)                                  */
@@ -184,13 +315,76 @@ export const INITIAL_REGISTERED_ACCOUNTS: RegisteredAccount[] = [
   { id: 'USR-014', companyId: 'CMP-001', name: 'Auditor Compliance', email: 'auditor.compliance@obra360.com', role: 'AUDITOR', createdAt: '14/01/2026', createdBy: 'admin.ti@obra360.com', status: 'ATIVO' }
 ];
 
-export const INITIAL_BUILDING_ELEMENTS: BuildingElement[] = [];
+export const INITIAL_BUILDING_ELEMENTS: BuildingElement[] = [
+  {
+    id: 'ELEM-001',
+    projectId: 'PRJ-001',
+    name: 'Bloco de Fundação & Radier Central (Fck 35MPa)',
+    category: 'Fundação',
+    status: 'CONCLUIDO',
+    progressPercent: 100,
+    assignedWeek: 1,
+    materialUsed: 'Concreto Armado Fck 35MPa & Aço CA-50 12.5mm',
+    lastUpdatedBy: 'Carlos Engenheiro',
+    lastUpdatedAt: 'Ontem 17:30',
+    position: [0, 0, 0]
+  },
+  {
+    id: 'ELEM-002',
+    projectId: 'PRJ-001',
+    name: 'Pilares Estruturais P1 a P12 - Térreo',
+    category: 'Estrutura',
+    status: 'CONCLUIDO',
+    progressPercent: 100,
+    assignedWeek: 2,
+    materialUsed: 'Concreto Estrutural & Formas Metálicas',
+    lastUpdatedBy: 'Carlos Engenheiro',
+    lastUpdatedAt: 'Hoje 09:15',
+    position: [-4.8, 2.8, -3.2]
+  },
+  {
+    id: 'ELEM-003',
+    projectId: 'PRJ-001',
+    name: 'Alvenaria Estrutural Bloco Cerâmico 14x19x29cm',
+    category: 'Alvenaria',
+    status: 'EM_EXECUCAO',
+    progressPercent: 85,
+    assignedWeek: 3,
+    materialUsed: 'Blocos Cerâmicos Baianos & Argamassa Polimérica',
+    lastUpdatedBy: 'Zé Mestre de Obras',
+    lastUpdatedAt: 'Hoje 11:00',
+    position: [4.9, 2.8, 0]
+  },
+  {
+    id: 'ELEM-004',
+    projectId: 'PRJ-001',
+    name: 'Laje Nervurada Pré-Moldada H16 (1º Pavimento)',
+    category: 'Estrutura',
+    status: 'EM_EXECUCAO',
+    progressPercent: 60,
+    assignedWeek: 4,
+    materialUsed: 'Vigotas EPS H16 & Malha Pop 15x15cm',
+    lastUpdatedBy: 'Carlos Engenheiro',
+    lastUpdatedAt: 'Hoje 14:20',
+    position: [0, 4.4, 0]
+  }
+];
 
-export const INITIAL_STOCK: StockItem[] = [];
+export const INITIAL_STOCK: StockItem[] = [
+  { id: 'STK-001', sku: 'SKU-CIM-50', name: 'Cimento CP II-Z-32 (Saco 50kg)', category: 'Insumos Básicos', quantity: 380, minStock: 100, unit: 'Sacos', location: 'Galpão A - Palete 4' },
+  { id: 'STK-002', sku: 'SKU-ACO-12', name: 'Aço CA-50 Vergalhão 12.5mm (Barra 12m)', category: 'Aço & Armação', quantity: 150, minStock: 50, unit: 'Barra', location: 'Pátio de Armação B' },
+  { id: 'STK-003', sku: 'SKU-TIJ-14', name: 'Tijolo Cerâmico Baiano 14x19x29cm', category: 'Alvenaria', quantity: 4500, minStock: 1000, unit: 'Unidades', location: 'Pátio 1 - Alvenaria' }
+];
 
-export const INITIAL_STOCK_MOVEMENTS: StockMovement[] = [];
+export const INITIAL_STOCK_MOVEMENTS: StockMovement[] = [
+  { id: 'MOV-001', type: 'ENTRADA', productName: 'Cimento CP II-Z-32 (Saco 50kg)', quantity: 200, unit: 'Sacos', nfeNumber: 'NFe-123456', destination: 'Almoxarifado Principal', responsible: 'Roberto Almoxarife', date: 'Hoje 08:30' },
+  { id: 'MOV-002', type: 'SAIDA', productName: 'Aço CA-50 Vergalhão 12.5mm (Barra 12m)', quantity: 30, unit: 'Barra', destination: 'Torre A - 1º Pavimento', responsible: 'Zé Mestre de Obras', date: 'Hoje 10:15' }
+];
 
-export const INITIAL_AUDIT_LOGS: AuditLog[] = [];
+export const INITIAL_AUDIT_LOGS: AuditLog[] = [
+  { id: 'LOG-001', timestamp: '17/09/2026 10:30:15', user: 'carlos.engenheiro@obra360.com', role: 'Engenheiro Residente', ip: '192.168.1.105', action: 'UPDATE_STAGE_PROGRESS', entity: 'Stage', entityId: 'ELEM-004', oldValue: { progressPercent: 50 }, newValue: { progressPercent: 60 } },
+  { id: 'LOG-002', timestamp: '17/09/2026 11:15:00', user: 'roberto.almoxarife@obra360.com', role: 'Almoxarife Chefe', ip: '192.168.1.110', action: 'STOCK_INPUT_NFE', entity: 'StockItem', entityId: 'STK-001', oldValue: { quantity: 180 }, newValue: { quantity: 380 } }
+];
 
 export const INITIAL_ECOSYSTEM_STAGES: EcosystemStage[] = [
   { number: 1, title: 'Cadastro de Oportunidade & Terreno (VGV)', pillar: 'Incorporação & Projetos', description: 'Estudo de viabilidade técnica, aquisição de terreno e definição do Valor Geral de Vendas (VGV).', responsibleActor: 'Incorporador', status: 'CONCLUIDO', progressPercent: 100 },
@@ -208,11 +402,24 @@ export const INITIAL_ECOSYSTEM_STAGES: EcosystemStage[] = [
   { number: 13, title: 'Entrega de Chaves & Garantia Pós-Obra (NBR 15575)', pillar: 'Vendas & Pós-Obra B2C', description: 'Termo de entrega das chaves, manual digital e chamados de manutenção SLA 24h.', responsibleActor: 'Cliente / Incorporador', status: 'PLANEJADO', progressPercent: 30 }
 ];
 
-export const INITIAL_B2B_RFQS: B2bMaterialRFQ[] = [];
+export const INITIAL_B2B_RFQS: B2bMaterialRFQ[] = [
+  {
+    id: 'RFQ-001',
+    materialName: 'Cimento CP II-Z-32 (Saco 50kg)',
+    quantity: 500,
+    unit: 'Sacos 50kg',
+    targetPrice: 33.00,
+    supplierOffers: [
+      { supplierName: 'Votoran Cimentos', unitPrice: 32.50, deliveryDays: 2, status: 'ACEITO' },
+      { supplierName: 'Cauê Cimentos B2B', unitPrice: 34.00, deliveryDays: 1, status: 'RECUSADO' }
+    ],
+    status: 'EM_COTACAO',
+    createdAt: '15/09/2026'
+  }
+];
 
 export const INITIAL_EQUIPMENT_FLEET: EquipmentRentalItem[] = [];
 
 export const INITIAL_REAL_ESTATE_UNITS: RealEstateUnit[] = [];
 
 export const INITIAL_WARRANTY_TICKETS: WarrantyPostSalesTicket[] = [];
-

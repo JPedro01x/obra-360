@@ -140,13 +140,23 @@ export function App() {
         ]);
 
         if (isMounted) {
-          setCompanies(fetchedCompanies);
-          setActiveCompany(fetchedCompanies[0]);
-          setProjects(fetchedProjects);
-          setActiveProject(fetchedProjects[0]);
-          setElements(fetchedElements);
-          setStockItems(fetchedStock);
-          setAuditLogs(fetchedAudit);
+          if (Array.isArray(fetchedCompanies) && fetchedCompanies.length > 0) {
+            setCompanies(fetchedCompanies);
+            setActiveCompany(fetchedCompanies[0]);
+          }
+          if (Array.isArray(fetchedProjects) && fetchedProjects.length > 0) {
+            setProjects(fetchedProjects);
+            setActiveProject(fetchedProjects[0]);
+          }
+          if (Array.isArray(fetchedElements) && fetchedElements.length > 0) {
+            setElements(fetchedElements);
+          }
+          if (Array.isArray(fetchedStock) && fetchedStock.length > 0) {
+            setStockItems(fetchedStock);
+          }
+          if (Array.isArray(fetchedAudit) && fetchedAudit.length > 0) {
+            setAuditLogs(fetchedAudit);
+          }
           setIsLoadingAsyncData(false);
         }
       } catch (err) {
