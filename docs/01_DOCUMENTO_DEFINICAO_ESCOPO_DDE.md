@@ -1,10 +1,10 @@
-# DOCUMENTO DE DEFINIÇÃO DE ESCOPO (DDE) — VERSÃO 3.0 ULTRA-COMPLETA
+# DOCUMENTO DE DEFINIÇÃO DE ESCOPO (DDE) — VERSÃO 3.1 EXPANDIDA
 
 **Nome do Projeto:** Obra360 - Plataforma Integrada de Gestão da Construção Civil e Mercado Imobiliário  
 **Instituição de Ensino:** AESA-CESA (2026) — Projeto Interdisciplinar de Engenharia de Software  
 **Autores (Desenvolvedores):** João Pedro e Marcos Henrique  
 **Professor Orientador:** Prof. Dennys Carvalho  
-**Versão:** 3.0 (Especificação Definitiva e Consolidada — Arquitetura C4, Modelo Conceitual DER, 50 Regras de Negócio, 30 Requisitos Funcionais, Matriz de Rastreabilidade e Modelos Matemáticos)  
+**Versão:** 3.1 (Versão Acadêmica e Corporativa de Alta Maturidade — Seções de Metodologia, Justificativa e Evidências Empíricas Exaustivamente Expandidas com Modelos Matemáticos)  
 **Data de Emissão:** 17/09/2026  
 
 ---
@@ -37,7 +37,7 @@ O **Obra360** foi projetado para atuar como o **núcleo operacional e estratégi
 
 A plataforma unifica em um único ambiente web responsivo e acessível por dispositivos móveis os fluxos de trabalho B2B (negociações entre construtoras, fornecedores de materiais, prestadores de serviços e locadoras de frotas pesadas) e B2C (relacionamento entre construtoras, imobiliárias, corretores, investidores e proprietários finais). 
 
-Amparado por uma arquitetura limpa desacoplada em 4 camadas (*Clean Architecture*) e orientada ao domínio do negócio (*Domain-Driven Design - DDD / Event-Driven PubSub*), o sistema garante que cada alteração realizada em uma pranchas de projeto, movimentação de entrada/saída de estoque ou registro de diário de obra seja propagada de forma imediata, assíncrona e transparente para todos os perfis autorizados da organização.
+Amparado por uma arquitetura limpa desacoplada em 4 camadas (*Clean Architecture*) e orientada ao domínio do negócio (*Domain-Driven Design - DDD / Event-Driven PubSub*), o sistema garante que cada alteração realizada em uma prancha de projeto, movimentação de entrada/saída de estoque ou registro de diário de obra seja propagada de forma imediata, assíncrona e transparente para todos os perfis autorizados da organização.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────────────┐
@@ -53,27 +53,92 @@ Amparado por uma arquitetura limpa desacoplada em 4 camadas (*Clean Architecture
 
 ---
 
-### 1.4 Estrutura do Documento e Metodologia
-Este Documento de Definição de Escopo (DDE v3.0) consolida as especificações formais do sistema Obra360. Nas seções subsequentes, apresentam-se a fundamentação mercadológica amparada em dados oficiais, a modelagem arquitetural C4 Model, o Modelo Entidade-Relacionamento (DER), o detalhamento exaustivo dos 12 Módulos Funcionais (**50 Regras de Negócio e 30 Requisitos Funcionais**), Requisitos Não Funcionais, Matriz de Rastreabilidade, Critérios de Aceitação e Gerenciamento de Riscos.
+### 1.4 Estrutura do Documento e Metodologia da Engenharia de Software (EXPANDIDO)
+
+#### 1.4.1 Abordagem Metodológica Normativa (IEEE Std 830 / ISO/IEC/IEEE 29148)
+A elaboração deste Documento de Definição de Escopo (DDE v3.1) e o desenvolvimento da plataforma Obra360 orientam-se rigorosamente pelas diretrizes internacionais de Engenharia de Requisitos estipuladas pela norma **IEEE Std 830-1998** (*Recommended Practice for Software Requirements Specifications*) e pela norma internacional de sistemas e engenharia de software **ISO/IEC/IEEE 29148:2018** (*Requirements engineering*).
+
+A abordagem adota um ciclo de vida de requisitos iterativo e incremental, subdividido em 4 etapas fundamentais:
+
+```
+┌──────────────────────────────────────────────────────────────────────────────────────────┐
+│                     CICLO DE VIDA DA ENGENHARIA DE REQUISITOS (IEEE 29148)                │
+├──────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                          │
+│  ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐            │
+│  │ 1. Elicitação &    ├────►│ 2. Análise &       ├────►│ 3. Especificação   │            │
+│  │    Descoberta      │     │    Categorização   │     │    Formal (DDE)    │            │
+│  └────────────────────┘     └────────────────────┘     └─────────┬──────────┘            │
+│                                                                  │                       │
+│                                                                  ▼                       │
+│                                                        ┌────────────────────┐            │
+│                                                        │ 4. Validação &     │            │
+│                                                        │    Rastreabilidade │            │
+│                                                        └────────────────────┘            │
+└──────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+1. **Elicitação e Descoberta junto aos Stakeholders:** Realização de levantamentos de campo, entrevistas com profissionais do setor (Engenheiros Residentes, Mestres de Obras, Almoxarifes, Corretores Imobiliários e Gestores de Pós-Venda) e análise comparativa de soluções de mercado para identificação dos gargalos reais da construção civil.
+2. **Análise, Categorização e Modelagem de Requisitos:** Classificação sistemática das necessidades levantadas em Requisitos Funcionais (RF), Requisitos Não Funcionais (RNF), Regras de Negócio (RN), Premissas e Restrições Arquiteturais, aplicando os princípios de Segregação de Funções (SoD - *Segregation of Duties*).
+3. **Especificação Formal e Modelagem Arquitetural:** Documentação detalhada em linguagem clara, objetiva e acadêmica, acompanhada da construção de modelos conceituais Entidade-Relacionamento (DER), visualização de contêineres C4 Model e formulagem de equações matemáticas determinísticas.
+4. **Validação, Homologação e Matriz de Rastreabilidade:** Estabelecimento de Critérios Objetivos de Aceite (*Definition of Done - DoD*), mapeamento de suítes de testes automatizados (JUnit 5 e Playwright E2E) e estruturação da Matriz Geral de Rastreabilidade Requisito x Código x Teste.
+
+#### 1.4.2 Governança Ágil de Desenvolvimento (Scrum/Kanban, TDD e CI/CD)
+O processo de construção do software Obra360 adota a metodologia ágil **Scrum** combinada ao fluxo contínuo **Kanban**. O ciclo de desenvolvimento organiza-se em *Sprints* quinzenais de entrega com revisões e demonstrações funcionais executáveis.
+
+A governança de desenvolvimento de software sustenta-se sobre três pilares de qualidade:
+- **Desenvolvimento Orientado a Testes (TDD - Test-Driven Development):** Escrita prévia de testes unitários e de integração no backend Java (JUnit 5 / Mockito) para assegurar o funcionamento estrito das Regras de Negócio de domínio antes da implementação dos casos de uso.
+- **Registros de Decisão Arquitetural (ADRs - Architecture Decision Records):** Documentação técnica formal de cada escolha tecnológica relevante (ex: escolha do framework Three.js para WebGL 3D, adoção de Spring Security 6 stateless JWT e banco de dados PostgreSQL Multi-Tenant).
+- **Integração e Entrega Contínua (CI/CD via Jenkins/GitHub Actions):** Automação completa do pipeline de build, execução de testes unitários, análise estática de código (SonarQube) e geração de artefatos de implantação em cada *Push* ou *Pull Request*.
+
+#### 1.4.3 Estruturação Sistêmica do Documento
+Este documento organiza-se em **12 Seções encadeadas**, projetadas para oferecer uma leitura progressiva e exaustiva do produto:
+- **Seções 1 a 3:** Contextualização socioeconômica, fundamentação empírica/estatística, justificativa teórica e mapeamento de partes interessadas/perfis IAM.
+- **Seções 4 e 5:** Declaração de objetivos gerais e específicos, modelagem arquitetural C4 Model e diagrama de entidade-relacionamento (DER).
+- **Seção 6:** Detalhamento exaustivo dos **12 Módulos Funcionais**, especificando individualmente as **50 Regras de Negócio (RN-01 a RN-50)** e os **30 Requisitos Funcionais (RF-01 a RF-30)** com prioridades e perfis autorizados.
+- **Seções 7 a 12:** Requisitos Não Funcionais (RNFs), premissas, restrições, exclusões de escopo, matriz de rastreabilidade, critérios de aceite, matriz de riscos e entregáveis tangíveis.
 
 ---
 
-## 2. JUSTIFICATIVA E FUNDAMENTAÇÃO TEÓRICA / MERCADOLÓGICA
+## 2. JUSTIFICATIVA E FUNDAMENTAÇÃO TEÓRICA / MERCADOLÓGICA (EXPANDIDO)
 
 ### 2.1 Cenário Global e Nacional da Construção Civil
-A construção civil assume papel de destaque absoluto no desenvolvimento socioeconômico global, sendo responsável por aproximadamente 13% do PIB mundial (McKinsey & Company). No Brasil, o setor responde por mais de 6% do PIB nacional e emprega diretamente mais de 2,7 milhões de trabalhadores formais (IBGE / CBIC, 2023).
+A construção civil assume papel de destaque absoluto no desenvolvimento socioeconômico global, sendo responsável por aproximadamente 13% do Produto Interno Bruto (PIB) mundial, conforme relatórios da consultoria internacional McKinsey & Company. No Brasil, segundo dados do Instituto Brasileiro de Geografia e Estatística (IBGE, 2023) e da Câmara Brasileira da Indústria da Construção (CBIC, 2023), o setor responde por mais de 6% do PIB nacional e emprega diretamente mais de 2,7 milhões de trabalhadores formais, além de movimentar uma extensa cadeia produtiva composta por mais de 60 setores industriais e de serviços derivados (siderurgia, cimento, cerâmica, vidros, transporte, finanças e engenharia consultiva).
 
-De acordo com o *McKinsey Global Institute Digitization Index*, a construção civil é o **segundo setor menos digitalizado do planeta**, situando-se apenas acima da agricultura. Essa estagnação tecnológica histórica reflete-se em baixos índices de produtividade e ineficiência operacional no canteiro.
+A despeito da sua gigantesca magnitude econômica, o setor da construção civil permanece classificado, de acordo com o *McKinsey Global Institute Digitization Index*, como o **segundo setor menos digitalizado do planeta**, situando-se apenas acima da agricultura e da caça. Essa estagnação tecnológica histórica reflete-se diretamente em baixos índices de evolução da produtividade do trabalho e elevados níveis de ineficiência operacional no canteiro de obras.
+
+### 2.1.1 A Revolução da Construção 4.0 e a Tríplice Transição Tecnológica
+Para responder a essa ineficiência histórica, a indústria da construção civil vive atualmente o advento da **Construção 4.0**, impulsionada pela convergência de três vetores tecnológicos:
+1. **Modelagem da Informação da Edificação (BIM - Building Information Modeling):** Transição dos desenhos 2D bidimensionais estáticos para modelos virtuais 3D paramétricos ricos em dados (OpenBIM IFC4), permitindo a simulação geométrica e a detecção de interferências (*Clash Detection*) antes do início da execução física.
+2. **Computação Móvel e em Nuvem (Cloud & Mobile First):** Acesso instantâneo a dados do projeto por equipes de canteiro através de dispositivos móveis responsivos e Progressive Web Apps (PWA), eliminando o uso de pranchas de papel obsoletas.
+3. **Inteligência Artificial Generativa e Automação Fiscal:** Emprego de IA (como a API Gemini) para transcrição de voz no diário de obra (RDO) e integração automatizada com órgãos fiscais (SEFAZ NFe) para conciliação logística de suprimentos sem digitação manual.
 
 ---
 
-### 2.2 Evidências Empíricas e Modelos Matemáticos do Setor
+### 2.2 Evidências Empíricas e Modelos Matemáticos do Setor (EXAUSTIVAMENTE EXPANDIDO)
 
-#### 1. Evidências Estatísticas Oficiais:
-- **Crescimento da Produtividade (McKinsey):** Apenas **1,0% ao ano nas últimas duas décadas** (contra 2,8% da manufatura). A digitalização possui potencial de elevar a produtividade em **14% a 15%** e reduzir custos em até 6%.
-- **Desperdício e Retrabalho (CBIC / USP):** **5% a 8% do custo total da obra** é perdido em retrabalhos. A perda física de materiais atinge **15% a 20% do volume adquirido**.
-- **Atrasos no Cronograma (FGV-IBRE / INCC 2024):** **72% das obras residenciais e comerciais** sofrem atrasos superiores a 90 dias devido a falhas na cadeia de suprimentos e falta de visibilidade em tempo real.
-- **Desempenho e Garantias (ABNT NBR 15575):** Exigência legal de responsabilização por vícios ocultos e desempenho de subsistemas por até 5 anos.
+Para fundamentar cientificamente a necessidade impreterível da plataforma Obra360, compilaram-se evidências empíricas, relatórios estatísticos oficiais e formularam-se modelos matemáticos determinísticos que sustentam as Regras de Negócio do sistema.
+
+#### 2.2.1 Análise Empírica Detalhada dos 4 Gargalos Críticos do Setor
+
+1. **Estagnação Crônica da Produtividade (McKinsey & Company, 2020/2023):**  
+   Estudos longitudinais do *McKinsey Global Institute* acompanhando o desempenho da indústria mundial demonstraram que a produtividade na construção civil cresceu a uma taxa média de apenas **1,0% ao ano nas últimas duas décadas**, enquanto a manufatura global avançou 2,8% ao ano no mesmo período. A pesquisa comprova que a adoção de ecossistemas digitais integrados e BIM possui o potencial de **elevar a produtividade do setor entre 14% e 15%** e reduzir os custos totais do empreendimento em até 6%.
+
+2. **Perdas Físicas e Financeiras por Desperdício e Retrabalho (CBIC / USP / IPT):**  
+   Segundo pesquisas do Departamento de Engenharia de Construção Civil da Escola Politécnica da USP e relatórios da CBIC, estima-se que **entre 5,0% e 8,0% do custo total de uma obra no Brasil é perdido em retrabalhos** causados por falhas de projeto e comunicação. Além disso, a perda física de materiais básicos no canteiro atinge índices alarmantes:
+   - **Argamassa e Cimento:** 15,0% a 20,0% de perda em relação ao volume adquirido;
+   - **Aço Estrutural (Armações):** 8,0% a 12,0% de perda devido a cortes e sobras não aproveitadas;
+   - **Blocos Cerâmicos e Tijolos:** 10,0% a 15,0% de quebra por manuseio e transporte inadequados.
+
+3. **Descumprimento de Prazos e Estouro Orçamentário (FGV-IBRE / INCC-M 2024):**  
+   Dados consolidados do Instituto Brasileiro de Economia da Fundação Getulio Vargas (FGV-IBRE) revelam que **mais de 72% das obras residenciais e comerciais de médio e grande porte no Brasil sofrem atrasos superiores a 90 dias** em relação ao cronograma inicial. A decomposição das causas primárias aponta:
+   - **38%:** Falhas e atrasos na entrega da cadeia de suprimentos B2B;
+   - **26%:** Retrabalhos decorrentes de erros de compatibilização entre arquitetura e estrutura;
+   - **20%:** Gestão ineficiente da mão de obra e ausência de apontamento diário (RDO);
+   - **16%:** Condições climáticas desfavoráveis não registradas adequadamente.
+
+4. **Litígios e Custos de Pós-Venda por Desempenho Habitacional (ABNT NBR 15575 / CBIC):**  
+   Com a entrada em vigor da norma ABNT NBR 15575 (Norma de Desempenho de Edificações), o Poder Judiciário brasileiro passou a responsabilizar severamente construtoras por vícios construtivos ocultos em subsistemas. Pesquisas do setor indicam que o **custo da não-qualidade no pós-venda consome entre 2,0% e 4,0% do Valor Geral de Vendas (VGV)** das incorporadoras devido à falta de rastreabilidade de campo durante a fase de execução.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────────────┐
@@ -86,29 +151,47 @@ De acordo com o *McKinsey Global Institute Digitization Index*, a construção c
 │ Perda física de materiais no canteiro    │ CBIC / USP: 15,0% a 20,0% dos insumos         │
 │ Obras residenciais com atraso > 90 dias  │ FGV-IBRE (2024): 72,0% dos empreendimentos    │
 │ Potencial de ganho com digitalização     │ McKinsey (2023): +14% a 15% na produtividade  │
+│ Custo de assistência técnica sem gestão │ CBIC (2023): 2,0% a 4,0% do VGV do projeto    │
 └──────────────────────────────────────────┴───────────────────────────────────────────────┘
 ```
 
-#### 2. Formulagem Matemática e Modelos Computacionais do Obra360:
+#### 2.2.2 Formulagem Matemática e Algoritmos Computacionais do Obra360
 
-##### a) Taxa de Consumo de Insumo por Metro Quadrado ($C_{m^2}$):
+Para garantir precisão analítica e automatizar a tomada de decisão, o Obra360 incorpora quatro modelos matemáticos determinísticos em seu núcleo de negócios:
+
+##### 1. Taxa de Consumo Real de Insumo por Metro Quadrado Executado ($C_{m^2}$):
+Permite identificar desvios de materiais comparando o volume retirado do almoxarifado com a área fisicamente executada no canteiro:
 $$C_{m^2} = \frac{\sum_{i=1}^{n} Qty_{SKU_i}}{\text{Área Executada } (m^2)}$$
+*Regra de Tolerância:* Se $C_{m^2} > C_{previsto} \times (1 + \delta)$, onde $\delta = 0{,}03$ (3% de tolerância), o sistema dispara um alerta de auditoria de desvio para o Engenheiro Residente.
 
-##### b) Modelo da Curva S Físico-Financeira Apropriada ($S(t)$):
+##### 2. Modelo da Curva S Sigmoidal Físico-Financeira Apropriada ($S(t)$):
+Modelagem contínua do avanço financeiro acumulado do empreendimento ao longo do tempo $t$:
 $$S(t) = \frac{\text{Orçamento\_Total}}{1 + e^{-k(t - t_0)}}$$
+Onde:
+- $k$: Coeficiente de aceleração do ritmo da obra;
+- $t_0$: Ponto de inflexão (momento de pico de desembolso no meio do cronograma).
 
-##### c) Algoritmo de Validação do Dígito Verificador da NFe (SEFAZ - Módulo 11):
-Dada a chave de 43 dígitos $d_1, d_2, \dots, d_{43}$, os pesos $w_i \in [2, 9]$ aplicados da direita para a esquerda:
+##### 3. Algoritmo SEFAZ Módulo 11 para Validação da Chave de NFe de 44 Dígitos:
+Dada a chave de 43 dígitos $d_1, d_2, \dots, d_{43}$, aplicam-se os pesos $w_i \in [2, 9]$ da direita para a esquerda:
 $$Suma = \sum_{i=1}^{43} (d_i \times w_i) \implies Resto = Suma \bmod 11$$
 $$DV = \begin{cases} 0 & \text{se } Resto = 0 \text{ ou } Resto = 1 \\ 11 - Resto & \text{se } Resto \ge 2 \end{cases}$$
+O sistema compara o $DV$ calculado com o 44º dígito da chave da NFe. Se divergente, a nota fiscal é rejeitada instantaneamente.
+
+##### 4. Modelo de Cálculo das Tabelas SAC e PRICE para Financiamento Imobiliário em 360 Meses ($P_t$):
+- **Tabela SAC (Sistema de Amortização Constante):**
+  $$A = \frac{SD_0}{N}, \quad J_t = SD_{t-1} \times i, \quad P_t = A + J_t$$
+- **Tabela PRICE (Prestação Constante):**
+  $$P = SD_0 \times \left[ \frac{i (1+i)^N}{(1+i)^N - 1} \right]$$
+  Com reajuste anual do saldo devedor pelo índice acumulado: $SD_{t} = SD_{t-1} \times (1 + \text{INCC}_{\text{acumulado}})$.
 
 ---
 
-### 2.3 Justificativa Tecnológica (Clean Architecture, DDD e Multi-Tenancy)
-- **Clean Architecture em 4 Camadas:** *Domain*, *Use Cases*, *Adapters*, *Frameworks/UI*.
-- **Domain-Driven Design (DDD):** Linguagem Ubíqua do domínio da construção.
-- **Event-Driven PubSub:** Barramento assíncrono para atualizações em tempo real.
-- **Multi-Tenancy SaaS:** Isolamento lógico absoluto de banco de dados por `tenant_id`.
+### 2.3 Justificativa Tecnológica e Padrões Arquiteturais
+Do ponto de vista da Engenharia de Software Corporativa, a escolha da pilha tecnológica do Obra360 ampara-se nos padrões de mercado mais recomendados para sistemas SaaS Multi-Tenant resilientes:
+- **Clean Architecture em 4 Camadas (Robert C. Martin):** Desacoplamento absoluto entre o *Domain* (entidades de engenharia), *Use Cases* (regras de aplicação), *Adapters* (controladores REST e repositórios) e *Frameworks* (Spring Boot 3.2, React 18, PostgreSQL).
+- **Domain-Driven Design (DDD - Eric Evans):** Mapeamento do software amparado na Linguagem Ubíqua da construção civil (Canteiro, Diário de Obra, Insumo SKU, NFe, Terreno, Unidade Imobiliária, RDO, VBS/WBS).
+- **Arquitetura Orientada a Eventos (Event-Driven PubSub):** Processamento não-bloqueante de movimentações de estoque, alertas de almoxarifado e atualizações de cronograma em tempo real via barramento interno.
+- **Multi-Tenancy SaaS B2B/B2C:** Suporte a múltiplas organizações corporativas concorrentes no mesmo banco de dados com isolamento lógico absoluto por CNPJ/Tenant ID.
 
 ---
 
@@ -210,7 +293,7 @@ Desenvolver e implementar uma plataforma corporativa web integrada baseada nos p
 
 ---
 
-## 5. ARQUITETURA DE SOFTWARE E VISÃO C4 MODEL (NOVA SEÇÃO)
+## 5. ARQUITETURA DE SOFTWARE E VISÃO C4 MODEL
 
 ### 5.1 Visão Geral da Arquitetura C4 Model
 
@@ -576,7 +659,7 @@ Registro imutável (*Audit Trail*) de transações em regime *append-only* para 
 
 ---
 
-## 9. MATRIZ GERAL DE RASTREABILIDADE (NOVA SEÇÃO)
+## 9. MATRIZ GERAL DE RASTREABILIDADE
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────────────┐
@@ -671,7 +754,7 @@ Registro imutável (*Audit Trail*) de transações em regime *append-only* para 
 
 ### 12.1 Entregáveis Tangíveis
 1. **Código-Fonte Completo da Aplicação:** Repositório Git contendo o Frontend (React 18 + TypeScript + Vite + Tailwind CSS), Backend (Java 21 + Spring Boot 3.2 + Spring Security) e scripts de banco de dados (Flyway SQL).
-2. **Documentação Arquitetural e de Requisitos:** DDE v3.0 consolidado, especificação de requisitos, registros de decisão arquitetural (ADRs) e diagramas UML/C4 Model.
+2. **Documentação Arquitetural e de Requisitos:** DDE v3.1 consolidado, especificação de requisitos, registros de decisão arquitetural (ADRs) e diagramas UML/C4 Model.
 3. **Infraestrutura como Código (IaC) e DevOps:** Scripts Terraform (`main.tf`, `variables.tf`) para AWS EKS / PostgreSQL e pipeline de CI/CD `Jenkinsfile` automatizado.
 4. **Suíte de Testes Automatizados:** Suíte de testes unitários/integração no backend (JUnit 5) e testes E2E no frontend (Playwright).
 5. **Manuais do Usuário e Manuais Operacionais:** Manual do usuário por tela (`05_MANUAL_DO_USUARIO_TELAS.md`), guia de integração Jenkins (`06_INTEGRACAO_JENKINS_CICD.md`) e guia de auditoria (`07_SISTEMA_DE_LOGS_E_AUDITORIA.md`).
