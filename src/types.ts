@@ -153,6 +153,10 @@ export interface BuildingElement {
   lastUpdatedBy: string;
   lastUpdatedAt: string;
   position?: [number, number, number];
+  rotation?: [number, number, number];
+  scale?: [number, number, number];
+  color?: string;
+  shapeType?: 'cubo' | 'esfera' | 'cone' | 'cilindro' | 'coluna' | 'parede' | 'laje' | 'telhado' | 'sapata';
 }
 
 export interface StockItem {

@@ -15,6 +15,13 @@ interface BimViewer3DProps {
   theme: ThemeMode;
   onUpdateElementStatus: (id: string, status: 'PLANEJADO' | 'EM_EXECUCAO' | 'CONCLUIDO', progress: number) => void;
   onUpdateElementPosition: (id: string, pos: [number, number, number]) => void;
+  onUpdateElementTransform?: (
+    id: string, 
+    pos?: [number, number, number], 
+    rot?: [number, number, number], 
+    scale?: [number, number, number], 
+    color?: string
+  ) => void;
   onAddElement: (elem: Omit<BuildingElement, 'id' | 'lastUpdatedAt'>) => void;
   onDeleteElement: (id: string) => void;
   onImportFloorPlan: (presetName: string) => void;
@@ -28,6 +35,7 @@ export const BimViewer3D: React.FC<BimViewer3DProps> = ({
   theme,
   onUpdateElementStatus,
   onUpdateElementPosition,
+  onUpdateElementTransform,
   onAddElement,
   onDeleteElement,
   onImportFloorPlan,
@@ -83,22 +91,65 @@ export const BimViewer3D: React.FC<BimViewer3DProps> = ({
     return () => clearInterval(timer);
   }, [isPlayingTimeline]);
 
-  // Spatial coordinates state
+  // Modal state for custom 3D element creation
+  const [showAddShapeModal, setShowAddShapeModal] = useState<boolean>(false);
+  const [newShapeType, setNewShapeType] = useState<'cubo' | 'esfera' | 'cone' | 'cilindro' | 'coluna' | 'parede' | 'laje' | 'telhado' | 'sapata'>('cubo');
+  const [newShapeName, setNewShapeName] = useState<string>('Cubo 3D Sandbox');
+  const [newShapeCategory, setNewShapeCategory] = useState<'Fundação' | 'Estrutura' | 'Alvenaria' | 'Instalações' | 'Acabamento'>('Acabamento');
+  const [newShapeColor, setNewShapeColor] = useState<string>('#3b82f6');
+  const [newShapeWeek, setNewShapeWeek] = useState<number>(4);
+  const [newShapePosX, setNewShapePosX] = useState<number>(0);
+  const [newShapePosY, setNewShapePosY] = useState<number>(2.5);
+  const [newShapePosZ, setNewShapePosZ] = useState<number>(0);
+
+  // Spatial coordinates & transform state (Inspector Overlay)
   const [posX, setPosX] = useState<number>(0);
   const [posY, setPosY] = useState<number>(0);
   const [posZ, setPosZ] = useState<number>(0);
 
+  const [rotX, setRotX] = useState<number>(0);
+  const [rotY, setRotY] = useState<number>(0);
+  const [rotZ, setRotZ] = useState<number>(0);
+
+  const [scaleX, setScaleX] = useState<number>(1);
+  const [scaleY, setScaleY] = useState<number>(1);
+  const [scaleZ, setScaleZ] = useState<number>(1);
+
+  const [elemColor, setElemColor] = useState<string>('#3b82f6');
+
   useEffect(() => {
-    if (selectedElement && selectedElement.position) {
-      setPosX(selectedElement.position[0]);
-      setPosY(selectedElement.position[1]);
-      setPosZ(selectedElement.position[2]);
-    } else {
-      setPosX(0);
-      setPosY(0);
-      setPosZ(0);
+    if (selectedElement) {
+      if (selectedElement.position) {
+        setPosX(selectedElement.position[0]);
+        setPosY(selectedElement.position[1]);
+        setPosZ(selectedElement.position[2]);
+      } else {
+        setPosX(0); setPosY(0); setPosZ(0);
+      }
+
+      if (selectedElement.rotation) {
+        setRotX(Math.round((selectedElement.rotation[0] * 180) / Math.PI));
+        setRotY(Math.round((selectedElement.rotation[1] * 180) / Math.PI));
+        setRotZ(Math.round((selectedElement.rotation[2] * 180) / Math.PI));
+      } else {
+        setRotX(0); setRotY(0); setRotZ(0);
+      }
+
+      if (selectedElement.scale) {
+        setScaleX(selectedElement.scale[0]);
+        setScaleY(selectedElement.scale[1]);
+        setScaleZ(selectedElement.scale[2]);
+      } else {
+        setScaleX(1); setScaleY(1); setScaleZ(1);
+      }
+
+      if (selectedElement.color) {
+        setElemColor(selectedElement.color);
+      } else {
+        setElemColor('#3b82f6');
+      }
     }
-  }, [selectedElementId]);
+  }, [selectedElementId, selectedElement]);
 
   // THREE.js Scene setup matching screenshot geometry precisely
   useEffect(() => {
@@ -287,36 +338,75 @@ export const BimViewer3D: React.FC<BimViewer3DProps> = ({
       meshesGroup.add(p2);
     }
 
-    // Dynamic Elements added by user (Obra-por-Obra Dynamic Customization)
+    // Dynamic Elements added by user (Obra-por-Obra Dynamic Customization Sandbox)
     projectElements.forEach((elem) => {
       if (elem.assignedWeek <= selectedWeek && elem.position) {
         let dynGeo: THREE.BufferGeometry;
-        let dynColor = 0xf97316;
+        let defaultColor = 0x3b82f6;
 
         const lowerName = elem.name.toLowerCase();
-        if (lowerName.includes('cubo') || elem.category === 'Acabamento') {
+        const shape = elem.shapeType || (
+          lowerName.includes('cubo') ? 'cubo' :
+          lowerName.includes('esfera') ? 'esfera' :
+          lowerName.includes('cone') ? 'cone' :
+          lowerName.includes('cilindro') ? 'cilindro' :
+          lowerName.includes('coluna') || lowerName.includes('pilar') ? 'coluna' :
+          lowerName.includes('laje') ? 'laje' :
+          lowerName.includes('telhado') ? 'telhado' :
+          lowerName.includes('sapata') || lowerName.includes('fundação') ? 'sapata' : 'parede'
+        );
+
+        if (shape === 'cubo') {
           dynGeo = new THREE.BoxGeometry(1.5, 1.5, 1.5);
-          dynColor = 0x3b82f6; // Blue for 3D Cubes
-        } else if (elem.category === 'Fundação' || lowerName.includes('fundação') || lowerName.includes('sapata')) {
-          dynGeo = new THREE.BoxGeometry(2.2, 0.7, 2.2);
-          dynColor = 0x475569; // Dark Slate for Footings
-        } else if (elem.category === 'Estrutura' || lowerName.includes('coluna') || lowerName.includes('pilar')) {
+          defaultColor = 0x3b82f6;
+        } else if (shape === 'esfera') {
+          dynGeo = new THREE.SphereGeometry(1.0, 32, 32);
+          defaultColor = 0xec4899;
+        } else if (shape === 'cone') {
+          dynGeo = new THREE.ConeGeometry(1.2, 2.5, 32);
+          defaultColor = 0xa855f7;
+        } else if (shape === 'cilindro') {
+          dynGeo = new THREE.CylinderGeometry(0.8, 0.8, 2.5, 32);
+          defaultColor = 0x10b981;
+        } else if (shape === 'coluna') {
           dynGeo = new THREE.BoxGeometry(0.6, 3.2, 0.6);
-          dynColor = 0x64748b; // Concrete Slate for Columns
-        } else if (lowerName.includes('laje') || elem.category === 'Instalações') {
+          defaultColor = 0x64748b;
+        } else if (shape === 'laje') {
           dynGeo = new THREE.BoxGeometry(4.0, 0.3, 4.0);
-          dynColor = 0x06b6d4; // Cyan for Slabs
+          defaultColor = 0x06b6d4;
+        } else if (shape === 'telhado') {
+          dynGeo = new THREE.ConeGeometry(3.5, 1.8, 4);
+          defaultColor = 0xb45309;
+        } else if (shape === 'sapata') {
+          dynGeo = new THREE.BoxGeometry(2.2, 0.7, 2.2);
+          defaultColor = 0x475569;
         } else {
           dynGeo = new THREE.BoxGeometry(2.5, 3.0, 0.3);
-          dynColor = 0xd97706; // Amber/Orange for Walls
+          defaultColor = 0xd97706;
         }
 
+        const meshColor = elem.color 
+          ? new THREE.Color(elem.color) 
+          : (elem.status === 'CONCLUIDO' ? new THREE.Color(0x10b981) : new THREE.Color(defaultColor));
+
         const dynMat = new THREE.MeshStandardMaterial({
-          color: elem.status === 'CONCLUIDO' ? 0x10b981 : elem.status === 'EM_EXECUCAO' ? dynColor : 0x71717a,
-          roughness: 0.6
+          color: meshColor,
+          roughness: 0.5,
+          metalness: 0.1
         });
         const dynMesh = new THREE.Mesh(dynGeo, dynMat);
         dynMesh.position.set(elem.position[0], elem.position[1], elem.position[2]);
+
+        if (elem.rotation) {
+          dynMesh.rotation.set(elem.rotation[0], elem.rotation[1], elem.rotation[2]);
+        } else if (shape === 'telhado') {
+          dynMesh.rotation.y = Math.PI / 4;
+        }
+
+        if (elem.scale) {
+          dynMesh.scale.set(elem.scale[0], elem.scale[1], elem.scale[2]);
+        }
+
         dynMesh.castShadow = true;
         dynMesh.receiveShadow = true;
         dynMesh.userData = { id: elem.id, name: elem.name };
@@ -560,6 +650,19 @@ export const BimViewer3D: React.FC<BimViewer3DProps> = ({
           {canEditModel ? (
             <div className="flex flex-wrap items-center gap-1.5">
               <button
+                onClick={() => {
+                  setNewShapeType('cubo');
+                  setNewShapeName('Cubo 3D Sandbox');
+                  setNewShapeColor('#3b82f6');
+                  setShowAddShapeModal(true);
+                }}
+                className="flex items-center gap-1.5 text-xs font-extrabold px-3 py-1.5 rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white shadow-md shadow-orange-600/30 transition"
+                title="Abrir Galeria de Formas Geométricas & Elementos 3D"
+              >
+                <Plus className="w-4 h-4" /> Criar Forma 3D / Elemento BIM
+              </button>
+
+              <button
                 onClick={() => onAddElement({
                   name: 'Cubo 3D Estrutural',
                   category: 'Acabamento',
@@ -568,14 +671,79 @@ export const BimViewer3D: React.FC<BimViewer3DProps> = ({
                   assignedWeek: 4,
                   materialUsed: 'Bloco Cubo Genérico BIM',
                   lastUpdatedBy: USER_ROLES[currentRole].title,
-                  position: [Math.random() * 4 - 2, 2.5, Math.random() * 4 - 2]
+                  position: [Math.random() * 4 - 2, 2.5, Math.random() * 4 - 2],
+                  shapeType: 'cubo',
+                  color: '#3b82f6'
                 })}
-                className={`flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 rounded-xl border transition ${
+                className={`flex items-center gap-1 text-xs font-bold px-2 py-1.5 rounded-xl border transition ${
                   isDark ? 'bg-blue-500/10 border-blue-500/30 text-blue-400 hover:bg-blue-500/20' : 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100'
                 }`}
-                title="Adicionar Cubo 3D na Maquete"
+                title="Adicionar Cubo 3D Rápido"
               >
-                <Plus className="w-3.5 h-3.5" /> Cubo 3D
+                + Cubo
+              </button>
+
+              <button
+                onClick={() => onAddElement({
+                  name: 'Esfera 3D Sandbox',
+                  category: 'Acabamento',
+                  status: 'EM_EXECUCAO',
+                  progressPercent: 50,
+                  assignedWeek: 4,
+                  materialUsed: 'Esfera Geométrica BIM',
+                  lastUpdatedBy: USER_ROLES[currentRole].title,
+                  position: [Math.random() * 4 - 2, 2.5, Math.random() * 4 - 2],
+                  shapeType: 'esfera',
+                  color: '#ec4899'
+                })}
+                className={`flex items-center gap-1 text-xs font-bold px-2 py-1.5 rounded-xl border transition ${
+                  isDark ? 'bg-pink-500/10 border-pink-500/30 text-pink-400 hover:bg-pink-500/20' : 'bg-pink-50 border-pink-200 text-pink-700 hover:bg-pink-100'
+                }`}
+                title="Adicionar Esfera 3D Rápida"
+              >
+                + Esfera
+              </button>
+
+              <button
+                onClick={() => onAddElement({
+                  name: 'Cone 3D Sandbox',
+                  category: 'Acabamento',
+                  status: 'EM_EXECUCAO',
+                  progressPercent: 50,
+                  assignedWeek: 4,
+                  materialUsed: 'Cone Geométrico BIM',
+                  lastUpdatedBy: USER_ROLES[currentRole].title,
+                  position: [Math.random() * 4 - 2, 2.5, Math.random() * 4 - 2],
+                  shapeType: 'cone',
+                  color: '#a855f7'
+                })}
+                className={`flex items-center gap-1 text-xs font-bold px-2 py-1.5 rounded-xl border transition ${
+                  isDark ? 'bg-purple-500/10 border-purple-500/30 text-purple-400 hover:bg-purple-500/20' : 'bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100'
+                }`}
+                title="Adicionar Cone 3D Rápido"
+              >
+                + Cone
+              </button>
+
+              <button
+                onClick={() => onAddElement({
+                  name: 'Cilindro 3D Sandbox',
+                  category: 'Estrutura',
+                  status: 'EM_EXECUCAO',
+                  progressPercent: 50,
+                  assignedWeek: 4,
+                  materialUsed: 'Cilindro Geométrico BIM',
+                  lastUpdatedBy: USER_ROLES[currentRole].title,
+                  position: [Math.random() * 4 - 2, 2.5, Math.random() * 4 - 2],
+                  shapeType: 'cilindro',
+                  color: '#10b981'
+                })}
+                className={`flex items-center gap-1 text-xs font-bold px-2 py-1.5 rounded-xl border transition ${
+                  isDark ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20' : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
+                }`}
+                title="Adicionar Cilindro 3D Rápido"
+              >
+                + Cilindro
               </button>
 
               <button
@@ -587,14 +755,16 @@ export const BimViewer3D: React.FC<BimViewer3DProps> = ({
                   assignedWeek: 3,
                   materialUsed: 'Concreto Armado Fck 30MPa',
                   lastUpdatedBy: USER_ROLES[currentRole].title,
-                  position: [Math.random() * 6 - 3, 2.8, Math.random() * 6 - 3]
+                  position: [Math.random() * 6 - 3, 2.8, Math.random() * 6 - 3],
+                  shapeType: 'coluna',
+                  color: '#64748b'
                 })}
-                className={`flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 rounded-xl border transition ${
+                className={`flex items-center gap-1 text-xs font-bold px-2 py-1.5 rounded-xl border transition ${
                   isDark ? 'bg-[#121214] border-[#27272a] hover:bg-[#27272a] text-orange-400' : 'bg-zinc-100 border-zinc-300 hover:bg-zinc-200 text-orange-600'
                 }`}
                 title="Adicionar Coluna / Pilar"
               >
-                <Plus className="w-3.5 h-3.5" /> Coluna
+                + Coluna
               </button>
 
               <button
@@ -606,14 +776,16 @@ export const BimViewer3D: React.FC<BimViewer3DProps> = ({
                   assignedWeek: 5,
                   materialUsed: 'Blocos Cerâmicos Baianos',
                   lastUpdatedBy: USER_ROLES[currentRole].title,
-                  position: [Math.random() * 6 - 3, 2.8, Math.random() * 6 - 3]
+                  position: [Math.random() * 6 - 3, 2.8, Math.random() * 6 - 3],
+                  shapeType: 'parede',
+                  color: '#d97706'
                 })}
-                className={`flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 rounded-xl border transition ${
+                className={`flex items-center gap-1 text-xs font-bold px-2 py-1.5 rounded-xl border transition ${
                   isDark ? 'bg-[#121214] border-[#27272a] hover:bg-[#27272a] text-orange-400' : 'bg-zinc-100 border-zinc-300 hover:bg-zinc-200 text-orange-600'
                 }`}
                 title="Adicionar Parede de Alvenaria"
               >
-                <Plus className="w-3.5 h-3.5" /> Parede
+                + Parede
               </button>
 
               <button
@@ -625,14 +797,16 @@ export const BimViewer3D: React.FC<BimViewer3DProps> = ({
                   assignedWeek: 6,
                   materialUsed: 'Vigotas EPS & Concreto H16',
                   lastUpdatedBy: USER_ROLES[currentRole].title,
-                  position: [0, 4.5, 0]
+                  position: [0, 4.5, 0],
+                  shapeType: 'laje',
+                  color: '#06b6d4'
                 })}
-                className={`flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 rounded-xl border transition ${
+                className={`flex items-center gap-1 text-xs font-bold px-2 py-1.5 rounded-xl border transition ${
                   isDark ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20' : 'bg-cyan-50 border-cyan-200 text-cyan-700 hover:bg-cyan-100'
                 }`}
                 title="Adicionar Laje de Concreto"
               >
-                <Plus className="w-3.5 h-3.5" /> Laje
+                + Laje
               </button>
 
               <button
@@ -640,7 +814,7 @@ export const BimViewer3D: React.FC<BimViewer3DProps> = ({
                   onSendToast(
                     'success',
                     '💾 Modelo 3D Salvo no Banco de Dados',
-                    'Todas as edições espaciais (Cubos, Colunas, Paredes e posições) foram salvas e sincronizadas!'
+                    'Todas as edições espaciais (Cubos, Esferas, Cones, Cilindros, Colunas, Paredes e Lajes) foram salvas e sincronizadas!'
                   );
                 }}
                 className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs px-3.5 py-1.5 rounded-xl shadow-md shadow-emerald-600/30 transition ml-1"
@@ -740,25 +914,35 @@ export const BimViewer3D: React.FC<BimViewer3DProps> = ({
                   </div>
                 </div>
 
-                {/* Spatial X, Y, Z Sliders */}
+                {/* 3D Sandbox Inspector Controls (Position, Rotation, Scale, Color) */}
                 {canEditModel && (
-                  <div className="space-y-2 pt-2 border-t border-zinc-700/30 text-xs">
+                  <div className="space-y-2.5 pt-2 border-t border-zinc-700/30 text-xs">
                     <span className="text-[10px] font-bold text-orange-500 uppercase flex items-center gap-1">
-                      <Sliders className="w-3 h-3" /> Coordenadas Especiais 3D:
+                      <Sliders className="w-3 h-3" /> Posição Espacial (X, Y, Z):
                     </span>
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] font-mono w-4 font-bold text-rose-500">X:</span>
                         <input
                           type="range"
-                          min="-6"
-                          max="6"
+                          min="-8"
+                          max="8"
                           step="0.5"
                           value={posX}
                           onChange={(e) => {
                             const val = parseFloat(e.target.value);
                             setPosX(val);
-                            onUpdateElementPosition(selectedElement.id, [val, posY, posZ]);
+                            if (onUpdateElementTransform) {
+                              onUpdateElementTransform(
+                                selectedElement.id, 
+                                [val, posY, posZ],
+                                [(rotX * Math.PI) / 180, (rotY * Math.PI) / 180, (rotZ * Math.PI) / 180],
+                                [scaleX, scaleY, scaleZ],
+                                elemColor
+                              );
+                            } else {
+                              onUpdateElementPosition(selectedElement.id, [val, posY, posZ]);
+                            }
                           }}
                           className="w-full accent-orange-500 h-1.5"
                         />
@@ -770,13 +954,23 @@ export const BimViewer3D: React.FC<BimViewer3DProps> = ({
                         <input
                           type="range"
                           min="0"
-                          max="8"
+                          max="10"
                           step="0.5"
                           value={posY}
                           onChange={(e) => {
                             const val = parseFloat(e.target.value);
                             setPosY(val);
-                            onUpdateElementPosition(selectedElement.id, [posX, val, posZ]);
+                            if (onUpdateElementTransform) {
+                              onUpdateElementTransform(
+                                selectedElement.id, 
+                                [posX, val, posZ],
+                                [(rotX * Math.PI) / 180, (rotY * Math.PI) / 180, (rotZ * Math.PI) / 180],
+                                [scaleX, scaleY, scaleZ],
+                                elemColor
+                              );
+                            } else {
+                              onUpdateElementPosition(selectedElement.id, [posX, val, posZ]);
+                            }
                           }}
                           className="w-full accent-orange-500 h-1.5"
                         />
@@ -787,18 +981,193 @@ export const BimViewer3D: React.FC<BimViewer3DProps> = ({
                         <span className="text-[10px] font-mono w-4 font-bold text-blue-500">Z:</span>
                         <input
                           type="range"
-                          min="-6"
-                          max="6"
+                          min="-8"
+                          max="8"
                           step="0.5"
                           value={posZ}
                           onChange={(e) => {
                             const val = parseFloat(e.target.value);
                             setPosZ(val);
-                            onUpdateElementPosition(selectedElement.id, [posX, posY, val]);
+                            if (onUpdateElementTransform) {
+                              onUpdateElementTransform(
+                                selectedElement.id, 
+                                [posX, posY, val],
+                                [(rotX * Math.PI) / 180, (rotY * Math.PI) / 180, (rotZ * Math.PI) / 180],
+                                [scaleX, scaleY, scaleZ],
+                                elemColor
+                              );
+                            } else {
+                              onUpdateElementPosition(selectedElement.id, [posX, posY, val]);
+                            }
                           }}
                           className="w-full accent-orange-500 h-1.5"
                         />
                         <span className="text-[10px] font-mono w-6 text-right font-bold">{posZ}</span>
+                      </div>
+                    </div>
+
+                    {/* Rotation Controls */}
+                    <span className="text-[10px] font-bold text-orange-500 uppercase flex items-center gap-1 pt-1">
+                      <RefreshCw className="w-3 h-3" /> Rotação (Ângulo em Graus °):
+                    </span>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-mono w-4 font-bold text-purple-400">Rx:</span>
+                        <input
+                          type="range"
+                          min="0"
+                          max="360"
+                          step="15"
+                          value={rotX}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value);
+                            setRotX(val);
+                            if (onUpdateElementTransform) {
+                              onUpdateElementTransform(
+                                selectedElement.id, 
+                                [posX, posY, posZ],
+                                [(val * Math.PI) / 180, (rotY * Math.PI) / 180, (rotZ * Math.PI) / 180],
+                                [scaleX, scaleY, scaleZ],
+                                elemColor
+                              );
+                            }
+                          }}
+                          className="w-full accent-purple-500 h-1.5"
+                        />
+                        <span className="text-[10px] font-mono w-6 text-right font-bold">{rotX}°</span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-mono w-4 font-bold text-purple-400">Ry:</span>
+                        <input
+                          type="range"
+                          min="0"
+                          max="360"
+                          step="15"
+                          value={rotY}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value);
+                            setRotY(val);
+                            if (onUpdateElementTransform) {
+                              onUpdateElementTransform(
+                                selectedElement.id, 
+                                [posX, posY, posZ],
+                                [(rotX * Math.PI) / 180, (val * Math.PI) / 180, (rotZ * Math.PI) / 180],
+                                [scaleX, scaleY, scaleZ],
+                                elemColor
+                              );
+                            }
+                          }}
+                          className="w-full accent-purple-500 h-1.5"
+                        />
+                        <span className="text-[10px] font-mono w-6 text-right font-bold">{rotY}°</span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-mono w-4 font-bold text-purple-400">Rz:</span>
+                        <input
+                          type="range"
+                          min="0"
+                          max="360"
+                          step="15"
+                          value={rotZ}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value);
+                            setRotZ(val);
+                            if (onUpdateElementTransform) {
+                              onUpdateElementTransform(
+                                selectedElement.id, 
+                                [posX, posY, posZ],
+                                [(rotX * Math.PI) / 180, (rotY * Math.PI) / 180, (val * Math.PI) / 180],
+                                [scaleX, scaleY, scaleZ],
+                                elemColor
+                              );
+                            }
+                          }}
+                          className="w-full accent-purple-500 h-1.5"
+                        />
+                        <span className="text-[10px] font-mono w-6 text-right font-bold">{rotZ}°</span>
+                      </div>
+                    </div>
+
+                    {/* Scale Controls */}
+                    <span className="text-[10px] font-bold text-orange-500 uppercase flex items-center gap-1 pt-1">
+                      <Move className="w-3 h-3" /> Escala / Dimensão (Sx, Sy, Sz):
+                    </span>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-mono w-4 font-bold text-cyan-400">S:</span>
+                        <input
+                          type="range"
+                          min="0.2"
+                          max="4.0"
+                          step="0.2"
+                          value={scaleX}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            setScaleX(val);
+                            setScaleY(val);
+                            setScaleZ(val);
+                            if (onUpdateElementTransform) {
+                              onUpdateElementTransform(
+                                selectedElement.id, 
+                                [posX, posY, posZ],
+                                [(rotX * Math.PI) / 180, (rotY * Math.PI) / 180, (rotZ * Math.PI) / 180],
+                                [val, val, val],
+                                elemColor
+                              );
+                            }
+                          }}
+                          className="w-full accent-cyan-500 h-1.5"
+                        />
+                        <span className="text-[10px] font-mono w-6 text-right font-bold">{scaleX}x</span>
+                      </div>
+                    </div>
+
+                    {/* Material Color Selector */}
+                    <div className="space-y-1 pt-1">
+                      <span className="text-[10px] font-bold text-orange-500 uppercase block">Cor do Material 3D:</span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {['#3b82f6', '#10b981', '#d97706', '#ef4444', '#06b6d4', '#a855f7', '#ec4899', '#64748b', '#f8fafc'].map((c) => (
+                          <button
+                            key={c}
+                            onClick={() => {
+                              setElemColor(c);
+                              if (onUpdateElementTransform) {
+                                onUpdateElementTransform(
+                                  selectedElement.id, 
+                                  [posX, posY, posZ],
+                                  [(rotX * Math.PI) / 180, (rotY * Math.PI) / 180, (rotZ * Math.PI) / 180],
+                                  [scaleX, scaleY, scaleZ],
+                                  c
+                                );
+                              }
+                            }}
+                            className={`w-5 h-5 rounded-full border-2 transition transform hover:scale-110 ${
+                              elemColor === c ? 'border-orange-500 scale-110 shadow-md' : 'border-transparent'
+                            }`}
+                            style={{ backgroundColor: c }}
+                          />
+                        ))}
+                        <input
+                          type="color"
+                          value={elemColor}
+                          onChange={(e) => {
+                            const c = e.target.value;
+                            setElemColor(c);
+                            if (onUpdateElementTransform) {
+                              onUpdateElementTransform(
+                                selectedElement.id, 
+                                [posX, posY, posZ],
+                                [(rotX * Math.PI) / 180, (rotY * Math.PI) / 180, (rotZ * Math.PI) / 180],
+                                [scaleX, scaleY, scaleZ],
+                                c
+                              );
+                            }
+                          }}
+                          className="w-6 h-6 rounded-full cursor-pointer bg-transparent border-none"
+                          title="Seletor de cor personalizada"
+                        />
                       </div>
                     </div>
 
@@ -1115,6 +1484,213 @@ export const BimViewer3D: React.FC<BimViewer3DProps> = ({
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ADD SHAPE / BIM ELEMENT MODAL */}
+      {showAddShapeModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className={`border rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 ${cardBg}`}>
+            <div className={`flex justify-between items-center border-b pb-3 ${isDark ? 'border-[#27272a]' : 'border-zinc-200'}`}>
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-orange-600/20 border border-orange-500/30 flex items-center justify-center text-orange-500 font-extrabold">
+                  3D
+                </div>
+                <div>
+                  <h3 className={`font-extrabold text-base ${textTitle}`}>Adicionar Forma Geométrica ou Elemento 3D</h3>
+                  <p className={`text-[11px] ${textMuted}`}>Escolha a geometria e configure posição, cor e semana da maquete</p>
+                </div>
+              </div>
+              <button onClick={() => setShowAddShapeModal(false)} className={`font-bold ${textMuted} hover:${textTitle}`}>✕</button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              {/* Shape Grid Selection */}
+              <div>
+                <label className={`block mb-2 font-bold ${textTitle}`}>Selecione o Tipo de Geometria 3D / Elemento:</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'cubo', name: 'Cubo', icon: '📦', defaultCat: 'Acabamento', defaultColor: '#3b82f6' },
+                    { id: 'esfera', name: 'Esfera', icon: '🔮', defaultCat: 'Acabamento', defaultColor: '#ec4899' },
+                    { id: 'cone', name: 'Cone', icon: '🔺', defaultCat: 'Acabamento', defaultColor: '#a855f7' },
+                    { id: 'cilindro', name: 'Cilindro', icon: '🧪', defaultCat: 'Estrutura', defaultColor: '#10b981' },
+                    { id: 'coluna', name: 'Coluna / Pilar', icon: '🏛️', defaultCat: 'Estrutura', defaultColor: '#64748b' },
+                    { id: 'parede', name: 'Parede', icon: '🧱', defaultCat: 'Alvenaria', defaultColor: '#d97706' },
+                    { id: 'laje', name: 'Laje', icon: '🟦', defaultCat: 'Estrutura', defaultColor: '#06b6d4' },
+                    { id: 'telhado', name: 'Telhado', icon: '🏠', defaultCat: 'Estrutura', defaultColor: '#b45309' },
+                    { id: 'sapata', name: 'Sapata', icon: '⏹️', defaultCat: 'Fundação', defaultColor: '#475569' },
+                  ].map((shape) => {
+                    const isSelected = newShapeType === shape.id;
+                    return (
+                      <button
+                        key={shape.id}
+                        type="button"
+                        onClick={() => {
+                          setNewShapeType(shape.id as any);
+                          setNewShapeName(`${shape.name} 3D Sandbox`);
+                          setNewShapeCategory(shape.defaultCat as any);
+                          setNewShapeColor(shape.defaultColor);
+                        }}
+                        className={`p-3 rounded-2xl border text-center transition flex flex-col items-center gap-1.5 ${
+                          isSelected
+                            ? 'bg-orange-600/20 border-orange-500 text-orange-400 font-extrabold shadow-md'
+                            : isDark ? 'bg-[#121214] border-[#27272a] text-zinc-400 hover:text-white' : 'bg-zinc-50 border-zinc-200 text-zinc-700 hover:bg-zinc-100'
+                        }`}
+                      >
+                        <span className="text-xl">{shape.icon}</span>
+                        <span className="text-[11px]">{shape.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Name & Category Inputs */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className={`block mb-1 font-semibold ${textMuted}`}>Nome do Elemento:</label>
+                  <input
+                    type="text"
+                    value={newShapeName}
+                    onChange={(e) => setNewShapeName(e.target.value)}
+                    className={`w-full p-2 rounded-xl border focus:outline-none ${
+                      isDark ? 'bg-[#121214] text-white border-[#27272a]' : 'bg-zinc-50 text-zinc-900 border-zinc-300'
+                    }`}
+                  />
+                </div>
+
+                <div>
+                  <label className={`block mb-1 font-semibold ${textMuted}`}>Categoria BIM:</label>
+                  <select
+                    value={newShapeCategory}
+                    onChange={(e) => setNewShapeCategory(e.target.value as any)}
+                    className={`w-full p-2 rounded-xl border focus:outline-none ${
+                      isDark ? 'bg-[#121214] text-white border-[#27272a]' : 'bg-zinc-50 text-zinc-900 border-zinc-300'
+                    }`}
+                  >
+                    <option value="Fundação">Fundação</option>
+                    <option value="Estrutura">Estrutura</option>
+                    <option value="Alvenaria">Alvenaria</option>
+                    <option value="Instalações">Instalações</option>
+                    <option value="Acabamento">Acabamento</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Initial Position & Week */}
+              <div className="grid grid-cols-4 gap-2">
+                <div>
+                  <label className={`block mb-1 font-semibold text-[10px] ${textMuted}`}>Posição X:</label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={newShapePosX}
+                    onChange={(e) => setNewShapePosX(parseFloat(e.target.value) || 0)}
+                    className={`w-full p-2 rounded-xl border text-center font-mono ${
+                      isDark ? 'bg-[#121214] text-white border-[#27272a]' : 'bg-zinc-50 text-zinc-900 border-zinc-300'
+                    }`}
+                  />
+                </div>
+                <div>
+                  <label className={`block mb-1 font-semibold text-[10px] ${textMuted}`}>Posição Y:</label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={newShapePosY}
+                    onChange={(e) => setNewShapePosY(parseFloat(e.target.value) || 0)}
+                    className={`w-full p-2 rounded-xl border text-center font-mono ${
+                      isDark ? 'bg-[#121214] text-white border-[#27272a]' : 'bg-zinc-50 text-zinc-900 border-zinc-300'
+                    }`}
+                  />
+                </div>
+                <div>
+                  <label className={`block mb-1 font-semibold text-[10px] ${textMuted}`}>Posição Z:</label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={newShapePosZ}
+                    onChange={(e) => setNewShapePosZ(parseFloat(e.target.value) || 0)}
+                    className={`w-full p-2 rounded-xl border text-center font-mono ${
+                      isDark ? 'bg-[#121214] text-white border-[#27272a]' : 'bg-zinc-50 text-zinc-900 border-zinc-300'
+                    }`}
+                  />
+                </div>
+                <div>
+                  <label className={`block mb-1 font-semibold text-[10px] ${textMuted}`}>Semana (1-8):</label>
+                  <select
+                    value={newShapeWeek}
+                    onChange={(e) => setNewShapeWeek(parseInt(e.target.value))}
+                    className={`w-full p-2 rounded-xl border text-center font-mono ${
+                      isDark ? 'bg-[#121214] text-white border-[#27272a]' : 'bg-zinc-50 text-zinc-900 border-zinc-300'
+                    }`}
+                  >
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map((w) => (
+                      <option key={w} value={w}>Semana {w}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Material Color Swatches */}
+              <div>
+                <label className={`block mb-1 font-semibold ${textMuted}`}>Cor do Material:</label>
+                <div className="flex items-center gap-2">
+                  {['#3b82f6', '#10b981', '#d97706', '#ef4444', '#06b6d4', '#a855f7', '#ec4899', '#64748b', '#475569'].map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setNewShapeColor(c)}
+                      className={`w-6 h-6 rounded-full border-2 transition transform hover:scale-110 ${
+                        newShapeColor === c ? 'border-orange-500 scale-110 shadow-md' : 'border-transparent'
+                      }`}
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                  <input
+                    type="color"
+                    value={newShapeColor}
+                    onChange={(e) => setNewShapeColor(e.target.value)}
+                    className="w-7 h-7 rounded-full cursor-pointer bg-transparent border-none"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddShapeModal(false)}
+                  className={`px-4 py-2 rounded-xl font-bold ${
+                    isDark ? 'bg-[#27272a] hover:bg-[#3f3f46] text-zinc-300' : 'bg-zinc-200 hover:bg-zinc-300 text-zinc-800'
+                  }`}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onAddElement({
+                      name: newShapeName,
+                      category: newShapeCategory,
+                      status: 'EM_EXECUCAO',
+                      progressPercent: 50,
+                      assignedWeek: newShapeWeek,
+                      materialUsed: `${newShapeType.toUpperCase()} Sandbox BIM`,
+                      lastUpdatedBy: USER_ROLES[currentRole].title,
+                      position: [newShapePosX, newShapePosY, newShapePosZ],
+                      rotation: [0, 0, 0],
+                      scale: [1, 1, 1],
+                      color: newShapeColor,
+                      shapeType: newShapeType
+                    });
+                    setShowAddShapeModal(false);
+                  }}
+                  className="px-5 py-2 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white rounded-xl font-bold shadow-lg shadow-orange-600/30 flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" /> Adicionar Forma no Modelo 3D
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

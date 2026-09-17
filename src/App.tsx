@@ -390,10 +390,33 @@ export function App() {
     if (!target) return;
 
     await api.elements.updatePosition(id, pos);
-    const oldPos = target.position || [0, 0, 0];
 
     setElements((prev) =>
       prev.map((e) => (e.id === id ? { ...e, position: pos, lastUpdatedAt: 'Agora' } : e))
+    );
+  };
+
+  const handleUpdateElementTransform = async (
+    id: string, 
+    pos?: [number, number, number],
+    rot?: [number, number, number],
+    scale?: [number, number, number],
+    color?: string
+  ) => {
+    const target = elements.find((e) => e.id === id);
+    if (!target) return;
+
+    if (pos) await api.elements.updatePosition(id, pos);
+
+    setElements((prev) =>
+      prev.map((e) => (e.id === id ? { 
+        ...e, 
+        position: pos || e.position,
+        rotation: rot || e.rotation,
+        scale: scale || e.scale,
+        color: color || e.color,
+        lastUpdatedAt: 'Agora' 
+      } : e))
     );
   };
 
@@ -799,6 +822,7 @@ export function App() {
                   theme={theme}
                   onUpdateElementStatus={handleUpdateElementStatus}
                   onUpdateElementPosition={handleUpdateElementPosition}
+                  onUpdateElementTransform={handleUpdateElementTransform}
                   onAddElement={handleAddElement}
                   onDeleteElement={handleDeleteElement}
                   onImportFloorPlan={handleImportFloorPlan}
