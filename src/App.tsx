@@ -401,7 +401,8 @@ export function App() {
     pos?: [number, number, number],
     rot?: [number, number, number],
     scale?: [number, number, number],
-    color?: string
+    color?: string,
+    vertexDeform?: { topScaleX?: number; topScaleZ?: number; skewX?: number; skewZ?: number }
   ) => {
     const target = elements.find((e) => e.id === id);
     if (!target) return;
@@ -415,6 +416,7 @@ export function App() {
         rotation: rot || e.rotation,
         scale: scale || e.scale,
         color: color || e.color,
+        vertexDeform: vertexDeform || e.vertexDeform,
         lastUpdatedAt: 'Agora' 
       } : e))
     );

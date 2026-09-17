@@ -157,6 +157,7 @@ export interface BuildingElement {
   scale?: [number, number, number];
   color?: string;
   shapeType?: 'cubo' | 'esfera' | 'cone' | 'cilindro' | 'coluna' | 'parede' | 'laje' | 'telhado' | 'sapata';
+  vertexDeform?: { topScaleX?: number; topScaleZ?: number; skewX?: number; skewZ?: number };
 }
 
 export interface StockItem {

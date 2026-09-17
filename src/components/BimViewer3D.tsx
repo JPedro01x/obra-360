@@ -20,7 +20,8 @@ interface BimViewer3DProps {
     pos?: [number, number, number], 
     rot?: [number, number, number], 
     scale?: [number, number, number], 
-    color?: string
+    color?: string,
+    vertexDeform?: { topScaleX?: number; topScaleZ?: number; skewX?: number; skewZ?: number }
   ) => void;
   onAddElement: (elem: Omit<BuildingElement, 'id' | 'lastUpdatedAt'>) => void;
   onDeleteElement: (id: string) => void;
@@ -117,6 +118,13 @@ export const BimViewer3D: React.FC<BimViewer3DProps> = ({
 
   const [elemColor, setElemColor] = useState<string>('#3b82f6');
 
+  // Vertex & Edge Deformation State
+  const [topScaleX, setTopScaleX] = useState<number>(1.0);
+  const [topScaleZ, setTopScaleZ] = useState<number>(1.0);
+  const [skewX, setSkewX] = useState<number>(0.0);
+  const [skewZ, setSkewZ] = useState<number>(0.0);
+  const [isEditingVertices, setIsEditingVertices] = useState<boolean>(false);
+
   useEffect(() => {
     if (selectedElement) {
       if (selectedElement.position) {
@@ -147,6 +155,15 @@ export const BimViewer3D: React.FC<BimViewer3DProps> = ({
         setElemColor(selectedElement.color);
       } else {
         setElemColor('#3b82f6');
+      }
+
+      if (selectedElement.vertexDeform) {
+        setTopScaleX(selectedElement.vertexDeform.topScaleX ?? 1.0);
+        setTopScaleZ(selectedElement.vertexDeform.topScaleZ ?? 1.0);
+        setSkewX(selectedElement.vertexDeform.skewX ?? 0.0);
+        setSkewZ(selectedElement.vertexDeform.skewZ ?? 0.0);
+      } else {
+        setTopScaleX(1.0); setTopScaleZ(1.0); setSkewX(0.0); setSkewZ(0.0);
       }
     }
   }, [selectedElementId, selectedElement]);
@@ -385,6 +402,27 @@ export const BimViewer3D: React.FC<BimViewer3DProps> = ({
           defaultColor = 0xd97706;
         }
 
+        // Apply Vertex & Edge Deformations if present
+        if (elem.vertexDeform) {
+          const posAttr = dynGeo.attributes.position;
+          const tsX = elem.vertexDeform.topScaleX ?? 1.0;
+          const tsZ = elem.vertexDeform.topScaleZ ?? 1.0;
+          const skX = elem.vertexDeform.skewX ?? 0.0;
+          const skZ = elem.vertexDeform.skewZ ?? 0.0;
+
+          if (tsX !== 1.0 || tsZ !== 1.0 || skX !== 0.0 || skZ !== 0.0) {
+            for (let i = 0; i < posAttr.count; i++) {
+              let y = posAttr.getY(i);
+              if (y > 0) {
+                posAttr.setX(i, posAttr.getX(i) * tsX + skX);
+                posAttr.setZ(i, posAttr.getZ(i) * tsZ + skZ);
+              }
+            }
+            posAttr.needsUpdate = true;
+            dynGeo.computeVertexNormals();
+          }
+        }
+
         const meshColor = elem.color 
           ? new THREE.Color(elem.color) 
           : (elem.status === 'CONCLUIDO' ? new THREE.Color(0x10b981) : new THREE.Color(defaultColor));
@@ -416,29 +454,132 @@ export const BimViewer3D: React.FC<BimViewer3DProps> = ({
 
     scene.add(meshesGroup);
 
-    // Raycaster Click Selection
+    // Highlight Selected Mesh with Bounding Box & Corner Gizmos
+    let selectedMeshRef: THREE.Mesh | null = null;
+    meshesGroup.children.forEach((child) => {
+      if (child instanceof THREE.Mesh && child.userData && child.userData.id === selectedElementId) {
+        selectedMeshRef = child;
+      }
+    });
+
+    if (selectedMeshRef) {
+      const boxHelper = new THREE.BoxHelper(selectedMeshRef, 0xf97316);
+      scene.add(boxHelper);
+
+      // Render 8 Corner Handles (Vertex Dots)
+      const bounds = new THREE.Box3().setFromObject(selectedMeshRef);
+      const min = bounds.min;
+      const max = bounds.max;
+      const corners = [
+        new THREE.Vector3(min.x, min.y, min.z),
+        new THREE.Vector3(max.x, min.y, min.z),
+        new THREE.Vector3(min.x, min.y, max.z),
+        new THREE.Vector3(max.x, min.y, max.z),
+        new THREE.Vector3(min.x, max.y, min.z),
+        new THREE.Vector3(max.x, max.y, min.z),
+        new THREE.Vector3(min.x, max.y, max.z),
+        new THREE.Vector3(max.x, max.y, max.z),
+      ];
+
+      const handleGeo = new THREE.SphereGeometry(0.16, 16, 16);
+      const handleMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.1 });
+
+      corners.forEach((pt) => {
+        const handleMesh = new THREE.Mesh(handleGeo, handleMat);
+        handleMesh.position.copy(pt);
+        scene.add(handleMesh);
+      });
+    }
+
+    // Interactive Drag & Drop Handler with Raycasting Plane
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
+    let isDragging = false;
+    let draggedMesh: THREE.Object3D | null = null;
+    const dragPlane = new THREE.Plane();
+    const planeIntersect = new THREE.Vector3();
+    const dragOffset = new THREE.Vector3();
 
-    const handleCanvasClick = (event: MouseEvent) => {
+    const updateMousePos = (event: PointerEvent) => {
       if (!mountRef.current) return;
       const rect = mountRef.current.getBoundingClientRect();
       mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    };
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!mountRef.current) return;
+      updateMousePos(event);
 
       raycaster.setFromCamera(mouse, camera);
       const intersects = raycaster.intersectObjects(meshesGroup.children, true);
 
       if (intersects.length > 0) {
-        const clickedObj = intersects[0].object;
-        if (clickedObj.userData && clickedObj.userData.id) {
-          setSelectedElementId(clickedObj.userData.id);
+        const hit = intersects[0].object;
+        if (hit.userData && hit.userData.id) {
+          setSelectedElementId(hit.userData.id);
+          draggedMesh = hit;
+
+          if (canEditModel) {
+            isDragging = true;
+            controls.enabled = false; // Disable camera orbit during drag
+
+            dragPlane.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 1, 0), hit.position);
+            if (raycaster.ray.intersectPlane(dragPlane, planeIntersect)) {
+              dragOffset.copy(planeIntersect).sub(hit.position);
+            }
+          }
         }
       }
     };
 
+    const handlePointerMove = (event: PointerEvent) => {
+      if (!mountRef.current || !isDragging || !draggedMesh) return;
+      updateMousePos(event);
+
+      raycaster.setFromCamera(mouse, camera);
+      if (raycaster.ray.intersectPlane(dragPlane, planeIntersect)) {
+        const newPos = planeIntersect.sub(dragOffset);
+        draggedMesh.position.x = Math.round(newPos.x * 10) / 10;
+        draggedMesh.position.z = Math.round(newPos.z * 10) / 10;
+
+        setPosX(Math.round(draggedMesh.position.x * 10) / 10);
+        setPosZ(Math.round(draggedMesh.position.z * 10) / 10);
+      }
+    };
+
+    const handlePointerUp = (event: PointerEvent) => {
+      if (isDragging && draggedMesh && draggedMesh.userData?.id) {
+        const id = draggedMesh.userData.id;
+        const finalP: [number, number, number] = [
+          Math.round(draggedMesh.position.x * 10) / 10,
+          Math.round(draggedMesh.position.y * 10) / 10,
+          Math.round(draggedMesh.position.z * 10) / 10
+        ];
+
+        if (onUpdateElementTransform) {
+          onUpdateElementTransform(
+            id,
+            finalP,
+            [(rotX * Math.PI) / 180, (rotY * Math.PI) / 180, (rotZ * Math.PI) / 180],
+            [scaleX, scaleY, scaleZ],
+            elemColor,
+            { topScaleX, topScaleZ, skewX, skewZ }
+          );
+        } else {
+          onUpdateElementPosition(id, finalP);
+        }
+      }
+
+      isDragging = false;
+      draggedMesh = null;
+      controls.enabled = true; // Re-enable camera orbit
+    };
+
     const domElem = mountRef.current;
-    domElem.addEventListener('click', handleCanvasClick);
+    domElem.addEventListener('pointerdown', handlePointerDown);
+    domElem.addEventListener('pointermove', handlePointerMove);
+    domElem.addEventListener('pointerup', handlePointerUp);
 
     // Animation Loop
     let animationFrameId: number;
@@ -461,10 +602,12 @@ export const BimViewer3D: React.FC<BimViewer3DProps> = ({
 
     return () => {
       cancelAnimationFrame(animationFrameId);
-      domElem.removeEventListener('click', handleCanvasClick);
+      domElem.removeEventListener('pointerdown', handlePointerDown);
+      domElem.removeEventListener('pointermove', handlePointerMove);
+      domElem.removeEventListener('pointerup', handlePointerUp);
       window.removeEventListener('resize', handleResize);
     };
-  }, [elements, projectElements, activeProject, isDark, viewMode, selectedWeek]);
+  }, [elements, projectElements, activeProject, isDark, viewMode, selectedWeek, selectedElementId]);
 
   // AI 2D -> 3D Generation Simulation Handler
   const startAiGeneration = () => {
@@ -1121,6 +1264,141 @@ export const BimViewer3D: React.FC<BimViewer3DProps> = ({
                           className="w-full accent-cyan-500 h-1.5"
                         />
                         <span className="text-[10px] font-mono w-6 text-right font-bold">{scaleX}x</span>
+                      </div>
+                    </div>
+
+                    {/* Vertex & Edge Deformation Controls */}
+                    <div className="space-y-1.5 pt-1 border-t border-zinc-700/30">
+                      <span className="text-[10px] font-bold text-amber-400 uppercase flex items-center gap-1">
+                        ✏️ Modificar Vértices e Arestas:
+                      </span>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-mono w-14 text-zinc-400">Topo X:</span>
+                          <input
+                            type="range"
+                            min="0.2"
+                            max="3.0"
+                            step="0.1"
+                            value={topScaleX}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value);
+                              setTopScaleX(val);
+                              if (onUpdateElementTransform) {
+                                onUpdateElementTransform(
+                                  selectedElement.id,
+                                  [posX, posY, posZ],
+                                  [(rotX * Math.PI) / 180, (rotY * Math.PI) / 180, (rotZ * Math.PI) / 180],
+                                  [scaleX, scaleY, scaleZ],
+                                  elemColor,
+                                  { topScaleX: val, topScaleZ, skewX, skewZ }
+                                );
+                              }
+                            }}
+                            className="w-full accent-amber-500 h-1.5"
+                          />
+                          <span className="text-[10px] font-mono w-6 text-right font-bold">{topScaleX}</span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-mono w-14 text-zinc-400">Topo Z:</span>
+                          <input
+                            type="range"
+                            min="0.2"
+                            max="3.0"
+                            step="0.1"
+                            value={topScaleZ}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value);
+                              setTopScaleZ(val);
+                              if (onUpdateElementTransform) {
+                                onUpdateElementTransform(
+                                  selectedElement.id,
+                                  [posX, posY, posZ],
+                                  [(rotX * Math.PI) / 180, (rotY * Math.PI) / 180, (rotZ * Math.PI) / 180],
+                                  [scaleX, scaleY, scaleZ],
+                                  elemColor,
+                                  { topScaleX, topScaleZ: val, skewX, skewZ }
+                                );
+                              }
+                            }}
+                            className="w-full accent-amber-500 h-1.5"
+                          />
+                          <span className="text-[10px] font-mono w-6 text-right font-bold">{topScaleZ}</span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-mono w-14 text-zinc-400">Aresta X:</span>
+                          <input
+                            type="range"
+                            min="-3.0"
+                            max="3.0"
+                            step="0.2"
+                            value={skewX}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value);
+                              setSkewX(val);
+                              if (onUpdateElementTransform) {
+                                onUpdateElementTransform(
+                                  selectedElement.id,
+                                  [posX, posY, posZ],
+                                  [(rotX * Math.PI) / 180, (rotY * Math.PI) / 180, (rotZ * Math.PI) / 180],
+                                  [scaleX, scaleY, scaleZ],
+                                  elemColor,
+                                  { topScaleX, topScaleZ, skewX: val, skewZ }
+                                );
+                              }
+                            }}
+                            className="w-full accent-amber-500 h-1.5"
+                          />
+                          <span className="text-[10px] font-mono w-6 text-right font-bold">{skewX}</span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-mono w-14 text-zinc-400">Aresta Z:</span>
+                          <input
+                            type="range"
+                            min="-3.0"
+                            max="3.0"
+                            step="0.2"
+                            value={skewZ}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value);
+                              setSkewZ(val);
+                              if (onUpdateElementTransform) {
+                                onUpdateElementTransform(
+                                  selectedElement.id,
+                                  [posX, posY, posZ],
+                                  [(rotX * Math.PI) / 180, (rotY * Math.PI) / 180, (rotZ * Math.PI) / 180],
+                                  [scaleX, scaleY, scaleZ],
+                                  elemColor,
+                                  { topScaleX, topScaleZ, skewX, skewZ: val }
+                                );
+                              }
+                            }}
+                            className="w-full accent-amber-500 h-1.5"
+                          />
+                          <span className="text-[10px] font-mono w-6 text-right font-bold">{skewZ}</span>
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            setTopScaleX(1.0); setTopScaleZ(1.0); setSkewX(0.0); setSkewZ(0.0);
+                            if (onUpdateElementTransform) {
+                              onUpdateElementTransform(
+                                selectedElement.id,
+                                [posX, posY, posZ],
+                                [(rotX * Math.PI) / 180, (rotY * Math.PI) / 180, (rotZ * Math.PI) / 180],
+                                [scaleX, scaleY, scaleZ],
+                                elemColor,
+                                { topScaleX: 1.0, topScaleZ: 1.0, skewX: 0.0, skewZ: 0.0 }
+                              );
+                            }
+                          }}
+                          className="w-full py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold text-[9px] rounded-lg transition mt-1"
+                        >
+                          🔄 Resetar Formato dos Vértices
+                        </button>
                       </div>
                     </div>
 
