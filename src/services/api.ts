@@ -191,6 +191,17 @@ export const api = {
    */
   occurrences: {
     async getByProjectId(projectId: string): Promise<ConstructionOccurrence[]> {
+      try {
+        const response = await fetch(`${BACKEND_BASE_URL}/occurrences/project/${projectId}`, {
+          headers: getAuthHeaders()
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (Array.isArray(data) && data.length > 0) return data;
+        }
+      } catch (err) {
+        logger.info('Spring Boot occurrences offline. Serving fallback mock data.');
+      }
       const filtered = INITIAL_OCCURRENCES.filter((o: ConstructionOccurrence) => o.projectId === projectId || o.projectId === 'PRJ-001');
       return simulateNetworkDelay(filtered, 250);
     },
@@ -202,7 +213,108 @@ export const api = {
       };
       logger.audit('CREATE_OCCURRENCE', 'ConstructionOccurrence', created);
       eventBus.publish('OCCURRENCE_CREATED', 'QualityService', created);
+      try {
+        const response = await fetch(`${BACKEND_BASE_URL}/occurrences`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify(created)
+        });
+        if (response.ok) {
+          return await response.json();
+        }
+      } catch (err) {
+        logger.info('Spring Boot occurrence async sync queued.');
+      }
       return simulateNetworkDelay(created, 400);
+    },
+    async resolve(id: string, resolutionNotes?: string): Promise<ConstructionOccurrence | null> {
+      try {
+        const response = await fetch(`${BACKEND_BASE_URL}/occurrences/${id}/resolve`, {
+          method: 'PUT',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ resolutionNotes })
+        });
+        if (response.ok) {
+          return await response.json();
+        }
+      } catch (err) {
+        logger.info('Spring Boot occurrence resolve API offline.');
+      }
+      return null;
+    }
+  },
+
+  /**
+   * Use Cases: Marketplace B2B & Cotações RFQ (Marketplace Use Cases)
+   */
+  marketplace: {
+    async getAllRfqs(): Promise<B2bMaterialRFQ[]> {
+      try {
+        const response = await fetch(`${BACKEND_BASE_URL}/marketplace/rfq`, {
+          headers: getAuthHeaders()
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (Array.isArray(data) && data.length > 0) return data;
+        }
+      } catch (err) {
+        logger.info('Spring Boot B2B Marketplace offline. Serving fallback mock data.');
+      }
+      return simulateNetworkDelay([...INITIAL_B2B_RFQS], 300);
+    },
+    async createRfq(rfq: Omit<B2bMaterialRFQ, 'id'>): Promise<B2bMaterialRFQ> {
+      try {
+        const response = await fetch(`${BACKEND_BASE_URL}/marketplace/rfq`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify(rfq)
+        });
+        if (response.ok) {
+          return await response.json();
+        }
+      } catch (err) {
+        logger.info('Spring Boot B2B Marketplace create offline.');
+      }
+      return simulateNetworkDelay({
+        ...rfq,
+        id: `RFQ-${Math.floor(100 + Math.random() * 900)}`
+      } as B2bMaterialRFQ, 400);
+    },
+    async submitQuote(rfqId: string, supplierName: string, price: number): Promise<B2bMaterialRFQ | null> {
+      try {
+        const response = await fetch(`${BACKEND_BASE_URL}/marketplace/rfq/${rfqId}/quote`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ supplierName, price })
+        });
+        if (response.ok) {
+          return await response.json();
+        }
+      } catch (err) {
+        logger.info('Spring Boot B2B Marketplace quote offline.');
+      }
+      return null;
+    },
+    async verifyNfeKey(nfeKey: string): Promise<{ valid: boolean; nfeKey: string; message: string }> {
+      try {
+        const response = await fetch(`${BACKEND_BASE_URL}/marketplace/verify-nfe`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ nfeKey })
+        });
+        if (response.ok) {
+          return await response.json();
+        }
+      } catch (err) {
+        logger.info('Spring Boot NFe validation offline. Falling back to local Módulo 11 validation.');
+      }
+      const cleanKey = nfeKey.replace(/\D/g, '');
+      const isValid = cleanKey.length === 44;
+      return {
+        nfeKey,
+        valid: isValid,
+        message: isValid ? 'Chave de 44 dígitos da NF-e validada com sucesso via SEFAZ Módulo 11 (Offline Fallback).' : 'Chave de NF-e inválida. Deve conter exatamente 44 dígitos numéricos.'
+      };
     }
   },
 

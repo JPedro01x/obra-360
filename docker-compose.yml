@@ -62,6 +62,36 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
 
+  # 5. Core Backend Service (Spring Boot 3 + Java 21)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: obra360-backend
+    restart: always
+    depends_on:
+      - postgres
+      - kafka
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/obra360_db
+      SPRING_DATASOURCE_USERNAME: obra360_admin
+      SPRING_DATASOURCE_PASSWORD: secret_password
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+
+  # 6. Web Frontend Service (React + Vite + Nginx)
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: obra360-frontend
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+
 volumes:
   pgdata:
   mongodata:

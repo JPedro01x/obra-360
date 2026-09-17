@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { B2bMaterialRFQ, EquipmentRentalItem, RoleId, ThemeMode } from '../types';
 import { INITIAL_B2B_RFQS, INITIAL_EQUIPMENT_FLEET, USER_ROLES } from '../data/mockData';
+import { api } from '../services/api';
 import { 
   ShoppingCart, Truck, Users, FileText, CheckCircle2, 
-  Plus, Search, DollarSign, Calendar, ShieldCheck, Tag, Lock, ArrowUpRight, Clock, Award, Sparkles, Building2, Check 
+  Plus, Search, DollarSign, Calendar, ShieldCheck, Tag, Lock, ArrowUpRight, Clock, Award, Sparkles, Building2, Check, AlertCircle 
 } from 'lucide-react';
 
 interface B2bMarketplaceViewProps {
