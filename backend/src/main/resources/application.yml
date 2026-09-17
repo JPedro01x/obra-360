@@ -9,7 +9,7 @@ spring:
   
   # Database Configuration (H2 in-memory for dev, auto DDL)
   datasource:
-    url: jdbc:h2:mem:obra360db;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    url: jdbc:h2:mem:obra360db;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE
     driverClassName: org.h2.Driver
     username: sa
     password: 
