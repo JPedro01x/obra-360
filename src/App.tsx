@@ -72,8 +72,16 @@ export function App() {
   const [projects, setProjects] = useState<Project[]>(INITIAL_PROJECTS);
   const [activeProject, setActiveProject] = useState<Project>(INITIAL_PROJECTS[0]);
 
-  // State
-  const [elements, setElements] = useState<BuildingElement[]>(INITIAL_BUILDING_ELEMENTS);
+  // State with localStorage persistence
+  const [elements, setElements] = useState<BuildingElement[]>(() => {
+    const saved = localStorage.getItem('obra360_elements');
+    return saved ? JSON.parse(saved) : INITIAL_BUILDING_ELEMENTS;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('obra360_elements', JSON.stringify(elements));
+  }, [elements]);
+
   const [stockItems, setStockItems] = useState<StockItem[]>(INITIAL_STOCK);
   const [movements, setMovements] = useState<StockMovement[]>(INITIAL_STOCK_MOVEMENTS);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(INITIAL_AUDIT_LOGS);

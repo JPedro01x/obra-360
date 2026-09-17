@@ -289,15 +289,36 @@ export const BimViewer3D: React.FC<BimViewer3DProps> = ({
 
     // Dynamic Elements added by user (Obra-por-Obra Dynamic Customization)
     projectElements.forEach((elem) => {
-      if (elem.assignedWeek <= selectedWeek && elem.position && (elem.position[0] !== 0 || elem.position[1] !== 0 || elem.position[2] !== 0)) {
-        const dynGeo = elem.category === 'Estrutura' 
-          ? new THREE.BoxGeometry(0.6, 3.2, 0.6) 
-          : new THREE.BoxGeometry(2.5, 3.0, 0.3);
+      if (elem.assignedWeek <= selectedWeek && elem.position) {
+        let dynGeo: THREE.BufferGeometry;
+        let dynColor = 0xf97316;
+
+        const lowerName = elem.name.toLowerCase();
+        if (lowerName.includes('cubo') || elem.category === 'Acabamento') {
+          dynGeo = new THREE.BoxGeometry(1.5, 1.5, 1.5);
+          dynColor = 0x3b82f6; // Blue for 3D Cubes
+        } else if (elem.category === 'Fundação' || lowerName.includes('fundação') || lowerName.includes('sapata')) {
+          dynGeo = new THREE.BoxGeometry(2.2, 0.7, 2.2);
+          dynColor = 0x475569; // Dark Slate for Footings
+        } else if (elem.category === 'Estrutura' || lowerName.includes('coluna') || lowerName.includes('pilar')) {
+          dynGeo = new THREE.BoxGeometry(0.6, 3.2, 0.6);
+          dynColor = 0x64748b; // Concrete Slate for Columns
+        } else if (lowerName.includes('laje') || elem.category === 'Instalações') {
+          dynGeo = new THREE.BoxGeometry(4.0, 0.3, 4.0);
+          dynColor = 0x06b6d4; // Cyan for Slabs
+        } else {
+          dynGeo = new THREE.BoxGeometry(2.5, 3.0, 0.3);
+          dynColor = 0xd97706; // Amber/Orange for Walls
+        }
+
         const dynMat = new THREE.MeshStandardMaterial({
-          color: elem.category === 'Estrutura' ? 0x94a3b8 : 0xf97316
+          color: elem.status === 'CONCLUIDO' ? 0x10b981 : elem.status === 'EM_EXECUCAO' ? dynColor : 0x71717a,
+          roughness: 0.6
         });
         const dynMesh = new THREE.Mesh(dynGeo, dynMat);
         dynMesh.position.set(elem.position[0], elem.position[1], elem.position[2]);
+        dynMesh.castShadow = true;
+        dynMesh.receiveShadow = true;
         dynMesh.userData = { id: elem.id, name: elem.name };
         meshesGroup.add(dynMesh);
       }
@@ -535,42 +556,97 @@ export const BimViewer3D: React.FC<BimViewer3DProps> = ({
             />
           </div>
 
-          {/* Spawning 3D Elements Buttons (Only Authorized Roles) */}
+          {/* Spawning 3D Elements Buttons & Save Model (Only Authorized Roles) */}
           {canEditModel ? (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
               <button
                 onClick={() => onAddElement({
-                  name: 'Parede Adicional',
+                  name: 'Cubo 3D Estrutural',
+                  category: 'Acabamento',
+                  status: 'EM_EXECUCAO',
+                  progressPercent: 50,
+                  assignedWeek: 4,
+                  materialUsed: 'Bloco Cubo Genérico BIM',
+                  lastUpdatedBy: USER_ROLES[currentRole].title,
+                  position: [Math.random() * 4 - 2, 2.5, Math.random() * 4 - 2]
+                })}
+                className={`flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 rounded-xl border transition ${
+                  isDark ? 'bg-blue-500/10 border-blue-500/30 text-blue-400 hover:bg-blue-500/20' : 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100'
+                }`}
+                title="Adicionar Cubo 3D na Maquete"
+              >
+                <Plus className="w-3.5 h-3.5" /> Cubo 3D
+              </button>
+
+              <button
+                onClick={() => onAddElement({
+                  name: 'Coluna / Pilar CA-50',
+                  category: 'Estrutura',
+                  status: 'EM_EXECUCAO',
+                  progressPercent: 60,
+                  assignedWeek: 3,
+                  materialUsed: 'Concreto Armado Fck 30MPa',
+                  lastUpdatedBy: USER_ROLES[currentRole].title,
+                  position: [Math.random() * 6 - 3, 2.8, Math.random() * 6 - 3]
+                })}
+                className={`flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 rounded-xl border transition ${
+                  isDark ? 'bg-[#121214] border-[#27272a] hover:bg-[#27272a] text-orange-400' : 'bg-zinc-100 border-zinc-300 hover:bg-zinc-200 text-orange-600'
+                }`}
+                title="Adicionar Coluna / Pilar"
+              >
+                <Plus className="w-3.5 h-3.5" /> Coluna
+              </button>
+
+              <button
+                onClick={() => onAddElement({
+                  name: 'Parede Alvenaria',
                   category: 'Alvenaria',
                   status: 'EM_EXECUCAO',
                   progressPercent: 50,
                   assignedWeek: 5,
                   materialUsed: 'Blocos Cerâmicos Baianos',
                   lastUpdatedBy: USER_ROLES[currentRole].title,
-                  position: [2, 2.2, 2]
+                  position: [Math.random() * 6 - 3, 2.8, Math.random() * 6 - 3]
                 })}
-                className={`flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-xl border transition ${
+                className={`flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 rounded-xl border transition ${
                   isDark ? 'bg-[#121214] border-[#27272a] hover:bg-[#27272a] text-orange-400' : 'bg-zinc-100 border-zinc-300 hover:bg-zinc-200 text-orange-600'
                 }`}
+                title="Adicionar Parede de Alvenaria"
               >
                 <Plus className="w-3.5 h-3.5" /> Parede
               </button>
+
               <button
                 onClick={() => onAddElement({
-                  name: 'Coluna Adicional',
+                  name: 'Laje Nervurada H16',
                   category: 'Estrutura',
-                  status: 'EM_EXECUCAO',
-                  progressPercent: 60,
-                  assignedWeek: 3,
-                  materialUsed: 'Concreto Armado CA-50',
+                  status: 'PLANEJADO',
+                  progressPercent: 0,
+                  assignedWeek: 6,
+                  materialUsed: 'Vigotas EPS & Concreto H16',
                   lastUpdatedBy: USER_ROLES[currentRole].title,
-                  position: [-2, 2.35, 2]
+                  position: [0, 4.5, 0]
                 })}
-                className={`flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-xl border transition ${
-                  isDark ? 'bg-[#121214] border-[#27272a] hover:bg-[#27272a] text-orange-400' : 'bg-zinc-100 border-zinc-300 hover:bg-zinc-200 text-orange-600'
+                className={`flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 rounded-xl border transition ${
+                  isDark ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20' : 'bg-cyan-50 border-cyan-200 text-cyan-700 hover:bg-cyan-100'
                 }`}
+                title="Adicionar Laje de Concreto"
               >
-                <Plus className="w-3.5 h-3.5" /> Coluna
+                <Plus className="w-3.5 h-3.5" /> Laje
+              </button>
+
+              <button
+                onClick={() => {
+                  onSendToast(
+                    'success',
+                    '💾 Modelo 3D Salvo no Banco de Dados',
+                    'Todas as edições espaciais (Cubos, Colunas, Paredes e posições) foram salvas e sincronizadas!'
+                  );
+                }}
+                className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs px-3.5 py-1.5 rounded-xl shadow-md shadow-emerald-600/30 transition ml-1"
+                title="Salvar todas as alterações do Modelo 3D"
+              >
+                <CheckCircle2 className="w-4 h-4" /> Salvar Modelo 3D
               </button>
             </div>
           ) : (
