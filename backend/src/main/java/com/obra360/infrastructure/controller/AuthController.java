@@ -11,6 +11,10 @@ import org.springframework.security.core.Authentication;
 
 import org.springframework.web.bind.annotation.*;
 
+import com.obra360.infrastructure.security.RateLimiterService;
+import com.obra360.infrastructure.security.RateLimitExceededException;
+import jakarta.servlet.http.HttpServletRequest;
+
 /**
  * CLEAN ARCHITECTURE - INFRASTRUCTURE LAYER (REST CONTROLLER)
  * Endpoints REST para autenticação JWT e registro de usuários corporativos
@@ -21,14 +25,20 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final RateLimiterService rateLimiterService;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, RateLimiterService rateLimiterService) {
         this.authService = authService;
+        this.rateLimiterService = rateLimiterService;
     }
 
     @PostMapping("/login")
     @Operation(summary = "Autenticar usuário e emitir token JWT", description = "Valida o e-mail e senha informados, emitindo o Bearer Token JWT para acesso às APIs seguras.")
-    public ResponseEntity<AuthDTOs.AuthResponseDTO> login(@Valid @RequestBody AuthDTOs.LoginRequestDTO request) {
+    public ResponseEntity<AuthDTOs.AuthResponseDTO> login(@Valid @RequestBody AuthDTOs.LoginRequestDTO request, HttpServletRequest httpRequest) {
+        String clientIp = httpRequest != null ? httpRequest.getRemoteAddr() : "127.0.0.1";
+        if (!rateLimiterService.isAllowed(clientIp)) {
+            throw new RateLimitExceededException("Limite de tentativas de login excedido. Tente novamente em 1 minuto.");
+        }
         AuthDTOs.AuthResponseDTO response = authService.login(request);
         return ResponseEntity.ok(response);
     }

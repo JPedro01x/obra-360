@@ -64,7 +64,9 @@ public class SecurityConfig {
                 ).permitAll()
                 .anyRequest().permitAll()
             )
-            .headers(headers -> headers.frameOptions(frame -> frame.disable())) // Permite H2 Console em Iframe
+            .headers(headers -> headers
+                .frameOptions(frame -> frame.sameOrigin()) // Permite H2 Console em Iframe do mesmo domínio
+            )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
