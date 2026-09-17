@@ -21,7 +21,10 @@ public class UserJpaEntity {
     private String email;
 
     @Column(nullable = false)
-    private String role; // RBAC Role (ex: ADMIN_GERAL, ENGENHEIRO_CHEFE, ALMOXARIFE, etc.)
+    private String password; // BCrypt Hashed Password
+
+    @Column(nullable = false)
+    private String role; // RBAC Role (ex: SUPER_ADMIN, ENGENHEIRO, ALMOXARIFE, etc.)
 
     @Column(nullable = false)
     private String companyId; // Multi-Tenant Company Isolation
@@ -35,10 +38,11 @@ public class UserJpaEntity {
 
     public UserJpaEntity() {}
 
-    public UserJpaEntity(String id, String name, String email, String role, String companyId, boolean active, String avatarUrl) {
+    public UserJpaEntity(String id, String name, String email, String password, String role, String companyId, boolean active, String avatarUrl) {
         this.id = id;
         this.name = name;
         this.email = email;
+        this.password = password;
         this.role = role;
         this.companyId = companyId;
         this.active = active;
@@ -48,6 +52,8 @@ public class UserJpaEntity {
     public String getId() { return id; }
     public String getName() { return name; }
     public String getEmail() { return email; }
+    public String getPassword() { return password; }
+    public void setPassword(String password) { this.password = password; }
     public String getRole() { return role; }
     public String getCompanyId() { return companyId; }
     public boolean isActive() { return active; }

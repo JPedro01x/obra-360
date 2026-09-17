@@ -12,4 +12,6 @@ import java.util.List;
 public interface SpringDataUserRepository extends JpaRepository<UserJpaEntity, String> {
     List<UserJpaEntity> findByCompanyId(String companyId);
     List<UserJpaEntity> findByRole(String role);
+    java.util.Optional<UserJpaEntity> findByEmail(String email);
+    boolean existsByEmail(String email);
 }

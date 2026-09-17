@@ -33,6 +33,12 @@ class CompanyControllerIntegrationTest {
     @MockBean
     private CreateCompanyUseCase createCompanyUseCase;
 
+    @MockBean
+    private com.obra360.infrastructure.security.JwtTokenProvider jwtTokenProvider;
+
+    @MockBean
+    private com.obra360.infrastructure.security.CustomUserDetailsService customUserDetailsService;
+
     @Test
     @DisplayName("Deve retornar status 200 OK e lista de organizações corporativas")
     void shouldReturnCompaniesList() throws Exception {
