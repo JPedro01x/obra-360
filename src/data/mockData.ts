@@ -3,7 +3,7 @@ import {
   StockMovement, AuditLog, EcosystemStage, B2bMaterialRFQ, 
   EquipmentRentalItem, RealEstateUnit, WarrantyPostSalesTicket,
   Project, ProjectDocument, ConstructionOccurrence, Company,
-  ServiceOrder, PhysicalMeasurement, NfeConciliation
+  ServiceOrder, PhysicalMeasurement, NfeConciliation, ProjectType
 } from '../types';
 
 /* ========================================================================= */
@@ -558,6 +558,81 @@ export const INITIAL_BUILDING_ELEMENTS: BuildingElement[] = [
     position: [0, 6.5, 0]
   }
 ];
+
+export const getDefaultElementsForProject = (project: { id: string; type: ProjectType; name?: string }): BuildingElement[] => {
+  const pId = project.id;
+  const pType = project.type;
+
+  switch (pType) {
+    case 'Prédios & Edifícios':
+      return [
+        { id: `${pId}-ELEM-1`, projectId: pId, name: 'Estacas Hélice Contínua & Bloco de Coroamento', category: 'Fundação', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 1, materialUsed: 'Concreto Usinado Fck 40MPa', lastUpdatedBy: 'Engenharia de Fundações', lastUpdatedAt: 'Hoje', position: [0, 0.4, 0] },
+        { id: `${pId}-ELEM-2`, projectId: pId, name: 'Pilares Centrais P01-P12 Pavimento Térreo', category: 'Estrutura', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 2, materialUsed: 'Concreto Armado CA-50', lastUpdatedBy: 'Eng. Estrutural', lastUpdatedAt: 'Hoje', position: [0, 2.8, 0] },
+        { id: `${pId}-ELEM-3`, projectId: pId, name: 'Laje Maciça Nervurada Pavimento Garagem', category: 'Estrutura', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 3, materialUsed: 'Concreto Protendido Fck 35MPa', lastUpdatedBy: 'Eng. Residente', lastUpdatedAt: 'Hoje', position: [0, 4.6, 0] },
+        { id: `${pId}-ELEM-4`, projectId: pId, name: 'Núcleo Central Rígido (Caixa de Elevadores)', category: 'Estrutura', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 4, materialUsed: 'Paredes de Concreto Autoportante', lastUpdatedBy: 'Mestre de Obras', lastUpdatedAt: 'Hoje', position: [0, 5.2, 0] },
+        { id: `${pId}-ELEM-5`, projectId: pId, name: 'Lajes Pavimento Tipo (1º ao 8º Andar)', category: 'Estrutura', status: 'EM_EXECUCAO', progressPercent: 65, assignedWeek: 5, materialUsed: 'Lajes Treliçadas H16', lastUpdatedBy: 'Equipe de Estrutura', lastUpdatedAt: 'Em andamento', position: [0, 7.5, 0] },
+        { id: `${pId}-ELEM-6`, projectId: pId, name: 'Alvenaria de Vedação em Blocos Sílico-Calcários', category: 'Alvenaria', status: 'EM_EXECUCAO', progressPercent: 40, assignedWeek: 6, materialUsed: 'Blocos de Concreto Celular Autoclavado', lastUpdatedBy: 'Equipe Alvenaria', lastUpdatedAt: 'Em andamento', position: [-4.8, 4.5, 0] },
+        { id: `${pId}-ELEM-7`, projectId: pId, name: 'Fachada Cortina Pele de Vidro Laminado', category: 'Acabamento', status: 'PLANEJADO', progressPercent: 0, assignedWeek: 7, materialUsed: 'Vidros Refletivos 8mm + Alumínio Anodizado', lastUpdatedBy: 'Planejamento', lastUpdatedAt: 'Programado', position: [0, 8.5, 3.4] },
+        { id: `${pId}-ELEM-8`, projectId: pId, name: 'Barrilete Técnico & Reservatórios Superiores', category: 'Instalações', status: 'PLANEJADO', progressPercent: 0, assignedWeek: 8, materialUsed: 'Reservatório Modular Fibra de Vidro', lastUpdatedBy: 'Planejamento', lastUpdatedAt: 'Programado', position: [0, 9.5, 0] }
+      ];
+
+    case 'Galpões Logísticos':
+      return [
+        { id: `${pId}-ELEM-1`, projectId: pId, name: 'Piso Industrial Nivelado a Laser (Carga 8 tf/m²)', category: 'Fundação', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 1, materialUsed: 'Concreto Fck 35MPa com Fibras Metálicas', lastUpdatedBy: 'Eng. Pavimentação', lastUpdatedAt: 'Hoje', position: [0, 0.2, 0] },
+        { id: `${pId}-ELEM-2`, projectId: pId, name: 'Pilares Pré-Moldados de Concreto (Pé-Direito 12m)', category: 'Estrutura', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 2, materialUsed: 'Elementos Pré-Fabricados Concremat', lastUpdatedBy: 'Montagem Industrial', lastUpdatedAt: 'Hoje', position: [0, 3.5, 0] },
+        { id: `${pId}-ELEM-3`, projectId: pId, name: 'Treliças & Tesouras Metálicas em Aço ASTM A36', category: 'Estrutura', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 3, materialUsed: 'Estrutura Espacial Galvanizada', lastUpdatedBy: 'Equipe de Solda', lastUpdatedAt: 'Hoje', position: [0, 5.8, 0] },
+        { id: `${pId}-ELEM-4`, projectId: pId, name: 'Fechamento Lateral com Placas de Concreto Alveolar', category: 'Alvenaria', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 4, materialUsed: 'Painéis Alveolares 15cm', lastUpdatedBy: 'Montagem', lastUpdatedAt: 'Hoje', position: [-5, 3.0, 0] },
+        { id: `${pId}-ELEM-5`, projectId: pId, name: 'Cobertura Termoacústica Sanduíche PIR', category: 'Acabamento', status: 'EM_EXECUCAO', progressPercent: 85, assignedWeek: 5, materialUsed: 'Telhas Trapezoidais Aluzinc + Miolo PIR', lastUpdatedBy: 'Equipe Cobertura', lastUpdatedAt: 'Em andamento', position: [0, 6.4, 0] },
+        { id: `${pId}-ELEM-6`, projectId: pId, name: 'Docas de Carga e Niveladores Eletro-Hidráulicos', category: 'Instalações', status: 'EM_EXECUCAO', progressPercent: 70, assignedWeek: 6, materialUsed: 'Rampas Niveladoras Kopron 6tf', lastUpdatedBy: 'Automação Logística', lastUpdatedAt: 'Em andamento', position: [5, 1.2, 2.5] },
+        { id: `${pId}-ELEM-7`, projectId: pId, name: 'Rede de Sprinklers ESFR K-25 e Reservatório 150m³', category: 'Instalações', status: 'PLANEJADO', progressPercent: 10, assignedWeek: 7, materialUsed: 'Tubulações Ranhuradas Aço Carbono', lastUpdatedBy: 'Eng. Combate a Incêndio', lastUpdatedAt: 'Programado', position: [0, 5.2, 0] },
+        { id: `${pId}-ELEM-8`, projectId: pId, name: 'Domos Prismáticos para Iluminação Zenital Natural', category: 'Acabamento', status: 'PLANEJADO', progressPercent: 0, assignedWeek: 8, materialUsed: 'Policarbonato Prismático com Proteção UV', lastUpdatedBy: 'Planejamento', lastUpdatedAt: 'Programado', position: [0, 6.7, 0] }
+      ];
+
+    case 'Energia Solar':
+      return [
+        { id: `${pId}-ELEM-1`, projectId: pId, name: 'Terraplenagem, Supressão & Drenagem Perimetral', category: 'Fundação', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 1, materialUsed: 'Canaletas Trapezoidais de Concreto', lastUpdatedBy: 'Topografia & Terraplenagem', lastUpdatedAt: 'Hoje', position: [0, 0.1, 0] },
+        { id: `${pId}-ELEM-2`, projectId: pId, name: 'Estacas Crimpadas em Aço Galvanizado a Fogo', category: 'Fundação', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 2, materialUsed: 'Perfis W150 cravados a 2.5m de profundidade', lastUpdatedBy: 'Cravação Hidráulica', lastUpdatedAt: 'Hoje', position: [0, 1.0, 0] },
+        { id: `${pId}-ELEM-3`, projectId: pId, name: 'Trackers Articulados Monoeixo 1P com Sensores GPS', category: 'Estrutura', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 3, materialUsed: 'Braços Mecânicos com Rolamentos Blindados', lastUpdatedBy: 'Montagem Mecânica', lastUpdatedAt: 'Hoje', position: [0, 2.2, 0] },
+        { id: `${pId}-ELEM-4`, projectId: pId, name: 'Instalação de Strings com 4.800 Módulos Bifaciais 550W', category: 'Instalações', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 4, materialUsed: 'Painéis Monocristalinos Tier 1', lastUpdatedBy: 'Equipe Elétrica Solar', lastUpdatedAt: 'Hoje', position: [0, 3.0, 0] },
+        { id: `${pId}-ELEM-5`, projectId: pId, name: 'String Boxes & Cabeamento Subterrâneo CC 1.500V', category: 'Instalações', status: 'EM_EXECUCAO', progressPercent: 75, assignedWeek: 5, materialUsed: 'Cabos Solares com Dupla Isolação XLPE', lastUpdatedBy: 'Equipe de Cabos', lastUpdatedAt: 'Em andamento', position: [0, 0.5, 0] },
+        { id: `${pId}-ELEM-6`, projectId: pId, name: 'Skids Inversores Centrais 3.125 kVA com Transformadores', category: 'Instalações', status: 'EM_EXECUCAO', progressPercent: 50, assignedWeek: 6, materialUsed: 'Inversores Sungrow / Huawei IP65', lastUpdatedBy: 'Comissionamento Elétrico', lastUpdatedAt: 'Em andamento', position: [4, 1.5, 0] },
+        { id: `${pId}-ELEM-7`, projectId: pId, name: 'Subestação Elevadora 34.5kV / 138kV Concessionária', category: 'Estrutura', status: 'PLANEJADO', progressPercent: 20, assignedWeek: 7, materialUsed: 'Transformadores de Potência Óleo Mineral', lastUpdatedBy: 'Eng. Alta Tensão', lastUpdatedAt: 'Programado', position: [5, 3.5, 0] },
+        { id: `${pId}-ELEM-8`, projectId: pId, name: 'Cercamento Perimetral com Fibra Sensitiva e Câmeras Térmicas', category: 'Acabamento', status: 'PLANEJADO', progressPercent: 0, assignedWeek: 8, materialUsed: 'Gradil Eletrosoldado Galvanizado 2.4m', lastUpdatedBy: 'Segurança Patrimonial', lastUpdatedAt: 'Programado', position: [0, 1.8, 4] }
+      ];
+
+    case 'Hospitais & Saúde':
+      return [
+        { id: `${pId}-ELEM-1`, projectId: pId, name: 'Fundação Especial Antivibração com Blocos Sísmicos', category: 'Fundação', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 1, materialUsed: 'Concreto de Alta Densidade com Isoladores Elastoméricos', lastUpdatedBy: 'Eng. Hospitalar', lastUpdatedAt: 'Hoje', position: [0, 0.4, 0] },
+        { id: `${pId}-ELEM-2`, projectId: pId, name: 'Pilares & Vigas Pré-Moldadas com Blindagem Acústica', category: 'Estrutura', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 2, materialUsed: 'Concreto Fck 40MPa', lastUpdatedBy: 'Estruturas Especiais', lastUpdatedAt: 'Hoje', position: [0, 2.8, 0] },
+        { id: `${pId}-ELEM-3`, projectId: pId, name: 'Laje Técnica para Central Térmica e Geradores 750kVA', category: 'Estrutura', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 3, materialUsed: 'Laje Maciça 25cm com Bacia de Contenção', lastUpdatedBy: 'Equipe de Instalações', lastUpdatedAt: 'Hoje', position: [0, 4.6, 0] },
+        { id: `${pId}-ELEM-4`, projectId: pId, name: 'Divisórias Drywall com Lã de Rocha e Blindagem de Chumbo', category: 'Alvenaria', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 4, materialUsed: 'Chapas Knauf Safeboard (Radiologia)', lastUpdatedBy: 'Montagem Hospitalar', lastUpdatedAt: 'Hoje', position: [-4.9, 2.8, 0] },
+        { id: `${pId}-ELEM-5`, projectId: pId, name: 'Rede Canalizada de Gases Medicinais (O2, Ar, Óxido Nitroso, Vácuo)', category: 'Instalações', status: 'EM_EXECUCAO', progressPercent: 60, assignedWeek: 5, materialUsed: 'Tubos de Cobre Desengraxado e Solda Prata', lastUpdatedBy: 'Eng. Clínica', lastUpdatedAt: 'Em andamento', position: [0, 3.8, 0] },
+        { id: `${pId}-ELEM-6`, projectId: pId, name: 'Sistema de Climatização HVAC com Filtros HEPA e Pressão Negativa', category: 'Instalações', status: 'EM_EXECUCAO', progressPercent: 40, assignedWeek: 6, materialUsed: 'Dutos de Alumínio Climaver com Tratamento Antimicrobiano', lastUpdatedBy: 'Equipe AVAC', lastUpdatedAt: 'Em andamento', position: [0, 5.0, 0] },
+        { id: `${pId}-ELEM-7`, projectId: pId, name: 'Heliponto Estrutural Elevado Homologado ANAC', category: 'Estrutura', status: 'PLANEJADO', progressPercent: 15, assignedWeek: 7, materialUsed: 'Deck de Alumínio Naval com Iluminação LED Aeronáutica', lastUpdatedBy: 'Eng. Aeronáutica', lastUpdatedAt: 'Programado', position: [0, 7.2, 0] },
+        { id: `${pId}-ELEM-8`, projectId: pId, name: 'Pisos Vinílicos Condutivos Homogêneos para Salas Cirúrgicas', category: 'Acabamento', status: 'PLANEJADO', progressPercent: 0, assignedWeek: 8, materialUsed: 'Manta Vinílica Tarkett IQ Toro SC', lastUpdatedBy: 'Acabamentos Nobres', lastUpdatedAt: 'Programado', position: [0, 1.0, 0] }
+      ];
+
+    case 'Túneis & Subterrâneo':
+      return [
+        { id: `${pId}-ELEM-1`, projectId: pId, name: 'Poço de Ataque de Emboque e Paredes Diafragma', category: 'Fundação', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 1, materialUsed: 'Paredes Moldadas no Solo e Tirantes Ancorados', lastUpdatedBy: 'Eng. Geotécnica', lastUpdatedAt: 'Hoje', position: [0, -1.0, 0] },
+        { id: `${pId}-ELEM-2`, projectId: pId, name: 'Escavação Subterrânea Mecanizada (TBM / Tuneladora)', category: 'Estrutura', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 2, materialUsed: 'Escudo Frontal 10.8m com Cortadores de Rocha', lastUpdatedBy: 'Operação TBM', lastUpdatedAt: 'Hoje', position: [0, 1.5, 0] },
+        { id: `${pId}-ELEM-3`, projectId: pId, name: 'Montagem dos Anéis de Aduelas em Concreto Reforçado', category: 'Estrutura', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 3, materialUsed: 'Aduelas Pré-Moldadas com Vedação EPDM', lastUpdatedBy: 'Equipe de Anéis', lastUpdatedAt: 'Hoje', position: [0, 2.5, 0] },
+        { id: `${pId}-ELEM-4`, projectId: pId, name: 'Injeção de Calda de Cimento no Tardoz das Aduelas', category: 'Fundação', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 4, materialUsed: 'Argamassa Bicompomente de Preenchimento', lastUpdatedBy: 'Injeção Geotécnica', lastUpdatedAt: 'Hoje', position: [0, 2.5, 0] },
+        { id: `${pId}-ELEM-5`, projectId: pId, name: 'Laje de Fundo e Drenagem Profunda para Lençol Freático', category: 'Estrutura', status: 'EM_EXECUCAO', progressPercent: 50, assignedWeek: 5, materialUsed: 'Concreto Projetado com Fibras + Tubos Dreno PEAD', lastUpdatedBy: 'Drenagem Pesada', lastUpdatedAt: 'Em andamento', position: [0, 0.4, 0] },
+        { id: `${pId}-ELEM-6`, projectId: pId, name: 'Pavimentação em Concreto Rolado de Alta Aderência', category: 'Acabamento', status: 'EM_EXECUCAO', progressPercent: 30, assignedWeek: 6, materialUsed: 'Pavimento Rígido Rodoviário CCR', lastUpdatedBy: 'Pavimentação Asfáltica', lastUpdatedAt: 'Em andamento', position: [0, 0.8, 0] },
+        { id: `${pId}-ELEM-7`, projectId: pId, name: 'Sistema de Ventilação Longitudinal com Jet-Fans 55kW', category: 'Instalações', status: 'PLANEJADO', progressPercent: 0, assignedWeek: 7, materialUsed: 'Ventiladores Axiais Reversíveis de Alta Vazão', lastUpdatedBy: 'Instalações Eletromecânicas', lastUpdatedAt: 'Programado', position: [0, 4.2, 0] },
+        { id: `${pId}-ELEM-8`, projectId: pId, name: 'Galerias de Emergência com Portas Corta-Fogo P-120', category: 'Alvenaria', status: 'PLANEJADO', progressPercent: 0, assignedWeek: 8, materialUsed: 'Portas Blindadas com Pressurização Automática', lastUpdatedBy: 'Segurança Rodoviária', lastUpdatedAt: 'Programado', position: [4.5, 2.0, 0] }
+      ];
+
+    default:
+      // Casas Residenciais, Condomínios Fechados, Infraestrutura ou Geral
+      return INITIAL_BUILDING_ELEMENTS.map((elem, idx) => ({
+        ...elem,
+        id: `${pId}-ELEM-${idx + 1}`,
+        projectId: pId
+      }));
+  }
+};
 
 export const INITIAL_STOCK: StockItem[] = [
   { id: 'STK-001', sku: 'CIM-CP2', name: 'Cimento Votoran CP II-Z 50kg', category: 'Insumos Básicos', quantity: 450, minStock: 100, unit: 'sacos', location: 'Almoxarifado Central - Prateleira A' },

@@ -2,10 +2,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { BuildingElement, ConstructionOccurrence, Project, RoleId, ThemeMode } from '../types';
-import { INITIAL_OCCURRENCES, USER_ROLES } from '../data/mockData';
+import { INITIAL_OCCURRENCES, USER_ROLES, getDefaultElementsForProject } from '../data/mockData';
 import { 
   Box, Eye, Layers, Calendar, CheckCircle2, Clock, 
-  AlertCircle, Sparkles, Upload, FileText, ChevronRight, Check, X, Move, Plus, Trash2, Sliders, Lock, Search, Building2, MapPin, Play, Pause, RefreshCw, AlertTriangle, ShieldCheck, Camera 
+  AlertCircle, Sparkles, Upload, FileText, ChevronRight, Check, X, Move, Plus, Trash2, Sliders, Lock, Search, Building2, MapPin, Play, Pause, RefreshCw, AlertTriangle, ShieldCheck, Camera, FolderPlus, FileUp 
 } from 'lucide-react';
 
 interface BimViewer3DProps {
@@ -18,6 +18,7 @@ interface BimViewer3DProps {
   onAddElement: (elem: Omit<BuildingElement, 'id' | 'lastUpdatedAt'>) => void;
   onDeleteElement: (id: string) => void;
   onImportFloorPlan: (presetName: string) => void;
+  onResetModel?: (newElements: BuildingElement[], title?: string) => void;
   onSendToast: (type: 'success' | 'info' | 'warning' | 'error', title: string, msg: string) => void;
 }
 
@@ -31,6 +32,7 @@ export const BimViewer3D: React.FC<BimViewer3DProps> = ({
   onAddElement,
   onDeleteElement,
   onImportFloorPlan,
+  onResetModel,
   onSendToast
 }) => {
   const mountRef = useRef<HTMLDivElement>(null);
@@ -69,6 +71,11 @@ export const BimViewer3D: React.FC<BimViewer3DProps> = ({
   const [isAiProcessing, setIsAiProcessing] = useState<boolean>(false);
   const [aiStep, setAiStep] = useState<number>(0);
   const [selectedPreset, setSelectedPreset] = useState<string>('Casa 3 Quartos (120m²)');
+
+  // Model Manager Modal & IFC Parser State
+  const [showModelManagerModal, setShowModelManagerModal] = useState<boolean>(false);
+  const [isParsingIfc, setIsParsingIfc] = useState<boolean>(false);
+  const [ifcFileName, setIfcFileName] = useState<string>('');
 
   const selectedElement = elements.find((e) => e.id === selectedElementId);
   const userPermissions = USER_ROLES[currentRole]?.permissions || [];
@@ -149,148 +156,307 @@ export const BimViewer3D: React.FC<BimViewer3DProps> = ({
     // Group for building meshes
     const meshesGroup = new THREE.Group();
 
-    // 1. Foundation Sapatas (Semana 1)
-    if (selectedWeek >= 1) {
-      const footingGeo = new THREE.BoxGeometry(2.4, 0.7, 2.4);
-      const footingMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.8 });
-      [
-        [-5, 0.35, -3.5], [0, 0.35, -3.5], [5, 0.35, -3.5],
-        [-5, 0.35, 3.5],  [0, 0.35, 3.5],  [5, 0.35, 3.5]
-      ].forEach((pos) => {
-        const footing = new THREE.Mesh(footingGeo, footingMat);
-        footing.position.set(pos[0], pos[1], pos[2]);
-        footing.castShadow = true;
-        footing.receiveShadow = true;
-        meshesGroup.add(footing);
-      });
-    }
+    // Base 3D Geometry adapting to Active Project Type
+    const projectType = activeProject?.type || 'Casas Residenciais';
 
-    // 2. Lower Baldrame Beams Ring (Semana 2)
-    if (selectedWeek >= 2) {
-      const baldrameLongGeo = new THREE.BoxGeometry(12.4, 0.6, 0.6);
-      const baldrameShortGeo = new THREE.BoxGeometry(0.6, 0.6, 7.6);
-      const baldrameMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.7 });
+    if (elements.length > 0) {
+      if (projectType === 'Galpões Logísticos') {
+        // --- GEOMETRIA: GALPÃO LOGÍSTICO / ESTRUTURA METÁLICA ---
+        // 1. Piso Industrial Amplo Nivelado a Laser
+        if (selectedWeek >= 1) {
+          const floorGeo = new THREE.BoxGeometry(16, 0.3, 12);
+          const floorMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.3 });
+          const floor = new THREE.Mesh(floorGeo, floorMat);
+          floor.position.set(0, 0.15, 0);
+          floor.receiveShadow = true;
+          floor.userData = { id: `${activeProject?.id}-ELEM-1`, name: 'Piso Industrial Nivelado a Laser' };
+          meshesGroup.add(floor);
+        }
+        // 2. Pilares Pré-Moldados Altos (Pé-direito 12m)
+        if (selectedWeek >= 2) {
+          const colGeo = new THREE.BoxGeometry(0.7, 5.0, 0.7);
+          const colMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.6 });
+          [
+            [-7, 2.5, -5], [-2.3, 2.5, -5], [2.3, 2.5, -5], [7, 2.5, -5],
+            [-7, 2.5, 5],  [-2.3, 2.5, 5],  [2.3, 2.5, 5],  [7, 2.5, 5]
+          ].forEach((pos, idx) => {
+            const col = new THREE.Mesh(colGeo, colMat);
+            col.position.set(pos[0], pos[1], pos[2]);
+            col.castShadow = true;
+            col.userData = { id: `${activeProject?.id}-ELEM-2`, name: `Pilar Pré-Moldado P0${idx + 1}` };
+            meshesGroup.add(col);
+          });
+        }
+        // 3. Tesouras & Treliças Metálicas Espaciais
+        if (selectedWeek >= 3) {
+          const trussMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.8, roughness: 0.3 });
+          [-5, 5].forEach((z) => {
+            const tLong = new THREE.Mesh(new THREE.BoxGeometry(15.5, 0.4, 0.4), trussMat);
+            tLong.position.set(0, 5.2, z);
+            meshesGroup.add(tLong);
+          });
+          [-7, -2.3, 2.3, 7].forEach((x) => {
+            const tTrans = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.8, 10.4), trussMat);
+            tTrans.position.set(x, 5.5, 0);
+            meshesGroup.add(tTrans);
+          });
+        }
+        // 4. Fechamento Lateral em Placas Pré-Moldadas
+        if (selectedWeek >= 4) {
+          const panelMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.8 });
+          const backWall = new THREE.Mesh(new THREE.BoxGeometry(15.8, 4.8, 0.25), panelMat);
+          backWall.position.set(0, 2.5, -5.1);
+          meshesGroup.add(backWall);
 
-      const bLong1 = new THREE.Mesh(baldrameLongGeo, baldrameMat);
-      bLong1.position.set(0, 0.9, -3.5);
-      meshesGroup.add(bLong1);
+          const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.25, 4.8, 10.2), panelMat);
+          leftWall.position.set(-7.1, 2.5, 0);
+          meshesGroup.add(leftWall);
+        }
+        // 5. Cobertura Sanduíche Termoacústica
+        if (selectedWeek >= 5) {
+          const roofMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.6, roughness: 0.4 });
+          const roof = new THREE.Mesh(new THREE.BoxGeometry(16.5, 0.2, 11), roofMat);
+          roof.position.set(0, 6.0, 0);
+          roof.userData = { id: `${activeProject?.id}-ELEM-5`, name: 'Cobertura Sanduíche PIR' };
+          meshesGroup.add(roof);
+        }
+        // 6. Docas Niveladoras & Rampas Logísticas
+        if (selectedWeek >= 6) {
+          const dockMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.5 });
+          [-3, 3].forEach((x) => {
+            const dock = new THREE.Mesh(new THREE.BoxGeometry(2.6, 3.2, 0.2), dockMat);
+            dock.position.set(x, 1.6, 5.1);
+            dock.userData = { id: `${activeProject?.id}-ELEM-6`, name: 'Doca Niveladora Eletro-Hidráulica' };
+            meshesGroup.add(dock);
+          });
+        }
+      } else if (projectType === 'Prédios & Edifícios') {
+        // --- GEOMETRIA: PRÉDIOS & EDIFÍCIOS RESIDENCIAIS / COMERCIAIS ---
+        // 1. Estacas Hélice Contínua e Blocos de Fundação
+        if (selectedWeek >= 1) {
+          const footingMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.8 });
+          for (let x = -5; x <= 5; x += 3.3) {
+            for (let z = -3.5; z <= 3.5; z += 3.5) {
+              const pile = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 1.2, 12), footingMat);
+              pile.position.set(x, 0.6, z);
+              meshesGroup.add(pile);
+            }
+          }
+        }
+        // 2. Laje Térreo & Núcleo Rígido da Torre
+        if (selectedWeek >= 2) {
+          const slabTerreo = new THREE.Mesh(new THREE.BoxGeometry(13, 0.4, 9), new THREE.MeshStandardMaterial({ color: 0x475569 }));
+          slabTerreo.position.set(0, 1.2, 0);
+          meshesGroup.add(slabTerreo);
 
-      const bLong2 = new THREE.Mesh(baldrameLongGeo, baldrameMat);
-      bLong2.position.set(0, 0.9, 3.5);
-      meshesGroup.add(bLong2);
+          const core = new THREE.Mesh(new THREE.BoxGeometry(3, 8.5, 3), new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.7 }));
+          core.position.set(0, 5.4, 0);
+          core.userData = { id: `${activeProject?.id}-ELEM-4`, name: 'Núcleo Central Rígido (Elevadores)' };
+          meshesGroup.add(core);
+        }
+        // 3. Pavimento 1º Andar
+        if (selectedWeek >= 3) {
+          for (let x = -5; x <= 5; x += 3.3) {
+            for (let z = -3.5; z <= 3.5; z += 3.5) {
+              const col = new THREE.Mesh(new THREE.BoxGeometry(0.5, 2.6, 0.5), new THREE.MeshStandardMaterial({ color: 0x64748b }));
+              col.position.set(x, 2.7, z);
+              meshesGroup.add(col);
+            }
+          }
+          const slab1 = new THREE.Mesh(new THREE.BoxGeometry(13, 0.3, 9), new THREE.MeshStandardMaterial({ color: 0x94a3b8 }));
+          slab1.position.set(0, 4.1, 0);
+          meshesGroup.add(slab1);
+        }
+        // 4. Pavimento 2º Andar
+        if (selectedWeek >= 4) {
+          for (let x = -5; x <= 5; x += 3.3) {
+            for (let z = -3.5; z <= 3.5; z += 3.5) {
+              const col = new THREE.Mesh(new THREE.BoxGeometry(0.5, 2.6, 0.5), new THREE.MeshStandardMaterial({ color: 0x64748b }));
+              col.position.set(x, 5.5, z);
+              meshesGroup.add(col);
+            }
+          }
+          const slab2 = new THREE.Mesh(new THREE.BoxGeometry(13, 0.3, 9), new THREE.MeshStandardMaterial({ color: 0x94a3b8 }));
+          slab2.position.set(0, 6.9, 0);
+          meshesGroup.add(slab2);
+        }
+        // 5. Pavimento 3º Andar e Cobertura
+        if (selectedWeek >= 5) {
+          const slab3 = new THREE.Mesh(new THREE.BoxGeometry(13, 0.3, 9), new THREE.MeshStandardMaterial({ color: 0x94a3b8 }));
+          slab3.position.set(0, 9.6, 0);
+          meshesGroup.add(slab3);
+        }
+        // 6. Fachada Pele de Vidro Laminado
+        if (selectedWeek >= 6) {
+          const glassMat = new THREE.MeshPhysicalMaterial({ color: 0x0284c7, transparent: true, opacity: 0.45, roughness: 0.1 });
+          const glassFront = new THREE.Mesh(new THREE.BoxGeometry(12.8, 8.2, 0.1), glassMat);
+          glassFront.position.set(0, 5.4, 4.4);
+          glassFront.userData = { id: `${activeProject?.id}-ELEM-7`, name: 'Fachada Cortina Pele de Vidro' };
+          meshesGroup.add(glassFront);
+        }
+        // 7. Barrilete Técnico no Topo
+        if (selectedWeek >= 7) {
+          const tank = new THREE.Mesh(new THREE.BoxGeometry(4, 1.8, 3.5), new THREE.MeshStandardMaterial({ color: 0x334155 }));
+          tank.position.set(0, 10.6, 0);
+          tank.userData = { id: `${activeProject?.id}-ELEM-8`, name: 'Barrilete & Reservatório' };
+          meshesGroup.add(tank);
+        }
+      } else if (projectType === 'Energia Solar') {
+        // --- GEOMETRIA: USINA SOLAR FOTOVOLTAICA ---
+        if (selectedWeek >= 1) {
+          const ground = new THREE.Mesh(new THREE.BoxGeometry(16, 0.2, 12), new THREE.MeshStandardMaterial({ color: 0x78716c, roughness: 0.9 }));
+          ground.position.set(0, 0.1, 0);
+          meshesGroup.add(ground);
+        }
+        if (selectedWeek >= 3) {
+          const postMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.9, roughness: 0.2 });
+          const solarMat = new THREE.MeshStandardMaterial({ color: 0x1e3a8a, metalness: 0.8, roughness: 0.2 });
+          for (let row = -4; row <= 4; row += 2.8) {
+            for (let col = -6; col <= 6; col += 3.5) {
+              const post = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 1.6, 8), postMat);
+              post.position.set(col, 0.9, row);
+              meshesGroup.add(post);
+            }
+            if (selectedWeek >= 4) {
+              const table = new THREE.Mesh(new THREE.BoxGeometry(14, 0.08, 1.8), solarMat);
+              table.position.set(0, 1.8, row);
+              table.rotation.x = -Math.PI / 8;
+              table.userData = { id: `${activeProject?.id}-ELEM-4`, name: `String Solar Fotovoltaica Fila ${row}` };
+              meshesGroup.add(table);
+            }
+          }
+        }
+        if (selectedWeek >= 6) {
+          const inv = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.2, 1.8), new THREE.MeshStandardMaterial({ color: 0xeab308, roughness: 0.5 }));
+          inv.position.set(6, 1.2, 4);
+          inv.userData = { id: `${activeProject?.id}-ELEM-6`, name: 'Inversor Central 3.125kVA' };
+          meshesGroup.add(inv);
+        }
+      } else {
+        // --- GEOMETRIA PADRÃO: CASAS RESIDENCIAIS & CONDOMÍNIOS ---
+        // 1. Foundation Sapatas (Semana 1)
+        if (selectedWeek >= 1) {
+          const footingGeo = new THREE.BoxGeometry(2.4, 0.7, 2.4);
+          const footingMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.8 });
+          [
+            [-5, 0.35, -3.5], [0, 0.35, -3.5], [5, 0.35, -3.5],
+            [-5, 0.35, 3.5],  [0, 0.35, 3.5],  [5, 0.35, 3.5]
+          ].forEach((pos) => {
+            const footing = new THREE.Mesh(footingGeo, footingMat);
+            footing.position.set(pos[0], pos[1], pos[2]);
+            footing.castShadow = true;
+            footing.receiveShadow = true;
+            meshesGroup.add(footing);
+          });
+        }
+        // 2. Baldrame (Semana 2)
+        if (selectedWeek >= 2) {
+          const baldrameLongGeo = new THREE.BoxGeometry(12.4, 0.6, 0.6);
+          const baldrameShortGeo = new THREE.BoxGeometry(0.6, 0.6, 7.6);
+          const baldrameMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.7 });
 
-      const bShort1 = new THREE.Mesh(baldrameShortGeo, baldrameMat);
-      bShort1.position.set(-5, 0.9, 0);
-      meshesGroup.add(bShort1);
+          const bLong1 = new THREE.Mesh(baldrameLongGeo, baldrameMat);
+          bLong1.position.set(0, 0.9, -3.5);
+          meshesGroup.add(bLong1);
+          const bLong2 = new THREE.Mesh(baldrameLongGeo, baldrameMat);
+          bLong2.position.set(0, 0.9, 3.5);
+          meshesGroup.add(bLong2);
+          const bShort1 = new THREE.Mesh(baldrameShortGeo, baldrameMat);
+          bShort1.position.set(-5, 0.9, 0);
+          meshesGroup.add(bShort1);
+          const bShort2 = new THREE.Mesh(baldrameShortGeo, baldrameMat);
+          bShort2.position.set(5, 0.9, 0);
+          meshesGroup.add(bShort2);
+        }
+        // 3. Colunas (Semana 3)
+        if (selectedWeek >= 3) {
+          const colGeo = new THREE.BoxGeometry(0.6, 3.2, 0.6);
+          const colMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.6 });
+          const markerGeo = new THREE.BoxGeometry(0.2, 0.3, 0.2);
+          const markerMat = new THREE.MeshStandardMaterial({ color: 0xef4444 });
+          [
+            [-5, 2.8, -3.5], [-1.7, 2.8, -3.5], [1.7, 2.8, -3.5], [5, 2.8, -3.5],
+            [-5, 2.8, 3.5],  [-1.7, 2.8, 3.5],  [1.7, 2.8, 3.5],  [5, 2.8, 3.5]
+          ].forEach((pos, idx) => {
+            const col = new THREE.Mesh(colGeo, colMat);
+            col.position.set(pos[0], pos[1], pos[2]);
+            col.castShadow = true;
+            col.userData = { id: `ELEM-003`, name: `Coluna P-0${idx + 1}` };
+            meshesGroup.add(col);
 
-      const bShort2 = new THREE.Mesh(baldrameShortGeo, baldrameMat);
-      bShort2.position.set(5, 0.9, 0);
-      meshesGroup.add(bShort2);
-    }
+            const marker = new THREE.Mesh(markerGeo, markerMat);
+            marker.position.set(pos[0], pos[1] + 1.7, pos[2]);
+            meshesGroup.add(marker);
+          });
+        }
+        // 4. Laje Térreo (Semana 4)
+        if (selectedWeek >= 4) {
+          const topBeamLongGeo = new THREE.BoxGeometry(12.4, 0.5, 0.6);
+          const topBeamShortGeo = new THREE.BoxGeometry(0.6, 0.5, 7.6);
+          const slabMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.5 });
 
-    // 3. Structural Concrete Columns (Semana 3 & 4 - Matching Screenshot EXACTLY)
-    if (selectedWeek >= 3) {
-      const colGeo = new THREE.BoxGeometry(0.6, 3.2, 0.6);
-      const colMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.6 });
-      
-      // Red Inspection/Rebar Markers on Column Tops
-      const markerGeo = new THREE.BoxGeometry(0.2, 0.3, 0.2);
-      const markerMat = new THREE.MeshStandardMaterial({ color: 0xef4444 });
+          const tLong1 = new THREE.Mesh(topBeamLongGeo, slabMat);
+          tLong1.position.set(0, 4.65, -3.5);
+          meshesGroup.add(tLong1);
+          const tLong2 = new THREE.Mesh(topBeamLongGeo, slabMat);
+          tLong2.position.set(0, 4.65, 3.5);
+          meshesGroup.add(tLong2);
+          const tShort1 = new THREE.Mesh(topBeamShortGeo, slabMat);
+          tShort1.position.set(-5, 4.65, 0);
+          meshesGroup.add(tShort1);
+          const tShort2 = new THREE.Mesh(topBeamShortGeo, slabMat);
+          tShort2.position.set(5, 4.65, 0);
+          meshesGroup.add(tShort2);
 
-      [
-        [-5, 2.8, -3.5], [-1.7, 2.8, -3.5], [1.7, 2.8, -3.5], [5, 2.8, -3.5],
-        [-5, 2.8, 3.5],  [-1.7, 2.8, 3.5],  [1.7, 2.8, 3.5],  [5, 2.8, 3.5]
-      ].forEach((pos, idx) => {
-        const col = new THREE.Mesh(colGeo, colMat);
-        col.position.set(pos[0], pos[1], pos[2]);
-        col.castShadow = true;
-        col.userData = { id: `ELEM-003`, name: `Coluna P-0${idx + 1}` };
-        meshesGroup.add(col);
+          const slabFloorGeo = new THREE.BoxGeometry(11.8, 0.25, 7.0);
+          const slabFloorMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.6 });
+          const slabFloor = new THREE.Mesh(slabFloorGeo, slabFloorMat);
+          slabFloor.position.set(0, 4.5, 0);
+          meshesGroup.add(slabFloor);
+        }
+        // 5. Paredes (Semana 5 & 6)
+        if (selectedWeek >= 5) {
+          const wallMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.85 });
+          const backWall = new THREE.Mesh(new THREE.BoxGeometry(11.8, 3.2, 0.3), wallMat);
+          backWall.position.set(0, 2.8, -3.4);
+          backWall.userData = { id: 'ELEM-005', name: 'Parede Traseira' };
+          meshesGroup.add(backWall);
 
-        const marker = new THREE.Mesh(markerGeo, markerMat);
-        marker.position.set(pos[0], pos[1] + 1.7, pos[2]);
-        meshesGroup.add(marker);
-      });
-    }
-
-    // 4. Upper Ring Beams & Concrete Slab Frame (Semana 4 - EXACT SCREENSHOT STATE)
-    if (selectedWeek >= 4) {
-      const topBeamLongGeo = new THREE.BoxGeometry(12.4, 0.5, 0.6);
-      const topBeamShortGeo = new THREE.BoxGeometry(0.6, 0.5, 7.6);
-      const slabMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.5 });
-
-      const tLong1 = new THREE.Mesh(topBeamLongGeo, slabMat);
-      tLong1.position.set(0, 4.65, -3.5);
-      meshesGroup.add(tLong1);
-
-      const tLong2 = new THREE.Mesh(topBeamLongGeo, slabMat);
-      tLong2.position.set(0, 4.65, 3.5);
-      meshesGroup.add(tLong2);
-
-      const tShort1 = new THREE.Mesh(topBeamShortGeo, slabMat);
-      tShort1.position.set(-5, 4.65, 0);
-      meshesGroup.add(tShort1);
-
-      const tShort2 = new THREE.Mesh(topBeamShortGeo, slabMat);
-      tShort2.position.set(5, 4.65, 0);
-      meshesGroup.add(tShort2);
-
-      // Upper Concrete Slab Floor
-      const slabFloorGeo = new THREE.BoxGeometry(11.8, 0.25, 7.0);
-      const slabFloorMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.6 });
-      const slabFloor = new THREE.Mesh(slabFloorGeo, slabFloorMat);
-      slabFloor.position.set(0, 4.5, 0);
-      meshesGroup.add(slabFloor);
-    }
-
-    // 5. Masonry Walls (Semana 5 & 6)
-    if (selectedWeek >= 5) {
-      const wallMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.85 });
-      
-      const backWallGeo = new THREE.BoxGeometry(11.8, 3.2, 0.3);
-      const backWall = new THREE.Mesh(backWallGeo, wallMat);
-      backWall.position.set(0, 2.8, -3.4);
-      backWall.userData = { id: 'ELEM-005', name: 'Parede Traseira' };
-      meshesGroup.add(backWall);
-
-      const sideWallGeo = new THREE.BoxGeometry(0.3, 3.2, 6.8);
-      const leftWall = new THREE.Mesh(sideWallGeo, wallMat);
-      leftWall.position.set(-4.9, 2.8, 0);
-      leftWall.userData = { id: 'ELEM-005', name: 'Parede Esquerda' };
-      meshesGroup.add(leftWall);
-    }
-
-    if (selectedWeek >= 6) {
-      const wallMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.85 });
-      const sideWallGeo = new THREE.BoxGeometry(0.3, 3.2, 6.8);
-      const rightWall = new THREE.Mesh(sideWallGeo, wallMat);
-      rightWall.position.set(4.9, 2.8, 0);
-      rightWall.userData = { id: 'ELEM-006', name: 'Parede Direita' };
-      meshesGroup.add(rightWall);
-    }
-
-    // 6. Roof & Photovoltaic Solar Panels (Semana 7 & 8)
-    if (selectedWeek >= 7) {
-      const roofGeo = new THREE.ConeGeometry(7.5, 2.5, 4);
-      const roofMat = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.6 });
-      const roof = new THREE.Mesh(roofGeo, roofMat);
-      roof.position.set(0, 6.0, 0);
-      roof.rotation.y = Math.PI / 4;
-      roof.userData = { id: 'ELEM-007', name: 'Telhado Cerâmico' };
-      meshesGroup.add(roof);
-    }
-
-    if (selectedWeek >= 8) {
-      const panelGeo = new THREE.BoxGeometry(2.5, 0.08, 1.4);
-      const panelMat = new THREE.MeshStandardMaterial({ color: 0x1e3a8a, metalness: 0.9, roughness: 0.2 });
-      const p1 = new THREE.Mesh(panelGeo, panelMat);
-      p1.position.set(-2.0, 6.5, 1.2);
-      p1.rotation.x = -Math.PI / 8;
-      meshesGroup.add(p1);
-      const p2 = new THREE.Mesh(panelGeo, panelMat);
-      p2.position.set(2.0, 6.5, 1.2);
-      p2.rotation.x = -Math.PI / 8;
-      meshesGroup.add(p2);
+          const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.3, 3.2, 6.8), wallMat);
+          leftWall.position.set(-4.9, 2.8, 0);
+          leftWall.userData = { id: 'ELEM-005', name: 'Parede Esquerda' };
+          meshesGroup.add(leftWall);
+        }
+        if (selectedWeek >= 6) {
+          const wallMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.85 });
+          const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.3, 3.2, 6.8), wallMat);
+          rightWall.position.set(4.9, 2.8, 0);
+          rightWall.userData = { id: 'ELEM-006', name: 'Parede Direita' };
+          meshesGroup.add(rightWall);
+        }
+        // 6. Telhado & Painéis (Semana 7 & 8)
+        if (selectedWeek >= 7) {
+          const roofGeo = new THREE.ConeGeometry(7.5, 2.5, 4);
+          const roofMat = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.6 });
+          const roof = new THREE.Mesh(roofGeo, roofMat);
+          roof.position.set(0, 6.0, 0);
+          roof.rotation.y = Math.PI / 4;
+          roof.userData = { id: 'ELEM-007', name: 'Telhado Cerâmico' };
+          meshesGroup.add(roof);
+        }
+        if (selectedWeek >= 8) {
+          const panelGeo = new THREE.BoxGeometry(2.5, 0.08, 1.4);
+          const panelMat = new THREE.MeshStandardMaterial({ color: 0x1e3a8a, metalness: 0.9, roughness: 0.2 });
+          const p1 = new THREE.Mesh(panelGeo, panelMat);
+          p1.position.set(-2.0, 6.5, 1.2);
+          p1.rotation.x = -Math.PI / 8;
+          meshesGroup.add(p1);
+          const p2 = new THREE.Mesh(panelGeo, panelMat);
+          p2.position.set(2.0, 6.5, 1.2);
+          p2.rotation.x = -Math.PI / 8;
+          meshesGroup.add(p2);
+        }
+      }
     }
 
     // Dynamic Elements added by user
@@ -360,7 +526,35 @@ export const BimViewer3D: React.FC<BimViewer3DProps> = ({
       window.removeEventListener('resize', handleResize);
       renderer.dispose();
     };
-  }, [elements, isDark, viewMode, selectedWeek]);
+  }, [elements, isDark, viewMode, selectedWeek, activeProject?.id, activeProject?.type]);
+
+  // IFC / BIM File Import Simulation Handler
+  const handleUploadIfcFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIfcFileName(file.name);
+    setIsParsingIfc(true);
+
+    setTimeout(() => {
+      setIsParsingIfc(false);
+      setShowModelManagerModal(false);
+
+      const pId = activeProject?.id || 'PRJ-NEW';
+      const parsedElements: BuildingElement[] = [
+        { id: `${pId}-IFC-1`, projectId: pId, name: `[IFC] Fundação Radier (${file.name})`, category: 'Fundação', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 1, materialUsed: 'Concreto Fck 35MPa', lastUpdatedBy: 'IFC OpenBIM Parser', lastUpdatedAt: 'Agora', position: [0, 0.3, 0] },
+        { id: `${pId}-IFC-2`, projectId: pId, name: `[IFC] Pilares Estruturais IfcColumn (${file.name})`, category: 'Estrutura', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 2, materialUsed: 'Concreto Armado CA-50', lastUpdatedBy: 'IFC OpenBIM Parser', lastUpdatedAt: 'Agora', position: [0, 2.8, 0] },
+        { id: `${pId}-IFC-3`, projectId: pId, name: `[IFC] Vigas & Lajes IfcBeam/IfcSlab`, category: 'Estrutura', status: 'EM_EXECUCAO', progressPercent: 70, assignedWeek: 3, materialUsed: 'Laje Protendida H16', lastUpdatedBy: 'IFC OpenBIM Parser', lastUpdatedAt: 'Agora', position: [0, 4.6, 0] },
+        { id: `${pId}-IFC-4`, projectId: pId, name: `[IFC] Paredes de Vedação IfcWallStandardCase`, category: 'Alvenaria', status: 'EM_EXECUCAO', progressPercent: 45, assignedWeek: 4, materialUsed: 'Alvenaria e Esquadrias', lastUpdatedBy: 'IFC OpenBIM Parser', lastUpdatedAt: 'Agora', position: [-4.9, 2.8, 0] },
+        { id: `${pId}-IFC-5`, projectId: pId, name: `[IFC] Cobertura Técnica IfcRoof`, category: 'Acabamento', status: 'PLANEJADO', progressPercent: 0, assignedWeek: 5, materialUsed: 'Cobertura Estrutural', lastUpdatedBy: 'IFC OpenBIM Parser', lastUpdatedAt: 'Agora', position: [0, 6.2, 0] }
+      ];
+
+      if (onResetModel) {
+        onResetModel(parsedElements, `Arquivo "${file.name}" Importado com Sucesso`);
+      }
+      onSendToast('success', 'Arquivo BIM IFC Importado', `Modelo 3D extraído com sucesso a partir de ${file.name}.`);
+    }, 1800);
+  };
 
   // AI 2D -> 3D Generation Simulation Handler
   const startAiGeneration = () => {
@@ -466,6 +660,20 @@ export const BimViewer3D: React.FC<BimViewer3DProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            {canEditModel && (
+              <button
+                onClick={() => setShowModelManagerModal(true)}
+                className={`flex items-center justify-center gap-1.5 font-bold text-xs px-3.5 py-2 sm:py-2.5 rounded-2xl border transition shrink-0 ${
+                  isDark 
+                    ? 'bg-orange-950/20 border-orange-500/40 text-orange-400 hover:bg-orange-900/30' 
+                    : 'bg-orange-50 border-orange-300 text-orange-700 hover:bg-orange-100'
+                }`}
+              >
+                <FolderPlus className="w-4 h-4 text-orange-500" />
+                <span>Gerenciar / Novo Modelo 3D</span>
+              </button>
+            )}
+
             <button
               onClick={() => setShowOccurrenceModal(true)}
               className="flex items-center justify-center gap-1.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 border border-rose-500/30 font-bold text-xs px-3 py-2 rounded-2xl transition shrink-0"
@@ -679,6 +887,43 @@ export const BimViewer3D: React.FC<BimViewer3DProps> = ({
               ref={mountRef} 
               className="w-full h-[360px] xs:h-[400px] sm:h-[480px] md:h-[520px] cursor-grab active:cursor-grabbing rounded-2xl" 
             />
+
+            {/* Empty State Overlay when project has 0 3D elements */}
+            {elements.length === 0 && (
+              <div className="absolute inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-6 z-20">
+                <div className={`p-6 rounded-3xl border max-w-md w-full text-center space-y-4 shadow-2xl ${cardBg}`}>
+                  <div className="w-14 h-14 rounded-2xl bg-orange-500/10 border border-orange-500/30 text-orange-500 flex items-center justify-center mx-auto">
+                    <Box className="w-8 h-8" />
+                  </div>
+                  <div>
+                    <h4 className={`text-base font-extrabold ${textTitle}`}>Nenhum Modelo 3D Vinculado</h4>
+                    <p className={`text-xs mt-1.5 ${textMuted}`}>
+                      O empreendimento <strong>{activeProject?.name}</strong> ({activeProject?.type}) ainda não possui uma maquete 3D carregada.
+                    </p>
+                  </div>
+                  <div className="space-y-2 pt-2">
+                    <button
+                      onClick={() => {
+                        if (activeProject && onResetModel) {
+                          onResetModel(getDefaultElementsForProject(activeProject), 'Template da Tipologia Carregado');
+                        }
+                      }}
+                      className="w-full py-2.5 px-4 bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-orange-600/30 flex items-center justify-center gap-2 transition"
+                    >
+                      <Sparkles className="w-4 h-4" /> Carregar Template Padrão ({activeProject?.type})
+                    </button>
+                    <button
+                      onClick={() => setShowModelManagerModal(true)}
+                      className={`w-full py-2 px-4 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-2 ${
+                        isDark ? 'bg-zinc-800 border-zinc-700 text-zinc-200 hover:bg-zinc-700' : 'bg-zinc-100 border-zinc-300 text-zinc-700 hover:bg-zinc-200'
+                      }`}
+                    >
+                      <Upload className="w-4 h-4" /> Importar Arquivo IFC / Planta 2D
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Click Raycaster Selection Overlay Inspector */}
             {selectedElement && (
@@ -1061,6 +1306,167 @@ export const BimViewer3D: React.FC<BimViewer3DProps> = ({
                     className="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-xl font-bold shadow-lg shadow-orange-600/30 flex items-center gap-1.5"
                   >
                     <Sparkles className="w-4 h-4" /> Processar & Gerar 3D
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* MODEL MANAGER & IFC IMPORT MODAL */}
+      {showModelManagerModal && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className={`border rounded-3xl max-w-xl w-full p-5 sm:p-6 shadow-2xl space-y-5 ${cardBg}`}>
+            <div className={`flex justify-between items-center border-b pb-3 ${isDark ? 'border-[#27272a]' : 'border-zinc-200'}`}>
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-orange-500/10 border border-orange-500/20 rounded-xl text-orange-500">
+                  <FolderPlus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className={`font-extrabold text-base ${textTitle}`}>Gerenciar Modelo 3D do Empreendimento</h3>
+                  <p className={`text-[11px] ${textMuted}`}>
+                    Obra: <span className="font-bold text-orange-400">{activeProject?.name}</span> • Tipologia: <span className="font-semibold">{activeProject?.type}</span>
+                  </p>
+                </div>
+              </div>
+              <button onClick={() => setShowModelManagerModal(false)} className={`font-bold ${textMuted} hover:${textTitle}`}>✕</button>
+            </div>
+
+            {isParsingIfc ? (
+              <div className="py-8 text-center space-y-4">
+                <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto" />
+                <div className="space-y-1">
+                  <h4 className={`font-bold text-sm ${textTitle}`}>Lendo Arquivo IFC (OpenBIM)...</h4>
+                  <p className={`text-xs ${textMuted}`}>Processando geometrias, eixos e sólidos de {ifcFileName}</p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4 text-xs">
+                <div className={`p-3.5 rounded-2xl border flex items-center justify-between ${
+                  isDark ? 'bg-[#121214] border-[#27272a]' : 'bg-zinc-50 border-zinc-200'
+                }`}>
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-zinc-400">Status Atual do Gêmeo Digital:</span>
+                    <h5 className={`font-extrabold text-sm ${textTitle}`}>{elements.length} elementos cadastrados</h5>
+                  </div>
+                  <span className="text-[10px] font-mono px-2.5 py-1 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/20 font-bold">
+                    ID: {activeProject?.id}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  
+                  {/* Opção 1: Template da Tipologia */}
+                  <div className={`p-4 rounded-2xl border space-y-3 transition flex flex-col justify-between ${
+                    isDark ? 'bg-[#121214] border-[#27272a] hover:border-orange-500/50' : 'bg-zinc-50 border-zinc-200 hover:border-orange-400'
+                  }`}>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2 text-orange-500 font-bold">
+                        <Sparkles className="w-4 h-4" />
+                        <span>Template da Tipologia</span>
+                      </div>
+                      <p className={`text-[11px] leading-relaxed ${textMuted}`}>
+                        Aplica fundação, colunas, lajes e materiais ideais para <strong>{activeProject?.type}</strong>.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (activeProject && onResetModel) {
+                          onResetModel(getDefaultElementsForProject(activeProject), 'Template Aplicado');
+                          setShowModelManagerModal(false);
+                        }
+                      }}
+                      className="w-full py-2 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-xl text-xs transition shadow-md shadow-orange-600/20"
+                    >
+                      Aplicar Template
+                    </button>
+                  </div>
+
+                  {/* Opção 2: Importar Arquivo IFC / BIM */}
+                  <div className={`p-4 rounded-2xl border space-y-3 transition flex flex-col justify-between ${
+                    isDark ? 'bg-[#121214] border-[#27272a] hover:border-blue-500/50' : 'bg-zinc-50 border-zinc-200 hover:border-blue-400'
+                  }`}>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2 text-blue-400 font-bold">
+                        <Upload className="w-4 h-4" />
+                        <span>Upload Arquivo IFC / BIM</span>
+                      </div>
+                      <p className={`text-[11px] leading-relaxed ${textMuted}`}>
+                        Faça upload de arquivo <strong>.ifc, .obj, .gltf</strong> exportado do Revit, Archicad ou AutoCAD.
+                      </p>
+                    </div>
+                    <label className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs transition text-center cursor-pointer shadow-md shadow-blue-600/20 block">
+                      <input
+                        type="file"
+                        accept=".ifc,.gltf,.obj,.dwg"
+                        className="hidden"
+                        onChange={handleUploadIfcFile}
+                      />
+                      Selecionar Arquivo IFC
+                    </label>
+                  </div>
+
+                  {/* Opção 3: Planta 2D via IA */}
+                  <div className={`p-4 rounded-2xl border space-y-3 transition flex flex-col justify-between ${
+                    isDark ? 'bg-[#121214] border-[#27272a] hover:border-amber-500/50' : 'bg-zinc-50 border-zinc-200 hover:border-amber-400'
+                  }`}>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2 text-amber-500 font-bold">
+                        <FileUp className="w-4 h-4" />
+                        <span>Gerar por IA (Planta 2D)</span>
+                      </div>
+                      <p className={`text-[11px] leading-relaxed ${textMuted}`}>
+                        Converta plantas baixas em malhas 3D procedurais através de Visão Computacional.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setShowModelManagerModal(false);
+                        setShowAiModal(true);
+                      }}
+                      className="w-full py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl text-xs transition shadow-md shadow-amber-600/20"
+                    >
+                      Abrir Parser de Plantas
+                    </button>
+                  </div>
+
+                  {/* Opção 4: Canteiro em Branco (Do Zero) */}
+                  <div className={`p-4 rounded-2xl border space-y-3 transition flex flex-col justify-between ${
+                    isDark ? 'bg-[#121214] border-[#27272a] hover:border-rose-500/50' : 'bg-zinc-50 border-zinc-200 hover:border-rose-400'
+                  }`}>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2 text-rose-500 font-bold">
+                        <Trash2 className="w-4 h-4" />
+                        <span>Canteiro do Zero (Limpar)</span>
+                      </div>
+                      <p className={`text-[11px] leading-relaxed ${textMuted}`}>
+                        Inicie com o canteiro limpo para adicionar colunas, vigas e paredes manualmente.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (confirm('Deseja iniciar um modelo 3D vazio para este projeto?')) {
+                          onResetModel?.([], 'Canteiro 3D Vazio Criado');
+                          setShowModelManagerModal(false);
+                        }
+                      }}
+                      className="w-full py-2 bg-zinc-800 hover:bg-rose-700 text-zinc-300 hover:text-white font-bold rounded-xl text-xs transition border border-zinc-700"
+                    >
+                      Limpar Maquete 3D
+                    </button>
+                  </div>
+
+                </div>
+
+                <div className="pt-3 border-t border-zinc-700/40 flex justify-end">
+                  <button
+                    onClick={() => setShowModelManagerModal(false)}
+                    className={`px-4 py-2 rounded-xl font-bold ${
+                      isDark ? 'bg-[#27272a] hover:bg-[#3f3f46] text-zinc-300' : 'bg-zinc-200 hover:bg-zinc-300 text-zinc-800'
+                    }`}
+                  >
+                    Fechar
                   </button>
                 </div>
               </div>

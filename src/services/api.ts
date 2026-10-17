@@ -14,7 +14,7 @@ import {
   INITIAL_COMPANIES, INITIAL_PROJECTS, INITIAL_DOCUMENTS, 
   INITIAL_OCCURRENCES, INITIAL_BUILDING_ELEMENTS, INITIAL_STOCK, 
   INITIAL_STOCK_MOVEMENTS, INITIAL_AUDIT_LOGS, INITIAL_REGISTERED_ACCOUNTS, 
-  INITIAL_B2B_RFQS 
+  INITIAL_B2B_RFQS, getDefaultElementsForProject 
 } from '../data/mockData';
 import { logger } from './logger';
 import { eventBus } from './eventBus';
@@ -177,6 +177,22 @@ export const api = {
       const saved = typeof window !== 'undefined' ? localStorage.getItem('obra360_3d_elements_v1') : null;
       const initial = saved ? JSON.parse(saved) : [...INITIAL_BUILDING_ELEMENTS];
       return hybridFetch<BuildingElement[]>('/v1/obras/elementos-3d', { method: 'GET' }, initial);
+    },
+    async getByProjectId(projectId: string, projectType: any = 'Prédios & Edifícios'): Promise<BuildingElement[]> {
+      const storageKey = `obra360_3d_elements_${projectId}`;
+      const saved = typeof window !== 'undefined' ? localStorage.getItem(storageKey) : null;
+      const initial = saved ? JSON.parse(saved) : getDefaultElementsForProject({ id: projectId, type: projectType });
+      return hybridFetch<BuildingElement[]>(`/v1/obras/${projectId}/elementos-3d`, { method: 'GET' }, initial);
+    },
+    async saveAllForProject(projectId: string, elements: BuildingElement[]): Promise<boolean> {
+      const storageKey = `obra360_3d_elements_${projectId}`;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(storageKey, JSON.stringify(elements));
+      }
+      return hybridFetch<boolean>(`/v1/obras/${projectId}/elementos-3d/batch`, {
+        method: 'PUT',
+        body: JSON.stringify(elements)
+      }, true);
     },
     async updateStatus(id: string, status: 'PLANEJADO' | 'EM_EXECUCAO' | 'CONCLUIDO', progress: number): Promise<boolean> {
       logger.audit('UPDATE_ELEMENT_STATUS', 'BuildingElement', { id, status, progress });

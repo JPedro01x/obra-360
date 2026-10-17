@@ -54,4 +54,15 @@ test.describe('Obra 360 - Definitive React Frontend E2E Suite', () => {
     }
   });
 
+  test('6. Deve abrir o gerenciador de modelos 3D e gerenciar maquetes por projeto', async ({ page }) => {
+    await page.click('button:has-text("Modelo 3D Interativo & BIM")');
+    await page.click('button:has-text("Gerenciar / Novo Modelo 3D")');
+    await expect(page.locator('text=Gerenciar Modelo 3D do Empreendimento')).toBeVisible();
+    await expect(page.locator('text=Template da Tipologia')).toBeVisible();
+    await expect(page.locator('text=Upload Arquivo IFC / BIM')).toBeVisible();
+    await page.click('button:has-text("Fechar")');
+    await expect(page.locator('text=Gerenciar Modelo 3D do Empreendimento')).not.toBeVisible();
+  });
+
 });
+

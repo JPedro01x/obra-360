@@ -13,7 +13,8 @@ import {
   INITIAL_AUDIT_LOGS,
   INITIAL_REGISTERED_ACCOUNTS,
   INITIAL_PROJECTS,
-  INITIAL_COMPANIES
+  INITIAL_COMPANIES,
+  getDefaultElementsForProject
 } from './data/mockData';
 import { api } from './services/api';
 import { eventBus } from './services/eventBus';
@@ -92,24 +93,41 @@ export function App() {
   const [projects, setProjects] = useState<Project[]>(INITIAL_PROJECTS);
   const [activeProject, setActiveProject] = useState<Project>(INITIAL_PROJECTS[0]);
 
-  // State com persistência permanente de elementos 3D no LocalStorage
-  const [elements, setElements] = useState<BuildingElement[]>(() => {
+  // Helper para carregar elementos de um projeto específico
+  const getElementsForProject = (proj: Project): BuildingElement[] => {
     try {
-      const saved = localStorage.getItem('obra360_3d_elements_v1');
-      return saved ? JSON.parse(saved) : INITIAL_BUILDING_ELEMENTS;
-    } catch {
-      return INITIAL_BUILDING_ELEMENTS;
+      const key = `obra360_3d_elements_${proj.id}`;
+      const saved = localStorage.getItem(key);
+      if (saved) return JSON.parse(saved);
+      // Fallback para o primeiro projeto caso exista dado legado
+      if (proj.id === 'PRJ-001') {
+        const legacy = localStorage.getItem('obra360_3d_elements_v1');
+        if (legacy) return JSON.parse(legacy);
+      }
+    } catch (e) {
+      console.warn('Erro ao carregar elementos 3D do projeto:', e);
     }
-  });
+    return getDefaultElementsForProject(proj);
+  };
 
-  // Salva automaticamente qualquer alteração nos elementos 3D
+  // State com persistência permanente de elementos 3D isolados por projeto
+  const [elements, setElements] = useState<BuildingElement[]>(() => getElementsForProject(INITIAL_PROJECTS[0]));
+
+  // Ao alternar o empreendimento ativo, carrega o modelo 3D correspondente
+  useEffect(() => {
+    const projElements = getElementsForProject(activeProject);
+    setElements(projElements);
+  }, [activeProject.id]);
+
+  // Salva automaticamente qualquer alteração nos elementos 3D do projeto ativo
   useEffect(() => {
     try {
-      localStorage.setItem('obra360_3d_elements_v1', JSON.stringify(elements));
+      const key = `obra360_3d_elements_${activeProject.id}`;
+      localStorage.setItem(key, JSON.stringify(elements));
     } catch (e) {
       console.warn('Erro ao persistir elementos 3D no localStorage:', e);
     }
-  }, [elements]);
+  }, [elements, activeProject.id]);
 
   const [stockItems, setStockItems] = useState<StockItem[]>(INITIAL_STOCK);
   const [movements, setMovements] = useState<StockMovement[]>(INITIAL_STOCK_MOVEMENTS);
@@ -339,10 +357,16 @@ export function App() {
     setIsSyncingAsync(true);
     try {
       const created = await api.projects.create({ ...newProjData, companyId: activeCompany.id });
+      // Gera e persiste o modelo 3D inicial exclusivo para o novo empreendimento
+      const initialElements = getDefaultElementsForProject(created);
+      try {
+        localStorage.setItem(`obra360_3d_elements_${created.id}`, JSON.stringify(initialElements));
+      } catch {}
       setProjects((prev) => [created, ...prev]);
       setActiveProject(created);
+      setElements(initialElements);
       try { confetti({ particleCount: 70, spread: 65, origin: { y: 0.6 } }); } catch {}
-      addToast('success', 'Novo Empreendimento', `Empreendimento "${created.name}" cadastrado na empresa ${activeCompany.name}.`);
+      addToast('success', 'Novo Empreendimento & Modelo 3D', `Empreendimento "${created.name}" cadastrado com modelo 3D inicial (${created.type}).`);
     } finally {
       setIsSyncingAsync(false);
     }
@@ -420,14 +444,25 @@ export function App() {
 
   const handleImportFloorPlan = (presetName: string) => {
     const generated: BuildingElement[] = [
-      { id: 'ELEM-001', name: 'Sapata & Radier de Concreto (Planta 2D)', category: 'Fundação', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 1, materialUsed: 'Concreto Fck 30MPa', lastUpdatedBy: 'AI Parser', lastUpdatedAt: 'Agora', position: [0, 0, 0] },
-      { id: 'ELEM-002', name: 'Vigas Baldrame Impermeabilizadas', category: 'Fundação', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 2, materialUsed: 'Tinta Asfáltica', lastUpdatedBy: 'AI Parser', lastUpdatedAt: 'Agora', position: [0, 0, 0] },
-      { id: 'ELEM-003', name: 'Pilares Estruturais Mapeados (2D)', category: 'Estrutura', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 3, materialUsed: 'Concreto Fck 30MPa', lastUpdatedBy: 'AI Parser', lastUpdatedAt: 'Agora', position: [0, 0, 0] },
-      { id: 'ELEM-004', name: 'Laje Térreo Extraída da Planta', category: 'Estrutura', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 4, materialUsed: 'Laje Pré-Moldada H12', lastUpdatedBy: 'AI Parser', lastUpdatedAt: 'Agora', position: [0, 0, 0] }
+      { id: `${activeProject.id}-ELEM-001`, projectId: activeProject.id, name: 'Sapata & Radier de Concreto (Planta 2D)', category: 'Fundação', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 1, materialUsed: 'Concreto Fck 30MPa', lastUpdatedBy: 'AI Parser', lastUpdatedAt: 'Agora', position: [0, 0, 0] },
+      { id: `${activeProject.id}-ELEM-002`, projectId: activeProject.id, name: 'Vigas Baldrame Impermeabilizadas', category: 'Fundação', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 2, materialUsed: 'Tinta Asfáltica', lastUpdatedBy: 'AI Parser', lastUpdatedAt: 'Agora', position: [0, 0, 0] },
+      { id: `${activeProject.id}-ELEM-003`, projectId: activeProject.id, name: 'Pilares Estruturais Mapeados (2D)', category: 'Estrutura', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 3, materialUsed: 'Concreto Fck 30MPa', lastUpdatedBy: 'AI Parser', lastUpdatedAt: 'Agora', position: [0, 0, 0] },
+      { id: `${activeProject.id}-ELEM-004`, projectId: activeProject.id, name: 'Laje Térreo Extraída da Planta', category: 'Estrutura', status: 'CONCLUIDO', progressPercent: 100, assignedWeek: 4, materialUsed: 'Laje Pré-Moldada H12', lastUpdatedBy: 'AI Parser', lastUpdatedAt: 'Agora', position: [0, 0, 0] }
     ];
 
     setElements(generated);
-    addToast('success', 'Modelo 3D Gerado por IA', `Planta "${presetName}" convertida com sucesso.`);
+    try {
+      localStorage.setItem(`obra360_3d_elements_${activeProject.id}`, JSON.stringify(generated));
+    } catch {}
+    addToast('success', 'Modelo 3D Gerado por IA', `Planta "${presetName}" convertida com sucesso para o projeto "${activeProject.name}".`);
+  };
+
+  const handleResetModel = (newElements: BuildingElement[], title: string = 'Modelo 3D Atualizado') => {
+    setElements(newElements);
+    try {
+      localStorage.setItem(`obra360_3d_elements_${activeProject.id}`, JSON.stringify(newElements));
+    } catch {}
+    addToast('success', title, `O projeto "${activeProject.name}" agora conta com ${newElements.length} elementos 3D cadastrados.`);
   };
 
   const handleAddMovement = async (newMov: Omit<StockMovement, 'id'>) => {
@@ -609,6 +644,7 @@ export function App() {
                       onAddElement={handleAddElement}
                       onDeleteElement={handleDeleteElement}
                       onImportFloorPlan={handleImportFloorPlan}
+                      onResetModel={handleResetModel}
                       onSendToast={addToast}
                     />
                   </motion.div>
