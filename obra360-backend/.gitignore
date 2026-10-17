@@ -1,0 +1,30 @@
+# GitIgnore do Obra360 Backend - Proteção contra Exposição de .env e Segredos
+
+# Arquivos de Variáveis de Ambiente e Segredos (NUNCA COMMITTAR)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+*.key
+*.p12
+
+# Arquivos de Build do Maven e Java
+target/
+*.class
+*.jar
+*.war
+
+# Logs
+*.log
+logs/
+
+# IDE e Arquivos de Sistema
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,42 @@
+{
+  "context7Version": "1.0.0",
+  "project": "Obra 360",
+  "description": "Especificação dos 7 Contextos Fundamentais de Arquitetura, Inteligência e Qualidade do Sistema Obra 360",
+  "contexts": [
+    {
+      "id": 1,
+      "name": "Contexto 1: Segurança Stateless JWT & Isolamento Multi-Tenant",
+      "description": "Garante a autenticação stateless via tokens JWT, controle RBAC por perfil de usuário e isolamento lógico absoluto dos dados entre empresas clientes via filtro tenant_id."
+    },
+    {
+      "id": 2,
+      "name": "Contexto 2: Gestão de Canteiro de Obras & Consumo por m² (Cm²)",
+      "description": "Controla a execução física do cronograma, baixas de almoxarifado por Ordens de Serviço (OS) e cálculo automatizado de insumos específicos por metro quadrado."
+    },
+    {
+      "id": 3,
+      "name": "Contexto 3: Conciliação Fiscal SEFAZ NF-e de 44 Dígitos",
+      "description": "Valida a chave de acesso de 44 dígitos da Nota Fiscal Eletrônica, vinculando automaticamente a fatura ao pedido de compra B2B e atualizando o saldo do estoque."
+    },
+    {
+      "id": 4,
+      "name": "Contexto 4: Qualidade (ISO 9001) e Segurança do Trabalho (NR-18)",
+      "description": "Gerencia o registro imutável de ocorrências de canteiro, não conformidades com evidências fotográficas e planos de ação com notificação de responsáveis."
+    },
+    {
+      "id": 5,
+      "name": "Contexto 5: Mobilidade Offline PWA & Armazenamento IndexedDB",
+      "description": "Disponibiliza o Service Worker com cache de App Shell e banco de dados IndexedDB (Obra360_Offline_DB) para operação ininterrupta no canteiro sem internet."
+    },
+    {
+      "id": 6,
+      "name": "Contexto 6: Persistência em Nuvem & Supabase Realtime Sync",
+      "description": "Integração BaaS com Supabase PostgreSQL e canais WebSocket Realtime para réplica e sincronização contínua entre dispositivos de campo e a nuvem."
+    },
+    {
+      "id": 7,
+      "name": "Contexto 7: Testes Automatizados E2E (Playwright) & Auditoria Strix Security",
+      "description": "Garante regressão zero através de suítes de testes End-to-End no Playwright e auditoria contínua de vulnerabilidades SAST/DAST com o scanner Strix Security (Nota A+)."
+    }
+  ]
+}

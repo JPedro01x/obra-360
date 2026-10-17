@@ -1,0 +1,25 @@
+# SPRING BOOT PROFILE: PROD (Produção Corporativa em Nuvem)
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/obra360_db}
+    driverClassName: org.postgresql.Driver
+    username: ${SPRING_DATASOURCE_USERNAME:obra360_admin}
+    password: ${SPRING_DATASOURCE_PASSWORD:secret_password}
+
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+
+  kafka:
+    bootstrap-servers: ${KAFKA_SERVERS:kafka:9092}
+
+logging:
+  level:
+    com.obra360: INFO
+    org.springframework: WARN

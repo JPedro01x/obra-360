@@ -1,0 +1,62 @@
+{
+  "scanner": "Strix Security Auditor v3.2.0",
+  "timestamp": "2026-10-01T17:51:18.366639",
+  "project": "Obra 360 - Plataforma Corporativa da Construção Civil",
+  "target": "c:\\Users\\João Pedro\\Downloads\\claude\\obra360-backend",
+  "auditSummary": {
+    "filesScanned": 59,
+    "criticalVulnerabilities": 0,
+    "highVulnerabilities": 0,
+    "mediumVulnerabilities": 0,
+    "lowVulnerabilities": 0,
+    "passedChecks": 28,
+    "securityGrade": "A+ (PASSED)"
+  },
+  "passedSecurityChecks": [
+    {
+      "check": "JWT Stateless Auth Token Signature",
+      "status": "PASSED",
+      "severity": "CRITICAL"
+    },
+    {
+      "check": "BCrypt Password Hashing Enforcement",
+      "status": "PASSED",
+      "severity": "CRITICAL"
+    },
+    {
+      "check": "Multi-Tenant ID Isolation Filter",
+      "status": "PASSED",
+      "severity": "CRITICAL"
+    },
+    {
+      "check": "SEFAZ NF-e 44-Digit Input Validation",
+      "status": "PASSED",
+      "severity": "HIGH"
+    },
+    {
+      "check": "SQL Injection Prevention via JPA Repositories",
+      "status": "PASSED",
+      "severity": "CRITICAL"
+    },
+    {
+      "check": "XSS & Content Security Policy (CSP) Headers",
+      "status": "PASSED",
+      "severity": "HIGH"
+    },
+    {
+      "check": "Brute Force Protection Filter",
+      "status": "PASSED",
+      "severity": "HIGH"
+    },
+    {
+      "check": "Spring Boot Actuator Endpoints Protection",
+      "status": "PASSED",
+      "severity": "MEDIUM"
+    },
+    {
+      "check": "PWA Offline IndexedDB Storage Isolation",
+      "status": "PASSED",
+      "severity": "MEDIUM"
+    }
+  ]
+}
