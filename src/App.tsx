@@ -21,22 +21,33 @@ import { SidebarNav } from './components/SidebarNav';
 import { TopHeaderBar } from './components/TopHeaderBar';
 import { CompanySelectorHeader } from './components/CompanySelectorHeader';
 import { ProjectSelectorHeader } from './components/ProjectSelectorHeader';
-import { BimViewer3D } from './components/BimViewer3D';
 import { ExecutiveDashboard } from './components/ExecutiveDashboard';
-import { DocumentManagerView } from './components/DocumentManagerView';
-import { InventoryManager } from './components/InventoryManager';
-import { AuditLogViewer } from './components/AuditLogViewer';
-import { ClientPortalView } from './components/ClientPortalView';
-import { RbacMatrixView } from './components/RbacMatrixView';
 import { LoginView } from './components/LoginView';
 import { ToastNotifier } from './components/ToastNotifier';
-import { B2bMarketplaceView } from './components/B2bMarketplaceView';
-import { RealEstateStorefrontView } from './components/RealEstateStorefrontView';
-import { WarrantyPostSalesView } from './components/WarrantyPostSalesView';
-import { LiveB2bChatView } from './components/LiveB2bChatView';
-import { ServiceOrdersView } from './components/ServiceOrdersView';
-import { PhysicalMeasurementsView } from './components/PhysicalMeasurementsView';
-import { NfeConciliationView } from './components/NfeConciliationView';
+
+// LAZY LOADING (Code-Splitting de Telas Pesadas)
+const BimViewer3D = React.lazy(() => import('./components/BimViewer3D').then(m => ({ default: m.BimViewer3D })));
+const DocumentManagerView = React.lazy(() => import('./components/DocumentManagerView').then(m => ({ default: m.DocumentManagerView })));
+const InventoryManager = React.lazy(() => import('./components/InventoryManager').then(m => ({ default: m.InventoryManager })));
+const AuditLogViewer = React.lazy(() => import('./components/AuditLogViewer').then(m => ({ default: m.AuditLogViewer })));
+const ClientPortalView = React.lazy(() => import('./components/ClientPortalView').then(m => ({ default: m.ClientPortalView })));
+const RbacMatrixView = React.lazy(() => import('./components/RbacMatrixView').then(m => ({ default: m.RbacMatrixView })));
+const B2bMarketplaceView = React.lazy(() => import('./components/B2bMarketplaceView').then(m => ({ default: m.B2bMarketplaceView })));
+const RealEstateStorefrontView = React.lazy(() => import('./components/RealEstateStorefrontView').then(m => ({ default: m.RealEstateStorefrontView })));
+const WarrantyPostSalesView = React.lazy(() => import('./components/WarrantyPostSalesView').then(m => ({ default: m.WarrantyPostSalesView })));
+const LiveB2bChatView = React.lazy(() => import('./components/LiveB2bChatView').then(m => ({ default: m.LiveB2bChatView })));
+const ServiceOrdersView = React.lazy(() => import('./components/ServiceOrdersView').then(m => ({ default: m.ServiceOrdersView })));
+const PhysicalMeasurementsView = React.lazy(() => import('./components/PhysicalMeasurementsView').then(m => ({ default: m.PhysicalMeasurementsView })));
+const NfeConciliationView = React.lazy(() => import('./components/NfeConciliationView').then(m => ({ default: m.NfeConciliationView })));
+
+// Loading Fallback para Code-Splitting
+const ViewLoadingFallback = () => (
+  <div className="flex flex-col items-center justify-center min-h-[420px] p-8 text-center animate-fadeIn">
+    <div className="w-10 h-10 border-4 border-orange-500/20 border-t-orange-500 rounded-full animate-spin mb-4 shadow-lg shadow-orange-500/20" />
+    <span className="text-xs font-bold tracking-widest uppercase text-zinc-400">Carregando Módulo Obra360...</span>
+    <span className="text-[11px] text-zinc-500 mt-1 font-mono">Renderização sob demanda (Lazy Code-Splitting)</span>
+  </div>
+);
 import { CommandPaletteModal } from './components/CommandPaletteModal';
 import { QuickActionFab } from './components/QuickActionFab';
 import { 
@@ -81,11 +92,45 @@ export function App() {
   const [projects, setProjects] = useState<Project[]>(INITIAL_PROJECTS);
   const [activeProject, setActiveProject] = useState<Project>(INITIAL_PROJECTS[0]);
 
-  // State
-  const [elements, setElements] = useState<BuildingElement[]>(INITIAL_BUILDING_ELEMENTS);
+  // State com persistência permanente de elementos 3D no LocalStorage
+  const [elements, setElements] = useState<BuildingElement[]>(() => {
+    try {
+      const saved = localStorage.getItem('obra360_3d_elements_v1');
+      return saved ? JSON.parse(saved) : INITIAL_BUILDING_ELEMENTS;
+    } catch {
+      return INITIAL_BUILDING_ELEMENTS;
+    }
+  });
+
+  // Salva automaticamente qualquer alteração nos elementos 3D
+  useEffect(() => {
+    try {
+      localStorage.setItem('obra360_3d_elements_v1', JSON.stringify(elements));
+    } catch (e) {
+      console.warn('Erro ao persistir elementos 3D no localStorage:', e);
+    }
+  }, [elements]);
+
   const [stockItems, setStockItems] = useState<StockItem[]>(INITIAL_STOCK);
   const [movements, setMovements] = useState<StockMovement[]>(INITIAL_STOCK_MOVEMENTS);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(INITIAL_AUDIT_LOGS);
+
+  // Cookie Consent Banner LGPD State
+  const [showCookieBanner, setShowCookieBanner] = useState<boolean>(() => {
+    try {
+      return !localStorage.getItem('obra360_cookie_consent_v1');
+    } catch {
+      return true;
+    }
+  });
+
+  const handleAcceptCookies = () => {
+    try {
+      localStorage.setItem('obra360_cookie_consent_v1', 'accepted');
+    } catch {}
+    setShowCookieBanner(false);
+    addToast('success', 'Preferências Salvas', 'Conformidade com a LGPD registrada.');
+  };
 
   // EventBus Subscribers
   useEffect(() => {
@@ -544,7 +589,8 @@ export function App() {
                 </p>
               </div>
             ) : (
-              <AnimatePresence mode="wait">
+              <React.Suspense fallback={<ViewLoadingFallback />}>
+                <AnimatePresence mode="wait">
                 {activeTab === '3D' && canSee3dTab && (
                   <motion.div
                     key="3D"
@@ -735,7 +781,8 @@ export function App() {
                   </motion.div>
                 )}
               </AnimatePresence>
-            )}
+            </React.Suspense>
+          )}
           </main>
         </div>
 
@@ -762,6 +809,46 @@ export function App() {
         onSelectTab={(tab) => setActiveTab(tab as any)}
         theme={theme}
       />
+
+      {/* Aviso de Cookies Flutuante (Conformidade LGPD) */}
+      {showCookieBanner && (
+        <div className="fixed bottom-4 left-4 right-4 md:left-6 md:right-auto md:max-w-md z-50 animate-fadeIn">
+          <div className={`p-4 rounded-3xl border shadow-2xl backdrop-blur-xl flex flex-col gap-3 ${
+            isDark ? 'bg-[#18181b]/95 border-orange-500/30 text-white shadow-black/60' : 'bg-white/95 border-orange-200 text-zinc-900 shadow-orange-500/10'
+          }`}>
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-2xl bg-orange-500/10 text-orange-500 shrink-0 mt-0.5">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <p className="font-bold text-xs">Privacidade e Cookies (LGPD)</p>
+                <p className={`text-[11px] leading-relaxed ${isDark ? 'text-zinc-400' : 'text-zinc-600'}`}>
+                  Utilizamos cookies e armazenamento local para autenticação segura, persistência do modelo 3D e conformidade com o Art. 18 da Lei 13.709/2018.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-1 border-t border-zinc-500/10">
+              <button
+                type="button"
+                onClick={() => {
+                  handleAcceptCookies();
+                  setActiveTab('LGPD' as any);
+                }}
+                className={`text-[11px] font-semibold px-3 py-1.5 rounded-xl hover:underline ${isDark ? 'text-zinc-400 hover:text-white' : 'text-zinc-600 hover:text-black'}`}
+              >
+                Gerenciar
+              </button>
+              <button
+                type="button"
+                onClick={handleAcceptCookies}
+                className="text-xs font-bold px-4 py-1.5 rounded-xl bg-gradient-to-r from-orange-600 to-amber-500 text-white shadow-md hover:opacity-95 transition"
+              >
+                Concordar e Continuar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

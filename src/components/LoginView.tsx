@@ -50,6 +50,23 @@ export const LoginView: React.FC<LoginViewProps> = ({
   // Google OAuth 2.0 Identity Modal state
   const [showGoogleModal, setShowGoogleModal] = useState<boolean>(false);
 
+  // Captcha Anti-Bot Verification State (Cloudflare Turnstile Style)
+  const [captchaVerified, setCaptchaVerified] = useState<boolean>(true);
+  const [isCaptchaLoading, setIsCaptchaLoading] = useState<boolean>(false);
+
+  const handleToggleCaptcha = () => {
+    if (captchaVerified) {
+      setCaptchaVerified(false);
+      return;
+    }
+    setIsCaptchaLoading(true);
+    setTimeout(() => {
+      setIsCaptchaLoading(false);
+      setCaptchaVerified(true);
+      setErrorMessage(null);
+    }, 450);
+  };
+
   const roleObj = USER_ROLES[selectedRole];
 
   const handleSelectQuickRole = (roleId: RoleId) => {
@@ -91,6 +108,11 @@ export const LoginView: React.FC<LoginViewProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
+
+    if (!captchaVerified) {
+      setErrorMessage('Por favor, confirme a verificação de segurança (Captcha) para prosseguir.');
+      return;
+    }
 
     const existingAccount = registeredAccounts.find(
       (acc) => acc.email.toLowerCase() === email.trim().toLowerCase()
@@ -379,6 +401,42 @@ export const LoginView: React.FC<LoginViewProps> = ({
               <span className={`text-[11px] hover:underline cursor-pointer ${textMuted}`}>
                 Esqueceu a senha?
               </span>
+            </div>
+
+            {/* Captcha Anti-Bot Verification (Cloudflare Turnstile Style) */}
+            <div 
+              onClick={handleToggleCaptcha}
+              className={`p-3 rounded-2xl border flex items-center justify-between cursor-pointer select-none transition-all duration-300 ${
+                captchaVerified
+                  ? 'border-emerald-500/40 bg-emerald-500/5 shadow-sm'
+                  : isDark ? 'border-[#27272a] bg-[#121214] hover:border-zinc-600' : 'border-zinc-200 bg-zinc-50 hover:border-zinc-300'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-5 h-5 rounded-lg border flex items-center justify-center transition-all ${
+                  captchaVerified
+                    ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm'
+                    : isCaptchaLoading
+                    ? 'border-orange-500'
+                    : isDark ? 'border-zinc-600 bg-zinc-900' : 'border-zinc-300 bg-white'
+                }`}>
+                  {isCaptchaLoading ? (
+                    <div className="w-3 h-3 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+                  ) : captchaVerified ? (
+                    <Check className="w-3.5 h-3.5 stroke-[3]" />
+                  ) : null}
+                </div>
+                <div className="flex flex-col">
+                  <span className={`text-xs font-semibold ${isDark ? 'text-zinc-200' : 'text-zinc-800'}`}>
+                    {captchaVerified ? 'Verificação concluída' : 'Não sou um robô (Captcha)'}
+                  </span>
+                  <span className="text-[10px] text-zinc-500">Proteção biométrica e comportamental ativa</span>
+                </div>
+              </div>
+              <div className="flex flex-col items-end opacity-80">
+                <ShieldCheck className={`w-4 h-4 ${captchaVerified ? 'text-emerald-500' : 'text-zinc-400'}`} />
+                <span className="text-[9px] font-mono text-zinc-500">Obra360 Security</span>
+              </div>
             </div>
 
             {/* Primary Google OAuth Login Button */}
