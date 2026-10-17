@@ -7,13 +7,15 @@ interface CommandPaletteModalProps {
   onClose: () => void;
   onSelectTab: (tab: string) => void;
   theme: ThemeMode;
+  isTabAllowed?: (tab: string) => boolean;
 }
 
 export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
   isOpen,
   onClose,
   onSelectTab,
-  theme
+  theme,
+  isTabAllowed
 }) => {
   const [search, setSearch] = useState('');
   const isDark = theme === 'dark';
@@ -45,9 +47,11 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
     { id: 'POSVENDAS', title: 'Garantia Pós-Venda & Assistência', category: 'Pós-Venda', icon: ShieldCheck }
   ];
 
-  const filtered = commands.filter(
-    (c) => c.title.toLowerCase().includes(search.toLowerCase()) || c.category.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = commands
+    .filter((c) => !isTabAllowed || isTabAllowed(c.id))
+    .filter(
+      (c) => c.title.toLowerCase().includes(search.toLowerCase()) || c.category.toLowerCase().includes(search.toLowerCase())
+    );
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4 bg-black/60 backdrop-blur-sm animate-fadeIn">

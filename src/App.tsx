@@ -53,7 +53,7 @@ import { CommandPaletteModal } from './components/CommandPaletteModal';
 import { QuickActionFab } from './components/QuickActionFab';
 import { 
   Box, LayoutDashboard, Package, History, UserCheck, 
-  Sparkles, Layers, ShieldCheck, CheckCircle2, KeyRound, ShoppingCart, Building, Heart, FileText, Wifi, WifiOff, MessageSquare 
+  Sparkles, Layers, ShieldCheck, CheckCircle2, KeyRound, ShoppingCart, Building, Heart, FileText, Wifi, WifiOff, MessageSquare, ShieldAlert, Lock 
 } from 'lucide-react';
 
 export function App() {
@@ -270,31 +270,78 @@ export function App() {
 
   const isDark = theme === 'dark';
 
-  // STRICT RBAC TAB VISIBILITY GUARDS PER ROLE (13 ROLES)
+  // STRICT RBAC TAB VISIBILITY GUARDS PER ROLE (14 ROLES)
   const isSuperAdmin = currentRole === 'SUPER_ADMIN';
 
-  const canSee3dTab = isSuperAdmin || ['GERENTE_OBRA', 'ENGENHEIRO', 'ARQUITETO', 'MESTRE_OBRA', 'ALMOXARIFE', 'INCORPORADOR', 'FINANCEIRO'].includes(currentRole);
+  const canSee3dTab = isSuperAdmin || ['GERENTE_OBRA', 'ENGENHEIRO', 'ARQUITETO', 'MESTRE_OBRA', 'INCORPORADOR'].includes(currentRole);
+  const canSeeDashboardTab = isSuperAdmin || ['INCORPORADOR', 'GERENTE_OBRA', 'FINANCEIRO', 'INVESTIDOR', 'AUDITOR'].includes(currentRole);
   const canSeeProjetosTab = isSuperAdmin || ['GERENTE_OBRA', 'ARQUITETO', 'ENGENHEIRO', 'INCORPORADOR', 'AUDITOR'].includes(currentRole);
   const canSeeStockTab = isSuperAdmin || ['GERENTE_OBRA', 'ENGENHEIRO', 'FINANCEIRO', 'MESTRE_OBRA', 'ALMOXARIFE'].includes(currentRole);
-  const canSeeRbacTab = isSuperAdmin || ['GERENTE_OBRA', 'AUDITOR', 'INCORPORADOR'].includes(currentRole);
-  const canSeeAuditTab = isSuperAdmin || ['AUDITOR'].includes(currentRole);
-  const canSeeClientTab = isSuperAdmin || ['GERENTE_OBRA', 'CLIENTE', 'INCORPORADOR'].includes(currentRole);
-  const canSeeMarketplaceTab = isSuperAdmin || ['GERENTE_OBRA', 'ENGENHEIRO', 'ALMOXARIFE', 'FINANCEIRO', 'FORNECEDOR', 'LOCADOR_MAQUINAS', 'MESTRE_OBRA'].includes(currentRole);
+  const canSeeOsTab = isSuperAdmin || ['GERENTE_OBRA', 'ENGENHEIRO', 'MESTRE_OBRA'].includes(currentRole);
+  const canSeeMedicoesTab = isSuperAdmin || ['GERENTE_OBRA', 'ENGENHEIRO', 'FINANCEIRO', 'AUDITOR', 'INCORPORADOR'].includes(currentRole);
+  const canSeeNfeTab = isSuperAdmin || ['FINANCEIRO', 'ALMOXARIFE', 'GERENTE_OBRA', 'AUDITOR'].includes(currentRole);
+  const canSeeChatTab = isSuperAdmin || ['GERENTE_OBRA', 'ENGENHEIRO', 'MESTRE_OBRA', 'ALMOXARIFE', 'FINANCEIRO', 'ARQUITETO', 'FORNECEDOR', 'LOCADOR_MAQUINAS'].includes(currentRole);
+  const canSeeMarketplaceTab = isSuperAdmin || ['GERENTE_OBRA', 'ENGENHEIRO', 'ALMOXARIFE', 'FINANCEIRO', 'FORNECEDOR', 'LOCADOR_MAQUINAS'].includes(currentRole);
   const canSeeVendasTab = isSuperAdmin || ['INCORPORADOR', 'CORRETOR', 'INVESTIDOR', 'GERENTE_OBRA'].includes(currentRole);
-  const canSeePosVendasTab = isSuperAdmin || ['CLIENTE', 'GERENTE_OBRA', 'INCORPORADOR'].includes(currentRole);
+  const canSeeClientTab = isSuperAdmin || ['CLIENTE', 'GERENTE_OBRA', 'INCORPORADOR'].includes(currentRole);
+  const canSeePosVendasTab = isSuperAdmin || ['CLIENTE', 'GERENTE_OBRA', 'ENGENHEIRO', 'INCORPORADOR'].includes(currentRole);
+  const canSeeRbacTab = isSuperAdmin || ['AUDITOR'].includes(currentRole);
+  const canSeeAuditTab = isSuperAdmin || ['AUDITOR'].includes(currentRole);
 
-  // Auto redirect active tab when role changes
+  const getDefaultTabForRole = (role: RoleId): '3D' | 'PROJETOS' | 'DASHBOARD' | 'ESTOQUE' | 'ORDENS_SERVICO' | 'MEDICOES' | 'CONCILIACAO_NFE' | 'AUDITORIA' | 'CLIENTE' | 'RBAC' | 'MARKETPLACE' | 'VENDAS' | 'POSVENDAS' | 'MENSAGENS' => {
+    switch (role) {
+      case 'SUPER_ADMIN': return '3D';
+      case 'GERENTE_OBRA': return '3D';
+      case 'ENGENHEIRO': return '3D';
+      case 'ARQUITETO': return 'PROJETOS';
+      case 'MESTRE_OBRA': return 'ORDENS_SERVICO';
+      case 'ALMOXARIFE': return 'ESTOQUE';
+      case 'FINANCEIRO': return 'CONCILIACAO_NFE';
+      case 'INCORPORADOR': return 'DASHBOARD';
+      case 'INVESTIDOR': return 'DASHBOARD';
+      case 'CORRETOR': return 'VENDAS';
+      case 'CLIENTE': return 'CLIENTE';
+      case 'AUDITOR': return 'AUDITORIA';
+      case 'FORNECEDOR': return 'MARKETPLACE';
+      case 'LOCADOR_MAQUINAS': return 'MARKETPLACE';
+      default: return '3D';
+    }
+  };
+
+  const isTabAllowedForRole = (tab: string, role: RoleId): boolean => {
+    if (role === 'SUPER_ADMIN') return true;
+    switch (tab) {
+      case '3D': return canSee3dTab;
+      case 'DASHBOARD': return canSeeDashboardTab;
+      case 'PROJETOS': return canSeeProjetosTab;
+      case 'ESTOQUE': return canSeeStockTab;
+      case 'ORDENS_SERVICO': return canSeeOsTab;
+      case 'MEDICOES': return canSeeMedicoesTab;
+      case 'CONCILIACAO_NFE': return canSeeNfeTab;
+      case 'MENSAGENS': return canSeeChatTab;
+      case 'MARKETPLACE': return canSeeMarketplaceTab;
+      case 'VENDAS': return canSeeVendasTab;
+      case 'CLIENTE': return canSeeClientTab;
+      case 'POSVENDAS': return canSeePosVendasTab;
+      case 'RBAC': return canSeeRbacTab;
+      case 'AUDITORIA': return canSeeAuditTab;
+      default: return false;
+    }
+  };
+
+  // Auto redirect active tab when role changes and current tab is not allowed
   useEffect(() => {
-    if (activeTab === '3D' && !canSee3dTab) setActiveTab('DASHBOARD');
-    if (activeTab === 'PROJETOS' && !canSeeProjetosTab) setActiveTab('DASHBOARD');
-    if (activeTab === 'AUDITORIA' && !canSeeAuditTab) setActiveTab('DASHBOARD');
-    if (activeTab === 'RBAC' && !canSeeRbacTab) setActiveTab('DASHBOARD');
-    if (activeTab === 'CLIENTE' && !canSeeClientTab) setActiveTab('DASHBOARD');
-    if (activeTab === 'ESTOQUE' && !canSeeStockTab) setActiveTab('DASHBOARD');
-    if (activeTab === 'MARKETPLACE' && !canSeeMarketplaceTab) setActiveTab('DASHBOARD');
-    if (activeTab === 'VENDAS' && !canSeeVendasTab) setActiveTab('DASHBOARD');
-    if (activeTab === 'POSVENDAS' && !canSeePosVendasTab) setActiveTab('DASHBOARD');
-  }, [currentRole, activeTab, canSee3dTab, canSeeProjetosTab, canSeeAuditTab, canSeeRbacTab, canSeeClientTab, canSeeStockTab, canSeeMarketplaceTab, canSeeVendasTab, canSeePosVendasTab]);
+    if (!isTabAllowedForRole(activeTab, currentRole)) {
+      const defaultTab = getDefaultTabForRole(currentRole);
+      setActiveTab(defaultTab);
+    }
+  }, [
+    currentRole, activeTab, 
+    canSee3dTab, canSeeDashboardTab, canSeeProjetosTab, canSeeStockTab, 
+    canSeeOsTab, canSeeMedicoesTab, canSeeNfeTab, canSeeChatTab, 
+    canSeeAuditTab, canSeeRbacTab, canSeeClientTab, canSeeMarketplaceTab, 
+    canSeeVendasTab, canSeePosVendasTab
+  ]);
 
   const handleToggleTheme = () => {
     const nextTheme = theme === 'dark' ? 'light' : 'dark';
@@ -307,19 +354,8 @@ export function App() {
     setAuthUser(user);
     setCurrentRole(user.role);
     localStorage.setItem('obra360_user', JSON.stringify(user));
-    
-    if (['FORNECEDOR', 'LOCADOR_MAQUINAS'].includes(user.role)) {
-      setActiveTab('MARKETPLACE');
-    } else if (['CORRETOR', 'INVESTIDOR'].includes(user.role)) {
-      setActiveTab('VENDAS');
-    } else if (user.role === 'CLIENTE') {
-      setActiveTab('CLIENTE');
-    } else if (user.role === 'ARQUITETO') {
-      setActiveTab('PROJETOS');
-    } else {
-      setActiveTab('3D');
-    }
-
+    const targetTab = getDefaultTabForRole(user.role);
+    setActiveTab(targetTab);
     addToast('success', 'Sessão Iniciada', `Bem-vindo, ${user.name}! Modo ${USER_ROLES[user.role].title} ativado.`);
   };
 
@@ -331,11 +367,13 @@ export function App() {
 
   const handleSelectRole = (newRole: RoleId) => {
     setCurrentRole(newRole);
+    const targetTab = getDefaultTabForRole(newRole);
+    setActiveTab(targetTab);
     if (authUser) {
       const updatedUser: AuthUser = { ...authUser, role: newRole, email: USER_ROLES[newRole].defaultEmail };
       setAuthUser(updatedUser);
       localStorage.setItem('obra360_user', JSON.stringify(updatedUser));
-      addToast('info', 'Perfil Alternado', `Acessando modo: ${USER_ROLES[newRole].title}`);
+      addToast('info', 'Perfil Alternado', `Acessando modo: ${USER_ROLES[newRole].title} (${USER_ROLES[newRole].department})`);
     }
   };
 
@@ -536,8 +574,13 @@ export function App() {
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
         canSee3dTab={canSee3dTab}
+        canSeeDashboardTab={canSeeDashboardTab}
         canSeeProjetosTab={canSeeProjetosTab}
         canSeeStockTab={canSeeStockTab}
+        canSeeOsTab={canSeeOsTab}
+        canSeeMedicoesTab={canSeeMedicoesTab}
+        canSeeNfeTab={canSeeNfeTab}
+        canSeeChatTab={canSeeChatTab}
         canSeeRbacTab={canSeeRbacTab}
         canSeeAuditTab={canSeeAuditTab}
         canSeeClientTab={canSeeClientTab}
@@ -662,7 +705,7 @@ export function App() {
                   </motion.div>
                 )}
 
-                {activeTab === 'DASHBOARD' && (
+                {activeTab === 'DASHBOARD' && canSeeDashboardTab && (
                   <motion.div
                     key="DASHBOARD"
                     initial={{ opacity: 0.9, y: 4 }}
@@ -674,7 +717,7 @@ export function App() {
                   </motion.div>
                 )}
 
-                {activeTab === 'MENSAGENS' && (
+                {activeTab === 'MENSAGENS' && canSeeChatTab && (
                   <motion.div
                     key="MENSAGENS"
                     initial={{ opacity: 0.9, y: 4 }}
@@ -716,7 +759,7 @@ export function App() {
                   </motion.div>
                 )}
 
-                {activeTab === 'ORDENS_SERVICO' && (
+                {activeTab === 'ORDENS_SERVICO' && canSeeOsTab && (
                   <motion.div
                     key="ORDENS_SERVICO"
                     initial={{ opacity: 0.9, y: 4 }}
@@ -728,7 +771,7 @@ export function App() {
                   </motion.div>
                 )}
 
-                {activeTab === 'MEDICOES' && (
+                {activeTab === 'MEDICOES' && canSeeMedicoesTab && (
                   <motion.div
                     key="MEDICOES"
                     initial={{ opacity: 0.9, y: 4 }}
@@ -740,7 +783,7 @@ export function App() {
                   </motion.div>
                 )}
 
-                {activeTab === 'CONCILIACAO_NFE' && (
+                {activeTab === 'CONCILIACAO_NFE' && canSeeNfeTab && (
                   <motion.div
                     key="CONCILIACAO_NFE"
                     initial={{ opacity: 0.9, y: 4 }}
@@ -816,6 +859,37 @@ export function App() {
                     <WarrantyPostSalesView currentRole={currentRole} theme={theme} onSendToast={addToast} />
                   </motion.div>
                 )}
+
+                {!isTabAllowedForRole(activeTab, currentRole) && (
+                  <motion.div
+                    key="ACCESS_DENIED"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className={`p-10 rounded-3xl border text-center max-w-xl mx-auto my-12 shadow-2xl ${
+                      isDark ? 'bg-[#18181b] border-rose-500/30 text-white' : 'bg-white border-rose-200 text-zinc-900 shadow-rose-500/10'
+                    }`}
+                  >
+                    <div className="w-16 h-16 rounded-3xl bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center mx-auto mb-4 animate-bounce">
+                      <Lock className="w-8 h-8" />
+                    </div>
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/10 text-rose-500 border border-rose-500/20 text-[11px] font-mono font-bold uppercase mb-2">
+                      <ShieldAlert className="w-3.5 h-3.5" /> HTTP 403 Forbidden - RBAC Estrito
+                    </div>
+                    <h2 className="text-xl font-black tracking-tight mt-1">Acesso Restrito a Este Módulo</h2>
+                    <p className={`text-xs mt-2 leading-relaxed ${isDark ? 'text-zinc-400' : 'text-zinc-600'}`}>
+                      O perfil atual <strong>{USER_ROLES[currentRole].title}</strong> ({USER_ROLES[currentRole].department}) não possui permissão concedida na matriz RBAC para acessar o módulo selecionado.
+                    </p>
+                    <div className="mt-6 flex justify-center">
+                      <button
+                        onClick={() => setActiveTab(getDefaultTabForRole(currentRole))}
+                        className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-orange-600 to-amber-600 text-white text-xs font-bold hover:brightness-110 shadow-lg shadow-orange-600/30 transition-all flex items-center gap-2"
+                      >
+                        Ir para Módulo Autorizado ({getDefaultTabForRole(currentRole)})
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
               </AnimatePresence>
             </React.Suspense>
           )}
@@ -844,6 +918,7 @@ export function App() {
         onClose={() => setIsCommandPaletteOpen(false)}
         onSelectTab={(tab) => setActiveTab(tab as any)}
         theme={theme}
+        isTabAllowed={(tab) => isTabAllowedForRole(tab, currentRole)}
       />
 
       {/* Aviso de Cookies Flutuante (Conformidade LGPD) */}

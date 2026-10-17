@@ -1,34 +1,51 @@
-name: Obra 360 CI/CD Pipeline
+name: Obra360 Enterprise CI/CD Pipeline
 
 on:
   push:
-    branches: [ "main", "master", "develop" ]
+    branches: [ main, develop ]
   pull_request:
-    branches: [ "main", "master" ]
+    branches: [ main ]
 
 jobs:
-  build-and-test:
+  backend-build-test:
+    name: Backend Java 21 & Spring Boot Build
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout Repositório
-      uses: actions/checkout@v4
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-    - name: Configurar Java 21 LTS (Temurin)
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'temurin'
-        java-version: '21'
-        cache: 'maven'
+      - name: Set up JDK 21 (LTS)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
 
-    - name: Build & Run Unit Tests (Maven)
-      run: |
-        cd obra360-backend
-        mvn clean test -B
+      - name: Build and Run Backend Unit Tests
+        working-directory: obra360-backend
+        run: mvn clean test --batch-mode
 
-    - name: Validação do Pacote JAR & PWA Assets
-      run: |
-        cd obra360-backend
-        mvn package -DskipTests -B
-        test -f target/obra360-backend-1.0.0-SNAPSHOT.jar
-        echo "✅ JAR e PWA embarcado validados com sucesso!"
+  frontend-build-test:
+    name: Frontend React 18, Vite & Playwright E2E Suite
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Frontend Dependencies
+        run: npm ci
+
+      - name: Compile and Build Vite Production Bundle
+        run: npm run build
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright End-to-End Tests
+        run: npx playwright test

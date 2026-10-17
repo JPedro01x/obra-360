@@ -16,8 +16,13 @@ interface SidebarNavProps {
   isCollapsed: boolean;
   onToggleCollapse: () => void;
   canSee3dTab: boolean;
+  canSeeDashboardTab: boolean;
   canSeeProjetosTab: boolean;
   canSeeStockTab: boolean;
+  canSeeOsTab: boolean;
+  canSeeMedicoesTab: boolean;
+  canSeeNfeTab: boolean;
+  canSeeChatTab: boolean;
   canSeeRbacTab: boolean;
   canSeeAuditTab: boolean;
   canSeeClientTab: boolean;
@@ -35,8 +40,13 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
   isCollapsed,
   onToggleCollapse,
   canSee3dTab,
+  canSeeDashboardTab,
   canSeeProjetosTab,
   canSeeStockTab,
+  canSeeOsTab,
+  canSeeMedicoesTab,
+  canSeeNfeTab,
+  canSeeChatTab,
   canSeeRbacTab,
   canSeeAuditTab,
   canSeeClientTab,
@@ -53,7 +63,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
       title: 'PRINCIPAL & VISÃO 3D',
       items: [
         { id: '3D', label: 'Modelo 3D Interativo & BIM', icon: Box, visible: canSee3dTab, badge: '3D' },
-        { id: 'DASHBOARD', label: 'Dashboard Executivo & VGV', icon: LayoutDashboard, visible: true, badge: 'VGV' },
+        { id: 'DASHBOARD', label: 'Dashboard Executivo & VGV', icon: LayoutDashboard, visible: canSeeDashboardTab, badge: 'VGV' },
         { id: 'PROJETOS', label: 'Central de Projetos & GED', icon: FileText, visible: canSeeProjetosTab, badge: 'GED' },
       ]
     },
@@ -61,10 +71,10 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
       title: 'OPERACIONAL & CAMPO',
       items: [
         { id: 'ESTOQUE', label: 'Almoxarifado & Estoque', icon: Package, visible: canSeeStockTab, badge: 'SKU' },
-        { id: 'ORDENS_SERVICO', label: 'Ordens de Serviço & Equipes', icon: Wrench, visible: true, badge: 'OS' },
-        { id: 'MEDICOES', label: 'Medições Físico-Financeiras', icon: BarChart3, visible: true, badge: 'MED' },
-        { id: 'CONCILIACAO_NFE', label: 'Conciliação NF-e (44 Dígitos)', icon: FileCheck, visible: true, badge: 'NF-E' },
-        { id: 'MENSAGENS', label: 'Chat B2B & Central de Mensagens', icon: MessageSquare, visible: true, badge: 'LIVE' },
+        { id: 'ORDENS_SERVICO', label: 'Ordens de Serviço & Equipes', icon: Wrench, visible: canSeeOsTab, badge: 'OS' },
+        { id: 'MEDICOES', label: 'Medições Físico-Financeiras', icon: BarChart3, visible: canSeeMedicoesTab, badge: 'MED' },
+        { id: 'CONCILIACAO_NFE', label: 'Conciliação NF-e (44 Dígitos)', icon: FileCheck, visible: canSeeNfeTab, badge: 'NF-E' },
+        { id: 'MENSAGENS', label: 'Chat B2B & Central de Mensagens', icon: MessageSquare, visible: canSeeChatTab, badge: 'LIVE' },
         { id: 'MARKETPLACE', label: 'Marketplace B2B (Cotação & Máquinas)', icon: ShoppingCart, visible: canSeeMarketplaceTab, badge: 'B2B' },
       ]
     },
