@@ -169,12 +169,14 @@ export const LoginView: React.FC<LoginViewProps> = ({
       <div className="w-full max-w-4xl flex justify-end mb-3 sm:mb-0">
         <button
           onClick={onToggleTheme}
-          className={`p-2 sm:p-2.5 rounded-2xl border flex items-center gap-1.5 sm:gap-2 text-xs font-bold transition ${
+          data-testid="theme-toggle-btn"
+          aria-label={isDark ? 'Alternar para Modo Claro' : 'Alternar para Modo Escuro'}
+          title={isDark ? 'Alternar para Modo Claro' : 'Alternar para Modo Escuro'}
+          className={`p-2.5 rounded-2xl border flex items-center justify-center transition shadow-sm ${
             isDark ? 'bg-[#18181b] border-[#27272a] text-amber-400 hover:bg-[#27272a]' : 'bg-white border-zinc-300 text-orange-600 hover:bg-zinc-100'
           }`}
         >
           {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-orange-600" />}
-          <span>{isDark ? 'Modo Claro' : 'Modo Escuro'}</span>
         </button>
       </div>
 

@@ -110,18 +110,19 @@ export const RbacHeader: React.FC<RbacHeaderProps> = ({
           {/* Right Section: Theme Toggle + User Profile Dropdown */}
           <div className="flex items-center gap-2 sm:gap-3">
             
-            {/* Theme Toggle Button */}
+            {/* Theme Toggle Button (Only Symbol / Icon) */}
             <button
               onClick={onToggleTheme}
-              className={`p-2 sm:px-3 sm:py-2 rounded-2xl border flex items-center gap-2 text-xs font-bold transition shadow-sm ${
+              data-testid="theme-toggle-btn"
+              aria-label={isDark ? 'Alternar para Modo Claro' : 'Alternar para Modo Escuro'}
+              title={isDark ? 'Alternar para Modo Claro' : 'Alternar para Modo Escuro'}
+              className={`p-2 sm:p-2.5 rounded-2xl border flex items-center justify-center transition shadow-sm ${
                 isDark 
                   ? 'bg-[#18181b] border-[#27272a] text-amber-400 hover:bg-[#27272a]' 
                   : 'bg-zinc-100 border-zinc-300 text-orange-600 hover:bg-zinc-200'
               }`}
-              title={isDark ? 'Alternar para Modo Claro' : 'Alternar para Modo Escuro'}
             >
               {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-orange-600" />}
-              <span className="hidden lg:inline">{isDark ? 'Modo Claro' : 'Modo Escuro'}</span>
             </button>
 
             {/* Notification Bell Badge */}

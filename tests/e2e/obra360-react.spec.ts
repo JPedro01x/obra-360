@@ -36,7 +36,7 @@ test.describe('Obra 360 - Definitive React Frontend E2E Suite', () => {
   });
 
   test('4. Deve alternar entre o Modo Escuro e Modo Claro', async ({ page }) => {
-    const themeBtn = page.locator('button:has-text("Modo Escuro"), button:has-text("Modo Claro")').first();
+    const themeBtn = page.locator('[data-testid="theme-toggle-btn"]').first();
     await themeBtn.click();
     await page.waitForTimeout(500);
     await themeBtn.click();

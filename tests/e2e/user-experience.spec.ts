@@ -54,7 +54,7 @@ test.describe('Obra 360 - Simulação de Uso Real do Usuário', () => {
     await page.click('text=Simular Perfil (Modo Dev)');
     await page.click('button:has-text("Super Administrador (TI)")');
 
-    const themeBtn = page.locator('button:has-text("Modo Escuro"), button:has-text("Modo Claro")').first();
+    const themeBtn = page.locator('[data-testid="theme-toggle-btn"]').first();
     await themeBtn.click();
     await page.waitForTimeout(500);
     console.log('✓ 5. Tema alternado e sessão de uso finalizada com sucesso.');

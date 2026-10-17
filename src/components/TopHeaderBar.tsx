@@ -140,18 +140,19 @@ export const TopHeaderBar: React.FC<TopHeaderBarProps> = ({
               <span>Spring Actuator 100% OK</span>
             </div>
 
-            {/* Theme Switcher Button with explicit label */}
+            {/* Theme Switcher Button (Only Symbol / Icon) */}
             <button
               onClick={onToggleTheme}
-              className={`px-3 py-1.5 rounded-2xl border flex items-center gap-2 text-xs font-bold transition shadow-sm shrink-0 ${
+              data-testid="theme-toggle-btn"
+              aria-label={isDark ? 'Alternar para Modo Claro' : 'Alternar para Modo Escuro'}
+              title={isDark ? 'Alternar para Modo Claro' : 'Alternar para Modo Escuro'}
+              className={`p-2 sm:p-2.5 rounded-2xl border flex items-center justify-center transition shadow-sm shrink-0 ${
                 isDark 
                   ? 'bg-[#18181b] border-[#27272a] text-amber-400 hover:bg-[#27272a]' 
                   : 'bg-zinc-100 border-zinc-300 text-orange-600 hover:bg-zinc-200'
               }`}
-              title={isDark ? 'Alternar para Modo Claro' : 'Alternar para Modo Escuro'}
             >
               {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-orange-600" />}
-              <span>{isDark ? 'Modo Claro' : 'Modo Escuro'}</span>
             </button>
 
             {/* User Profile Menu */}
