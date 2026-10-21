@@ -1,0 +1,280 @@
+@startuml Obra360_Diagrama_Sequencia_Completo_Corporativo
+!theme vibrant
+autonumber "<b>[00]</b>"
+skinparam maxMessageSize 180
+skinparam monochrome false
+skinparam shadowing true
+skinparam roundcorner 8
+skinparam defaultFontName "Helvetica"
+skinparam defaultFontSize 11
+skinparam sequenceBoxPadding 10
+skinparam participantPadding 15
+skinparam responseMessageBelowArrow true
+
+skinparam sequence {
+    ArrowColor #1E3A8A
+    ActorBorderColor #1E40AF
+    ActorBackgroundColor #EFF6FF
+    LifeLineBorderColor #64748B
+    LifeLineBackgroundColor #F8FAFC
+    ParticipantBackgroundColor #FFFFFF
+    ParticipantBorderColor #334155
+    ParticipantFontSize 12
+    ParticipantFontStyle bold
+    GroupBorderColor #475569
+    GroupBackgroundColor #F8FAFC
+    GroupHeaderFontSize 11
+    GroupHeaderFontStyle bold
+    DividerBackgroundColor #E2E8F0
+    DividerBorderColor #94A3B8
+    DividerFontStyle bold
+}
+
+title Obra 360 — Diagrama de Sequência Comportamental Corporativo Completo (UML 2.5)\nFluxo Integrado: Engenharia, Suprimentos B2B, Conciliação Fiscal SEFAZ, Qualidade NR-18 e Medição Financeira
+
+' ==============================================================================
+' DECLARAÇÃO DE PARTICIPANTES POR CAMADA ARQUITETURAL
+' ==============================================================================
+box "Camada de Apresentação (Frontend)" #F0F9FF
+    actor "Engenheiro Residente\n(Gestor de Obra)" as Eng
+    actor "Engenheiro Fiscal\n(Qualidade / NR-18)" as Fiscal
+    boundary "Portal Web React\n(Vite + Tailwind SPA)" as UI
+end box
+
+box "Segurança & Gateway" #F8FAFC
+    control "SecurityFilter\n(JWT & RBAC)" as Security
+end box
+
+box "Aplicação & Domínio (Spring Boot 3 / Java 21)" #FAFAFA
+    control "SuprimentosController" as SupCtrl
+    entity "SuprimentosService" as SupSvc
+    control "EstoqueFiscalController" as EstCtrl
+    entity "ConciliacaoNFeService" as NfeSvc
+    control "MedicaoQualidadeController" as MedCtrl
+    entity "MedicaoQualidadeService" as MedSvc
+end box
+
+box "Integrações Externas" #FFFBEB
+    boundary "Webservice SEFAZ\n(SEFAZ Estadual / Federal)" as SefazWS
+end box
+
+box "Persistência Transacional & Mensageria" #F1F5F9
+    database "PostgreSQL 16\n(Transacional ACID)" as Postgre
+    queue "Apache Kafka\n(Event Streaming Bus)" as Kafka
+    database "MongoDB\n(NoSQL Audit Trail Imutável)" as MongoAudit
+end box
+
+' ==============================================================================
+' FASE 1: REQUISIÇÃO DE INSUMOS & COTAÇÃO B2B (ENGENHARIA -> SUPRIMENTOS)
+' ==============================================================================
+== Fase 1: Requisição de Insumos & Cotação B2B (Cálculo de Consumo m²) ==
+
+Eng -> UI : 1. Solicita materiais da etapa da obra\n(ex: 500 sacos de cimento, código EAP)
+activate UI
+
+UI -> Security : 2. POST /api/v1/suprimentos/solicitacoes\n(Headers: Bearer JWT, Payload Insumos)
+activate Security
+
+Security -> Security : 3. Valida Token JWT e permissão\n'suprimentos.cotacao.criar' (RBAC)
+
+Security -> SupCtrl : 4. Encaminha requisição autenticada
+activate SupCtrl
+
+SupCtrl -> SupSvc : 5. criarSolicitacaoComCalculoM2(idObra, idEtapa, itens)
+activate SupSvc
+
+SupSvc -> Postgre : 6. Valida orçamento previsto da obra\ne saldo da etapa EAP
+activate Postgre
+Postgre --> SupSvc : 7. Orçamento aprovado e saldo liberado
+deactivate Postgre
+
+SupSvc -> Postgre : 8. INSERT INTO solicitacao_compra, cotacao_b2b (Status: RFQ_ABERTA)
+activate Postgre
+Postgre --> SupSvc : 9. RFQ #1042 cadastrada com sucesso
+deactivate Postgre
+
+SupSvc --> SupCtrl : 10. Retorna Solicitação e Cotação geradas
+deactivate SupSvc
+
+SupCtrl --> UI : 11. HTTP 201 Created (RFQ #1042 enviada aos fornecedores)
+deactivate SupCtrl
+deactivate Security
+
+UI --> Eng : 12. Exibe cotação B2B aberta no painel
+deactivate UI
+
+' ==============================================================================
+' FASE 2: HOMOLOGAÇÃO DE PROPOSTA & PEDIDO DE COMPRA B2B
+' ==============================================================================
+== Fase 2: Homologação de Fornecedor & Pedido de Compra B2B ==
+
+Eng -> UI : 13. Analisa propostas e aprova fornecedor homologado
+activate UI
+
+UI -> SupCtrl : 14. POST /api/v1/suprimentos/pedidos/aprovar\n{idCotacao, idProposta, condicaoPagto}
+activate SupCtrl
+
+SupCtrl -> SupSvc : 15. emitirPedidoCompra(idProposta)
+activate SupSvc
+
+SupSvc -> Postgre : 16. INSERT INTO pedido_compra\n(Status: AGUARDANDO_FATURAMENTO)
+activate Postgre
+Postgre --> SupSvc : 17. Pedido formalizado (UUID)
+deactivate Postgre
+
+SupSvc -> Kafka : 18. Publica evento 'PedidoCompraEmitidoEvent'
+activate Kafka
+deactivate Kafka
+
+SupSvc --> SupCtrl : 19. Pedido #PC-2026-88 emitido
+deactivate SupSvc
+
+SupCtrl --> UI : 20. HTTP 200 OK (Ordem de Compra formalizada)
+deactivate SupCtrl
+
+UI --> Eng : 21. Notifica equipe de recebimento da obra
+deactivate UI
+
+' ==============================================================================
+' FASE 3: RECEBIMENTO NO CANTEIRO & CONCILIAÇÃO FISCAL SEFAZ (44 DÍGITOS)
+' ==============================================================================
+== Fase 3: Recebimento Físico & Validação de NFe (Chave de 44 Dígitos / SEFAZ) ==
+
+Eng -> UI : 22. Registra chegada do caminhão no canteiro\ne informa Chave de Acesso da NFe (44 dígitos)
+activate UI
+
+UI -> EstCtrl : 23. POST /api/v1/fiscal/conciliar-nfe\n{idPedido, chaveNfe44, xmlNfe}
+activate EstCtrl
+
+EstCtrl -> NfeSvc : 24. processarRecebimentoFiscal(chaveNfe44, idPedido)
+activate NfeSvc
+
+NfeSvc -> NfeSvc : 25. Valida Dígito Verificador (DV)\nutilizando Algoritmo Módulo 11 da SEFAZ
+
+alt [Chave NFe Inválida / DV Incorreto]
+    NfeSvc --> EstCtrl : 26. Lança NfeInvalidaException("Chave com DV corrompido")
+    EstCtrl --> UI : 27. HTTP 422 Unprocessable Entity\n{erro: "Chave NFe matematicamente inválida"}
+    UI --> Eng : 28. Alerta vermelho: Recusar recebimento na portaria
+else [Chave NFe Válida no Algoritmo Módulo 11]
+    NfeSvc -> SefazWS : 29. Consulta status de autorização na SEFAZ (HTTPS REST)
+    activate SefazWS
+    SefazWS --> NfeSvc : 30. Retorno SEFAZ: Protocolo 135260000... (Autorizada para CNPJ da Obra)
+    deactivate SefazWS
+
+    critical Transação ACID (Commit / Rollback)
+        NfeSvc -> Postgre : 31. BEGIN TRANSACTION
+        activate Postgre
+
+        NfeSvc -> Postgre : 32. INSERT INTO conciliacao_nfe, item_nfe
+        NfeSvc -> Postgre : 33. UPDATE estoque_obra (Entrada física no almoxarifado)
+        NfeSvc -> Postgre : 34. INSERT INTO movimentacao_estoque (Kardex: Tipo ENTRADA_NFE)
+        NfeSvc -> Postgre : 35. UPDATE pedido_compra (Status: FATURADO_RECEBIDO)
+
+        Postgre --> NfeSvc : 36. COMMIT TRANSACTION
+        deactivate Postgre
+    end
+
+    NfeSvc -> Kafka : 37. Publica evento 'NfeConciliadaEstoqueAtualizadoEvent'
+    activate Kafka
+    deactivate Kafka
+
+    NfeSvc --> EstCtrl : 38. Sucesso na conciliação e entrada de estoque
+    deactivate NfeSvc
+
+    EstCtrl --> UI : 39. HTTP 200 OK (Saldo de insumos atualizado)
+    deactivate EstCtrl
+
+    UI --> Eng : 40. Alerta verde: Insumos liberados para uso em campo
+    deactivate UI
+end
+
+' ==============================================================================
+' FASE 4: EXECUÇÃO, APROPRIAÇÃO NA OS, VISTORIA NR-18 E MEDIÇÃO FINANCEIRA
+' ==============================================================================
+== Fase 4: Execução em Campo, Qualidade NR-18 e Liberação de Medição Financeira ==
+
+Eng -> UI : 41. Registra conclusão da Ordem de Serviço\ne baixa de consumo de insumos na etapa
+activate UI
+
+UI -> MedCtrl : 42. POST /api/v1/obras/ordem-servico/concluir\n{idOs, horasTrabalhadas, insumosUtilizados}
+activate MedCtrl
+
+MedCtrl -> MedSvc : 43. registrarExecucaoCampo(idOs, insumos)
+activate MedSvc
+
+MedSvc -> Postgre : 44. INSERT INTO insumo_consumido_os &\nUPDATE estoque_obra (Baixa física de saldo)
+activate Postgre
+Postgre --> MedSvc : 45. Baixa registrada no Kardex
+deactivate Postgre
+
+MedSvc -> Postgre : 46. INSERT INTO diario_obra (Efetivo, clima e fotos RDO)
+activate Postgre
+Postgre --> MedSvc : 47. RDO persistido
+deactivate Postgre
+
+MedSvc --> MedCtrl : 48. Serviço concluído em campo
+deactivate MedSvc
+
+MedCtrl --> UI : 49. HTTP 200 OK (Aguardando inspeção fiscal)
+deactivate MedCtrl
+deactivate UI
+
+Fiscal -> UI : 50. Realiza vistoria técnica de conformidade NR-18 / ISO 9001
+activate UI
+
+UI -> MedCtrl : 51. POST /api/v1/qualidade/vistoria-medicao\n{idEtapa, laudoTecnico, statusConformidade}
+activate MedCtrl
+
+MedCtrl -> MedSvc : 52. avaliarConformidadeELiberarMedicao(idEtapa, laudo)
+activate MedSvc
+
+alt [Não Conformidade Crítica / Risco NR-18 Identificado]
+    MedSvc -> Postgre : 53. INSERT INTO ocorrencia_qualidade\n(Severidade: CRITICA, Status: PENDENTE_CORRECAO)
+    activate Postgre
+    Postgre --> MedSvc : 54. Notificação de inconformidade registrada
+    deactivate Postgre
+
+    MedSvc --> MedCtrl : 55. Retorna bloqueio de avanço físico
+    MedCtrl --> UI : 56. HTTP 409 Conflict (Bloqueio de medição por não conformidade NR-18)
+    UI --> Fiscal : 57. Notifica encarregado para embargo/correção imediata
+else [Conformidade Atestada (NR-18 & Qualidade 100% OK)]
+    MedSvc -> Postgre : 58. UPDATE etapa_cronograma (percentual_concluido = 100%)
+    activate Postgre
+    Postgre --> MedSvc : 59. Etapa EAP concluída no cronograma
+    deactivate Postgre
+
+    MedSvc -> Postgre : 60. INSERT INTO medicao_servico (boletim aprovado,\nvalor financeiro liberado para faturamento)
+    activate Postgre
+    Postgre --> MedSvc : 61. Boletim de medição homologado
+    deactivate Postgre
+
+    MedSvc -> Kafka : 62. Publica evento 'BoletimMedicaoAprovadoEvent'
+    activate Kafka
+    deactivate Kafka
+
+    MedSvc --> MedCtrl : 63. Medição liberada com sucesso
+    deactivate MedSvc
+
+    MedCtrl --> UI : 64. HTTP 201 Created (Boletim de Medição Liberado)
+    deactivate MedCtrl
+
+    UI --> Fiscal : 65. Exibe atualização da Curva S e liberação financeira
+    deactivate UI
+end
+
+' ==============================================================================
+' FASE 5: EVENT STREAMING, AUDITORIA IMUTÁVEL E RASTREABILIDADE NOSQL
+' ==============================================================================
+== Fase 5: Auditoria Imutável Assíncrona & Rastreabilidade NoSQL ==
+
+activate Kafka
+Kafka -> MongoAudit : 66. Consumidor assíncrono consome lote de eventos\n('Estoque', 'NFe', 'Medição', 'Diário')
+deactivate Kafka
+activate MongoAudit
+
+MongoAudit -> MongoAudit : 67. Grava documento de auditoria imutável\n(Timestamp UTC, IP, CPF do autor, Hash MD5, Snapshots JSONB)
+
+MongoAudit --> Kafka : 68. Acknowledge (Commit do offset de mensageria)
+deactivate MongoAudit
+
+@enduml

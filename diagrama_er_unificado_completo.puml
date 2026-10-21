@@ -1,0 +1,521 @@
+@startuml Obra360_Diagrama_ER_Unificado_Completo
+!theme vibrant
+top to bottom direction
+skinparam linetype ortho
+skinparam roundcorner 8
+skinparam shadowing true
+skinparam packagePadding 15
+skinparam nodesep 45
+skinparam ranksep 55
+skinparam defaultFontName "Helvetica"
+skinparam defaultFontSize 11
+skinparam packageBackgroundColor #FFFFFF
+skinparam packageBorderColor #64748B
+skinparam packageFontStyle bold
+
+title Obra 360 — Diagrama de Entidade-Relacionamento Corporativo Unificado (28 Entidades / 3FN)\nEcossistema Integrado de Gestão da Construção Civil e Mercado Imobiliário (PostgreSQL 16+)
+
+' ==============================================================================
+' BLOCO 1: GOVERNANÇA CORPORATIVA, MULTI-TENANCY E ACESSO (RBAC)
+' ==============================================================================
+package "1. Governança, Multi-Tenancy & RBAC" {
+    entity "empresa" as empresa {
+        * id_empresa : UUID <<PK>>
+        --
+        * cnpj : VARCHAR(14) <<UK>>
+        * razao_social : VARCHAR(255)
+        nome_fantasia : VARCHAR(255)
+        * plano_saas : VARCHAR(50)
+        * limite_obras : INT
+        * ativo : BOOLEAN
+        * data_cadastro : TIMESTAMP
+    }
+
+    entity "filial_unidade" as filial_unidade {
+        * id_filial : UUID <<PK>>
+        --
+        * id_empresa : UUID <<FK>>
+        * codigo_filial : VARCHAR(50) <<UK>>
+        * cidade : VARCHAR(100)
+        * uf : VARCHAR(2)
+        * responsavel_regional : VARCHAR(150)
+    }
+
+    entity "usuario" as usuario {
+        * id_usuario : UUID <<PK>>
+        --
+        * id_empresa : UUID <<FK>>
+        * nome_completo : VARCHAR(150)
+        * email : VARCHAR(150) <<UK>>
+        * senha_hash : VARCHAR(255)
+        * cpf : VARCHAR(11) <<UK>>
+        telefone : VARCHAR(20)
+        * dois_fatores_ativo : BOOLEAN
+        * ativo : BOOLEAN
+    }
+
+    entity "perfil_acesso" as perfil_acesso {
+        * id_perfil : UUID <<PK>>
+        --
+        * codigo_perfil : VARCHAR(50) <<UK>>
+        * titulo_cargo : VARCHAR(100)
+        * departamento : VARCHAR(100)
+        * nivel_hierarquico : VARCHAR(50)
+    }
+
+    entity "usuario_perfil" as usuario_perfil {
+        * id_usuario : UUID <<PK, FK>>
+        * id_perfil : UUID <<PK, FK>>
+        --
+        * data_atribuicao : TIMESTAMP
+    }
+
+    entity "permissao" as permissao {
+        * id_permissao : UUID <<PK>>
+        --
+        * chave_permissao : VARCHAR(80) <<UK>>
+        * descricao : VARCHAR(255)
+        * modulo : VARCHAR(50)
+    }
+
+    entity "perfil_permissao" as perfil_permissao {
+        * id_perfil : UUID <<PK, FK>>
+        * id_permissao : UUID <<PK, FK>>
+    }
+}
+
+' ==============================================================================
+' BLOCO 2: ENGENHARIA, CRONOGRAMA, GED E MODELAGEM BIM 3D
+' ==============================================================================
+package "2. Engenharia, Cronograma & BIM 3D" {
+    entity "projeto_obra" as projeto_obra {
+        * id_projeto : UUID <<PK>>
+        --
+        * id_empresa : UUID <<FK>>
+        * codigo_obra : VARCHAR(50) <<UK>>
+        * nome_obra : VARCHAR(150)
+        * tipologia : VARCHAR(50)
+        * orcamento_previsto : NUMERIC(15,2)
+        * vgv_estimado : NUMERIC(15,2)
+        * percentual_avanco : NUMERIC(5,2)
+        * data_inicio : DATE
+        data_previsao_fim : DATE
+        * status : VARCHAR(30)
+    }
+
+    entity "etapa_cronograma" as etapa_cronograma {
+        * id_etapa : UUID <<PK>>
+        --
+        * id_projeto : UUID <<FK>>
+        * ordem_eap : INT
+        * nome_etapa : VARCHAR(100)
+        * percentual_concluido : NUMERIC(5,2)
+        * data_inicio_planejada : DATE
+        * data_fim_planejada : DATE
+        data_fim_real : DATE
+    }
+
+    entity "documento_projeto" as documento_projeto {
+        * id_documento : UUID <<PK>>
+        --
+        * id_projeto : UUID <<FK>>
+        * id_usuario_autor : UUID <<FK>>
+        * nome_arquivo : VARCHAR(255)
+        * extensao_formato : VARCHAR(10)
+        * versao_bim : VARCHAR(20)
+        * hash_md5 : VARCHAR(32)
+        * s3_storage_url : VARCHAR(500)
+        * status_aprovacao : VARCHAR(30)
+    }
+
+    entity "elemento_bim_3d" as elemento_bim_3d {
+        * id_elemento : UUID <<PK>>
+        --
+        * id_projeto : UUID <<FK>>
+        * categoria_ifc : VARCHAR(50)
+        * nome_identificador : VARCHAR(100)
+        * pos_x : NUMERIC(10,4)
+        * pos_y : NUMERIC(10,4)
+        * pos_z : NUMERIC(10,4)
+        * escala_x : NUMERIC(10,4)
+        * escala_y : NUMERIC(10,4)
+        * escala_z : NUMERIC(10,4)
+        material_textura : VARCHAR(100)
+        * status_execucao : VARCHAR(30)
+    }
+}
+
+' ==============================================================================
+' BLOCO 3: SUPRIMENTOS, ALMOXARIFADO E COMPRAS B2B
+' ==============================================================================
+package "3. Suprimentos, Almoxarifado & Compras B2B" {
+    entity "fornecedor_b2b" as fornecedor_b2b {
+        * id_fornecedor : UUID <<PK>>
+        --
+        * id_empresa : UUID <<FK>>
+        * cnpj : VARCHAR(14) <<UK>>
+        * razao_social : VARCHAR(255)
+        * categoria_fornecimento : VARCHAR(100)
+        * score_avaliacao : NUMERIC(3,2)
+        * homologado : BOOLEAN
+    }
+
+    entity "item_material" as item_material {
+        * id_material : UUID <<PK>>
+        --
+        * id_empresa : UUID <<FK>>
+        * codigo_sku : VARCHAR(50) <<UK>>
+        * descricao : VARCHAR(255)
+        * unidade_medida : VARCHAR(20)
+        * preco_medio_unitario : NUMERIC(12,2)
+        * estoque_minimo_alerta : NUMERIC(12,3)
+        * consumo_por_m2 : NUMERIC(10,4)
+    }
+
+    entity "estoque_obra" as estoque_obra {
+        * id_estoque : UUID <<PK>>
+        --
+        * id_projeto : UUID <<FK>>
+        * id_material : UUID <<FK>>
+        * quantidade_saldo : NUMERIC(12,3)
+        localizacao_canteiro : VARCHAR(100)
+        * ultima_atualizacao : TIMESTAMP
+    }
+
+    entity "movimentacao_estoque" as movimentacao_estoque {
+        * id_movimentacao : UUID <<PK>>
+        --
+        * id_estoque : UUID <<FK>>
+        * id_usuario : UUID <<FK>>
+        * tipo_movimento : VARCHAR(30)
+        * quantidade : NUMERIC(12,3)
+        * saldo_anterior : NUMERIC(12,3)
+        * saldo_resultante : NUMERIC(12,3)
+        justificativa : VARCHAR(255)
+        * data_movimento : TIMESTAMP
+    }
+
+    entity "solicitacao_compra" as solicitacao_compra {
+        * id_solicitacao : UUID <<PK>>
+        --
+        * id_projeto : UUID <<FK>>
+        * id_material : UUID <<FK>>
+        * quantidade_necessaria : NUMERIC(12,3)
+        * data_limite_canteiro : DATE
+        * prioridade : VARCHAR(20)
+        * status : VARCHAR(30)
+    }
+
+    entity "cotacao_b2b" as cotacao_b2b {
+        * id_cotacao : UUID <<PK>>
+        --
+        * id_solicitacao : UUID <<FK>>
+        * codigo_rfq : VARCHAR(50) <<UK>>
+        * data_abertura : DATE
+        data_encerramento : DATE
+        * status : VARCHAR(30)
+    }
+
+    entity "proposta_fornecedor" as proposta_fornecedor {
+        * id_proposta : UUID <<PK>>
+        --
+        * id_cotacao : UUID <<FK>>
+        * id_fornecedor : UUID <<FK>>
+        * preco_unitario_ofertado : NUMERIC(12,2)
+        * valor_frete : NUMERIC(12,2)
+        * prazo_entrega_dias : INT
+        * status_escolha : VARCHAR(30)
+    }
+
+    entity "pedido_compra" as pedido_compra {
+        * id_pedido : UUID <<PK>>
+        --
+        * id_proposta : UUID <<FK>>
+        * numero_pedido : VARCHAR(50) <<UK>>
+        * valor_total : NUMERIC(15,2)
+        * condicao_pagamento : VARCHAR(100)
+        * status_entrega : VARCHAR(30)
+    }
+}
+
+' ==============================================================================
+' BLOCO 4: FISCAL & RECEBIMENTO SEFAZ
+' ==============================================================================
+package "4. Fiscal & Recebimento SEFAZ" {
+    entity "conciliacao_nfe" as conciliacao_nfe {
+        * id_nfe : UUID <<PK>>
+        --
+        * id_pedido : UUID <<FK>>
+        * chave_acesso_44 : VARCHAR(44) <<UK>>
+        * numero_nota : VARCHAR(50)
+        serie : VARCHAR(10)
+        * cnpj_emitente : VARCHAR(14)
+        * valor_total_nfe : NUMERIC(15,2)
+        * data_emissao : TIMESTAMP
+        * status_sefaz : VARCHAR(30)
+    }
+
+    entity "item_nfe" as item_nfe {
+        * id_item_nfe : UUID <<PK>>
+        --
+        * id_nfe : UUID <<FK>>
+        * id_material : UUID <<FK>>
+        * quantidade_faturada : NUMERIC(12,3)
+        * valor_unitario : NUMERIC(12,2)
+        * valor_total_item : NUMERIC(12,2)
+    }
+}
+
+' ==============================================================================
+' BLOCO 5: CANTEIRO DE OBRAS, OS, EQUIPES & DIÁRIO
+' ==============================================================================
+package "5. Canteiro de Obras, OS & Equipes" {
+    entity "equipe_trabalho" as equipe_trabalho {
+        * id_equipe : UUID <<PK>>
+        --
+        * id_empresa : UUID <<FK>>
+        * nome_equipe : VARCHAR(100)
+        * especialidade_tecnica : VARCHAR(100)
+        * total_membros : INT
+    }
+
+    entity "colaborador" as colaborador {
+        * id_colaborador : UUID <<PK>>
+        --
+        * id_equipe : UUID <<FK>>
+        * nome_completo : VARCHAR(150)
+        * cpf : VARCHAR(11) <<UK>>
+        * cargo : VARCHAR(100)
+        * valor_hora : NUMERIC(10,2)
+        * ativo : BOOLEAN
+    }
+
+    entity "ordem_servico" as ordem_servico {
+        * id_os : UUID <<PK>>
+        --
+        * id_etapa : UUID <<FK>>
+        * id_equipe : UUID <<FK>>
+        * codigo_os : VARCHAR(50) <<UK>>
+        * titulo : VARCHAR(150)
+        descricao_tarefa : TEXT
+        * data_programada : DATE
+        data_conclusao : DATE
+        * horas_trabalhadas : NUMERIC(6,2)
+        justificativa_atraso : TEXT
+        * status : VARCHAR(30)
+    }
+
+    entity "insumo_consumido_os" as insumo_consumido_os {
+        * id_consumo : UUID <<PK>>
+        --
+        * id_os : UUID <<FK>>
+        * id_material : UUID <<FK>>
+        * quantidade_utilizada : NUMERIC(12,3)
+        * custo_total_insumo : NUMERIC(12,2)
+    }
+
+    entity "diario_obra" as diario_obra {
+        * id_diario : UUID <<PK>>
+        --
+        * id_projeto : UUID <<FK>>
+        * id_usuario_responsavel : UUID <<FK>>
+        * data_referencia : DATE
+        * condicao_climatica : VARCHAR(30)
+        * efetivo_presente : INT
+        resumo_atividades : TEXT
+        * fotos_anexadas_count : INT
+    }
+}
+
+' ==============================================================================
+' BLOCO 6: QUALIDADE (NR-18/ISO 9001) E MEDIÇÕES CONTRATUAIS
+' ==============================================================================
+package "6. Qualidade, NR-18 & Medições" {
+    entity "ocorrencia_qualidade" as ocorrencia_qualidade {
+        * id_ocorrencia : UUID <<PK>>
+        --
+        * id_projeto : UUID <<FK>>
+        * titulo_inconformidade : VARCHAR(150)
+        * norma_regulamentadora : VARCHAR(50)
+        * severidade : VARCHAR(30)
+        descricao : TEXT
+        foto_evidencia_url : VARCHAR(500)
+        * status_resolucao : VARCHAR(30)
+        * data_registro : TIMESTAMP
+    }
+
+    entity "medicao_servico" as medicao_servico {
+        * id_medicao : UUID <<PK>>
+        --
+        * id_projeto : UUID <<FK>>
+        * codigo_medicao : VARCHAR(50) <<UK>>
+        * numero_boletim : INT
+        * percentual_medido : NUMERIC(5,2)
+        * valor_liberado_financeiro : NUMERIC(15,2)
+        * engenheiro_fiscal_aprovador : VARCHAR(150)
+        * data_aprovacao : DATE
+        * status_pagamento : VARCHAR(30)
+    }
+}
+
+' ==============================================================================
+' BLOCO 7: COMERCIAL, CONTRATOS, CLIENTES & PÓS-VENDA
+' ==============================================================================
+package "7. Comercial, Clientes & Pós-Venda" {
+    entity "unidade_imobiliaria" as unidade_imobiliaria {
+        * id_unidade : UUID <<PK>>
+        --
+        * id_projeto : UUID <<FK>>
+        * identificador_unidade : VARCHAR(50)
+        * numero_andar : INT
+        * tipologia : VARCHAR(50)
+        * area_privativa_m2 : NUMERIC(10,2)
+        * valor_tabela : NUMERIC(15,2)
+        * status_comercial : VARCHAR(30)
+    }
+
+    entity "cliente_comprador" as cliente_comprador {
+        * id_cliente : UUID <<PK>>
+        --
+        * nome_completo : VARCHAR(150)
+        * cpf : VARCHAR(11) <<UK>>
+        * email : VARCHAR(150) <<UK>>
+        * telefone : VARCHAR(20)
+    }
+
+    entity "proposta_reserva" as proposta_reserva {
+        * id_proposta_reserva : UUID <<PK>>
+        --
+        * id_unidade : UUID <<FK>>
+        * id_cliente : UUID <<FK>>
+        id_corretor : UUID <<FK>>
+        * valor_ofertado : NUMERIC(15,2)
+        * valor_sinal_entrada : NUMERIC(15,2)
+        * data_validade_reserva : DATE
+        * status : VARCHAR(30)
+    }
+
+    entity "contrato_venda_servico" as contrato_venda_servico {
+        * id_contrato : UUID <<PK>>
+        --
+        * id_proposta_reserva : UUID <<FK>>
+        * id_cliente : UUID <<FK>>
+        * numero_contrato : VARCHAR(50) <<UK>>
+        * valor_contratual : NUMERIC(15,2)
+        * data_assinatura : DATE
+        data_entrega_chaves : DATE
+        * status : VARCHAR(30)
+    }
+
+    entity "garantia_pos_venda" as garantia_pos_venda {
+        * id_garantia : UUID <<PK>>
+        --
+        * id_unidade : UUID <<FK>>
+        * id_cliente : UUID <<FK>>
+        * protocolo_chamado : VARCHAR(50) <<UK>>
+        * categoria_vicio : VARCHAR(50)
+        descricao_reclamacao : TEXT
+        parecer_tecnico : VARCHAR(255)
+        * data_abertura : DATE
+        data_vistoria : DATE
+        * status : VARCHAR(30)
+    }
+}
+
+' ==============================================================================
+' BLOCO 8: AUDITORIA IMUTÁVEL E MENSAGENS
+' ==============================================================================
+package "8. Governança, Auditoria & Chat" {
+    entity "log_auditoria" as log_auditoria {
+        * id_log : UUID <<PK>>
+        --
+        * id_usuario : UUID <<FK>>
+        * nome_tabela : VARCHAR(80)
+        * operacao_dml : VARCHAR(20)
+        endereco_ip : VARCHAR(45)
+        dados_anteriores : JSONB
+        dados_novos : JSONB
+        * data_registro : TIMESTAMP
+    }
+
+    entity "mensagem_chat" as mensagem_chat {
+        * id_mensagem : UUID <<PK>>
+        --
+        * id_projeto : UUID <<FK>>
+        * id_usuario_remetente : UUID <<FK>>
+        * texto_conteudo : TEXT
+        * canal_topico : VARCHAR(50)
+        * data_envio : TIMESTAMP
+    }
+}
+
+' ==============================================================================
+' RELACIONAMENTOS INTER-MODULARES E INTRA-MODULARES (TODAS AS 48 LIGAÇÕES)
+' ==============================================================================
+
+' --- 1. Relações do Núcleo de Governança & Multi-Tenant (Bloco 1) ---
+empresa ||--o{ filial_unidade : "possui filiais"
+empresa ||--o{ usuario : "emprega usuarios"
+usuario ||--o{ usuario_perfil : "alocado"
+perfil_acesso ||--o{ usuario_perfil : "perfil"
+perfil_acesso ||--o{ perfil_permissao : "agrega"
+permissao ||--o{ perfil_permissao : "regra"
+
+' --- 2. Integração Governança -> Outros Blocos ---
+empresa ||--o{ projeto_obra : "gerencia obras (B1->B2)"
+empresa ||--o{ fornecedor_b2b : "homologa fornecedores (B1->B3)"
+empresa ||--o{ item_material : "cataloga materiais (B1->B3)"
+empresa ||--o{ equipe_trabalho : "estrutura equipes (B1->B5)"
+
+usuario ||--o{ documento_projeto : "autor upload (B1->B2)"
+usuario ||--o{ diario_obra : "responsavel RDO (B1->B5)"
+usuario ||--o{ movimentacao_estoque : "operador kardex (B1->B3)"
+usuario ||--o{ proposta_reserva : "corretor atribuido (B1->B7)"
+usuario ||--o{ log_auditoria : "autor da acao (B1->B8)"
+usuario ||--o{ mensagem_chat : "remetente chat (B1->B8)"
+
+' --- 3. Relações do Núcleo de Engenharia & Obras (Bloco 2) ---
+projeto_obra ||--o{ etapa_cronograma : "composta_por EAP"
+projeto_obra ||--o{ documento_projeto : "possui arquivos GED"
+projeto_obra ||--o{ elemento_bim_3d : "contem maquete 3D"
+projeto_obra ||--o{ estoque_obra : "almoxarifado canteiro (B2->B3)"
+projeto_obra ||--o{ solicitacao_compra : "demanda compras (B2->B3)"
+projeto_obra ||--o{ diario_obra : "registra RDO (B2->B5)"
+projeto_obra ||--o{ ocorrencia_qualidade : "inconformidades (B2->B6)"
+projeto_obra ||--o{ medicao_servico : "boletins medicao (B2->B6)"
+projeto_obra ||--o{ unidade_imobiliaria : "edifica unidades (B2->B7)"
+projeto_obra ||--o{ mensagem_chat : "canal da obra (B2->B8)"
+
+' --- 4. Relações de Suprimentos, Compras & Almoxarifado (Bloco 3) ---
+item_material ||--o{ estoque_obra : "saldo fisico"
+item_material ||--o{ movimentacao_estoque : "movimenta item"
+estoque_obra ||--o{ movimentacao_estoque : "kardex local"
+
+item_material ||--o{ solicitacao_compra : "item requisitado"
+solicitacao_compra ||--o{ cotacao_b2b : "agrupa em RFQ"
+cotacao_b2b ||--o{ proposta_fornecedor : "recebe ofertas"
+fornecedor_b2b ||--o{ proposta_fornecedor : "envia proposta"
+proposta_fornecedor ||--o{ pedido_compra : "gera pedido"
+
+' --- 5. Relações Fiscais e Recebimento SEFAZ (Bloco 4) ---
+pedido_compra ||--o{ conciliacao_nfe : "faturado por (B3->B4)"
+conciliacao_nfe ||--o{ item_nfe : "discrimina itens"
+item_material ||--o{ item_nfe : "vinculo catalogo (B3->B4)"
+
+' --- 6. Relações de Campo, Equipes & Ordens de Serviço (Bloco 5) ---
+equipe_trabalho ||--o{ colaborador : "aloca membros"
+etapa_cronograma ||--o{ ordem_servico : "tarefas da etapa (B2->B5)"
+equipe_trabalho ||--o{ ordem_servico : "executa OS"
+ordem_servico ||--o{ insumo_consumido_os : "baixa materiais"
+item_material ||--o{ insumo_consumido_os : "insumo gasto (B3->B5)"
+
+' --- 7. Relações Comerciais, Clientes & Pós-Venda (Bloco 7) ---
+unidade_imobiliaria ||--o{ proposta_reserva : "objeto da reserva"
+cliente_comprador ||--o{ proposta_reserva : "solicitante"
+proposta_reserva ||--o{ contrato_venda_servico : "formaliza contrato"
+cliente_comprador ||--o{ contrato_venda_servico : "titular contrato"
+
+unidade_imobiliaria ||--o{ garantia_pos_venda : "unidade coberta"
+cliente_comprador ||--o{ garantia_pos_venda : "abre chamado"
+
+@enduml
