@@ -1,0 +1,126 @@
+:root[data-obra-theme='light'] .ws {
+  --ink: #202025;
+  --muted: #60606b;
+  --line: #d9d9df;
+  --accent: #f97316;
+  --brand-text: #9a4008;
+  --accent-hover: #ea580c;
+  --accent-soft: #fff0e4;
+  --page-bg: #f5f5f7;
+  --surface: #ffffff;
+  --surface-muted: #f1f1f4;
+  --surface-hover: #e9e9ee;
+  --overlay-surface: #fffffff0;
+  --plan-outline: #3f3f46;
+  --warning-bg: #fff3e4;
+  --warning-text: #8e3e0e;
+  --warning-border: #edb06f;
+  --danger-bg: #fff0f2;
+  --danger-text: #a31c35;
+  --danger-border: #e8a4b0;
+  --success-bg: #e9f8f0;
+  --success-text: #126142;
+  --success-border: #91cfb4;
+  color-scheme: light;
+}
+html[data-obra-theme='light'],
+html[data-obra-theme='light'] body {
+  background: #f5f5f7;
+  color: #202025;
+}
+html[data-obra-theme='dark'],
+html[data-obra-theme='dark'] body {
+  background: #111113;
+  color: #fafafa;
+}
+.ws.appearance-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  flex-shrink: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0;
+  background: var(--surface);
+  color: var(--brand-text);
+  cursor: pointer;
+}
+.ws.appearance-toggle:hover {
+  background: var(--surface-hover);
+}
+.ws.appearance-toggle:focus-visible {
+  outline: 2px solid var(--brand-text);
+  outline-offset: 2px;
+}
+.appearance-public {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  z-index: 5;
+}
+.error-screen {
+  padding: 24px;
+}
+.error-card {
+  max-width: 460px;
+  width: 100%;
+  text-align: center;
+  display: grid;
+  gap: 18px;
+}
+.error-card h2 {
+  color: var(--ink);
+  font-size: 22px;
+  font-weight: 700;
+}
+.error-card p {
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 10px;
+}
+.error-card .ws-primary {
+  width: 100%;
+}
+.appearance-public + .access-page {
+  padding-top: 76px;
+}
+:root[data-obra-theme='light'] .ws-sidebar {
+  --surface: #162237;
+  --surface-muted: #1d2c44;
+  --surface-hover: #263955;
+  --accent-soft: #2a3c56;
+  --ink: #f7faff;
+  --muted: #bccae0;
+  --line: #a6b8d2;
+  color-scheme: dark;
+}
+:root[data-obra-theme='light'] .access-level {
+  background: #fff0e4;
+  color: #8e3e0e;
+}
+:root[data-obra-theme='light'] .access-profile[class*='level-'] .access-level {
+  background: #eae5f6;
+  color: #68408b;
+}
+:root[data-obra-theme='light'] .access-selected small {
+  color: #8e3e0e;
+}
+:root[data-obra-theme='light'] .ws input::placeholder,
+:root[data-obra-theme='light'] .ws textarea::placeholder {
+  color: #6e6e79;
+}
+@media (max-width: 600px) {
+  .appearance-public {
+    top: 10px;
+    right: 12px;
+  }
+}
+@media (pointer: coarse) {
+  .ws.ws input:not([type='checkbox']):not([type='radio']):not([type='color']),
+  .ws.ws select,
+  .ws.ws textarea {
+    font-size: 16px;
+  }
+}

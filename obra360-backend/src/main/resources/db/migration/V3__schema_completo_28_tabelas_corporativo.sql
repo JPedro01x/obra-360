@@ -79,7 +79,7 @@ CREATE INDEX IF NOT EXISTS idx_colaborador_equipe ON colaborador(equipe_trabalho
 -- 25. Tabela: insumo_consumido_os (Baixa de Insumos em Ordens de Serviço - RN-10)
 CREATE TABLE IF NOT EXISTS insumo_consumido_os (
     id BIGSERIAL PRIMARY KEY,
-    ordem_servico_id BIGINT NOT NULL REFERENCES ordem_servico(id) ON DELETE CASCADE,
+    ordem_servico_id BIGINT NOT NULL REFERENCES solicitacao_servico(id) ON DELETE CASCADE,
     item_estoque_id BIGINT NOT NULL REFERENCES item_estoque(id),
     quantidade_utilizada NUMERIC(12,3) NOT NULL,
     custo_total_insumo NUMERIC(12,2) NOT NULL,

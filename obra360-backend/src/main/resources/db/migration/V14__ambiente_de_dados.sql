@@ -1,0 +1,2 @@
+ALTER TABLE empresa ADD COLUMN ambiente_dados VARCHAR(20) NOT NULL DEFAULT 'OPERACAO';
+ALTER TABLE empresa ADD CONSTRAINT ck_empresa_ambiente CHECK (ambiente_dados IN ('OPERACAO','HOMOLOGACAO'));

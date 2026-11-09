@@ -5,7 +5,7 @@ test.describe('Obra 360 - Auditoria Completa de Conexões, Fluxos de Dados e Int
 
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => localStorage.clear());
-    await page.goto('http://localhost:3000/');
+    await page.goto('/');
     await page.waitForSelector('canvas', { timeout: 15000 }).catch(() => {});
 
     // Fechar banner de cookies LGPD

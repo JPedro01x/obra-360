@@ -1,0 +1,1 @@
+CREATE TABLE instalacao (id BIGINT PRIMARY KEY);

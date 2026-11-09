@@ -27,6 +27,9 @@ public class EmpresaEntity {
 
     @Column(name = "nome_fantasia", nullable = false, length = 150)
     private String nomeFantasia;
+    @Builder.Default
+    @Column(name="ambiente_dados",nullable=false,length=20,columnDefinition="VARCHAR(20) DEFAULT 'OPERACAO'")
+    private String ambienteDados="OPERACAO";
 
     @Column(name = "data_criacao", nullable = false, updatable = false)
     private OffsetDateTime dataCriacao;

@@ -27,6 +27,12 @@ public class MovimentacaoEstoqueEntity {
     @Column(name = "usuario_id", nullable = false)
     private Long usuarioId;
 
+    @Column(name = "ordem_servico_id")
+    private Long ordemServicoId;
+
+    @Column(name = "chave_operacao", length = 36, unique = true)
+    private String chaveOperacao;
+
     @Column(name = "tipo_movimentacao", nullable = false, length = 20)
     private String tipoMovimentacao;
 

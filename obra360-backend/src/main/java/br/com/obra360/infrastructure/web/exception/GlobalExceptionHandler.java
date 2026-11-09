@@ -18,7 +18,36 @@ import java.time.Instant;
  * tratando também erros de concorrência (Race Conditions) e segurança.
  */
 @RestControllerAdvice
+@lombok.extern.slf4j.Slf4j
 public class GlobalExceptionHandler {
+    @ExceptionHandler(software.amazon.awssdk.core.exception.SdkException.class)
+    public ProblemDetail handleStorage(Exception ex){return ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE,"Armazenamento S3 indisponível. Verifique credenciais, região e bucket.");}
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ProblemDetail handleFileLimit(Exception ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.PAYLOAD_TOO_LARGE,"O arquivo excede o limite de 20 MB.");
+    }
+    @ExceptionHandler({org.springframework.web.bind.MethodArgumentNotValidException.class,
+        org.springframework.http.converter.HttpMessageNotReadableException.class,
+        org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class})
+    public ProblemDetail handleValidation(Exception ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Confira os campos obrigatórios e seus formatos.");
+    }
+
+    @ExceptionHandler({org.springframework.dao.DataIntegrityViolationException.class,
+        org.hibernate.exception.ConstraintViolationException.class,jakarta.persistence.EntityExistsException.class})
+    public ProblemDetail handleIntegrity(Exception ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, "O registro já existe ou viola uma referência do cadastro.");
+    }
+
+    @ExceptionHandler(org.springframework.web.server.ResponseStatusException.class)
+    public ProblemDetail handleStatus(org.springframework.web.server.ResponseStatusException ex) {
+        return ProblemDetail.forStatusAndDetail(ex.getStatusCode(), ex.getReason() == null ? "Operação indisponível." : ex.getReason());
+    }
+
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    public ProblemDetail handleAccess(Exception ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, "Acesso não autorizado.");
+    }
 
     @ExceptionHandler({OptimisticLockException.class, ObjectOptimisticLockingFailureException.class})
     public ProblemDetail handleRaceConditionException(Exception ex) {
@@ -60,6 +89,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ProblemDetail handleGenericException(Exception ex) {
+        log.error("Falha interna requestId={}",org.slf4j.MDC.get("requestId"),ex);
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 "Ocorreu um erro interno inesperado no servidor."
@@ -67,7 +97,6 @@ public class GlobalExceptionHandler {
         problemDetail.setTitle("Erro Interno do Servidor");
         problemDetail.setType(URI.create("https://obra360.com.br/erros/erro-interno"));
         problemDetail.setProperty("timestamp", Instant.now());
-        problemDetail.setProperty("mensagem_tecnica", ex.getMessage());
         return problemDetail;
     }
 }

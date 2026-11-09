@@ -3,32 +3,60 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
   "scripts": {
-    "dev": "vite --host --port 3000",
+    "acessos:homologacao": "node scripts/acessos-homologacao.mjs",
+    "verificar:producao": "node scripts/production-check.mjs",
+    "release:package": "node scripts/package-release.mjs",
+    "test:preproduction": "node scripts/preproduction-lab.mjs",
+    "configurar:seguranca-local": "node scripts/configure-local-security.mjs",
+    "test:postgres": "node scripts/test-postgres.mjs",
+    "backup": "node scripts/backup.mjs create",
+    "backup:restore": "node scripts/backup.mjs restore",
+    "backup:production": "node scripts/backup-production.mjs",
+    "test:backup": "node --test scripts/backup.test.mjs",
+    "test:integrated": "playwright test --config playwright.integrated.config.ts",
+    "test:roles": "playwright test --config playwright.roles.config.ts",
+    "dev": "node scripts/dev.mjs",
+    "dev:frontend": "vite --host 127.0.0.1 --port 3000 --strictPort",
+    "dev:demo": "vite --mode demo --host --port 3000",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "typecheck": "tsc --noEmit",
+    "test": "playwright test",
+    "test:demo": "playwright test --config playwright.demo.config.ts",
+    "preview": "vite preview",
+    "dados:homologacao": "node scripts/homologar.mjs --criar-base-homologacao",
+    "validar:homologacao": "node scripts/validar-homologacao.mjs"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.4",
     "clsx": "^2.1.1",
     "framer-motion": "^13.5.0",
     "lucide-react": "^0.344.0",
+    "pdfjs-dist": "5.4.624",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "tailwind-merge": "^3.7.0",
-    "three": "^0.162.0"
+    "three": "^0.162.0",
+    "web-ifc": "^0.0.78"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
     "@types/canvas-confetti": "^1.9.0",
+    "@types/pg": "^8.23.1",
     "@types/react": "^18.2.66",
     "@types/react-dom": "^18.2.22",
     "@types/three": "^0.162.0",
-    "@vitejs/plugin-react": "^4.2.1",
+    "@vitejs/plugin-react": "^5.2.0",
     "autoprefixer": "^10.4.18",
+    "embedded-postgres": "^18.6.0-beta.19",
+    "pg": "^8.23.1",
     "postcss": "^8.4.35",
+    "prettier": "^3.9.10",
     "tailwindcss": "^3.4.1",
     "typescript": "^5.2.2",
-    "vite": "^5.1.6"
+    "vite": "^7.3.7"
   }
 }

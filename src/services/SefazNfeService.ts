@@ -5,6 +5,8 @@
  * cálculo de Dígito Verificador através do Algoritmo Módulo 11 da SEFAZ (RN-01).
  */
 
+import { DEMO_MODE } from './http';
+
 export interface SefazNfeItem {
   productName: string;
   brand: string;
@@ -53,6 +55,7 @@ export function validateNfeKeyModulo11(nfeKey: string): boolean {
  * Consulta a SEFAZ via API REST do backend Spring Boot com validação estrita (RN-01)
  */
 export async function querySefazNfe(nfeKey: string): Promise<SefazNfeResponse> {
+  if (!DEMO_MODE) throw new Error('Consulta SEFAZ não configurada. A validação do dígito verificador não comprova autorização fiscal.');
   const sanitizedKey = nfeKey.replace(/\D/g, '');
   if (sanitizedKey.length !== 44) {
     throw new Error('Chave de Acesso NFe inválida. A chave deve conter exatamente 44 dígitos numéricos (RN-01).');

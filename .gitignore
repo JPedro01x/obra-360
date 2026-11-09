@@ -8,6 +8,11 @@ dist/
 dist-ssr/
 *.local
 target/
+obra360-backend/data/
+obra360-backend/data-before-restore-*/
+obra360-backend/data-restore-*/
+backups/
+releases/
 **/target/
 
 # Testing & Playwright
@@ -22,6 +27,9 @@ yarn-debug.log*
 yarn-error.log*
 .env
 .env.local
+.env.*
+!.env.example
+!.env.demo
 *.log
 
 # IDE & OS

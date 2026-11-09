@@ -1,4 +1,5 @@
 import { Project, ConstructionOccurrence, StockItem, StockMovement, AuditLog } from '../types';
+import { csvCell, escapeReportRecord } from './exportFormatting';
 
 /* ========================================================================= */
 /* REPORT EXPORTER UTILITY (PDF & EXCEL/CSV GENERATOR)                      */
@@ -9,8 +10,8 @@ import { Project, ConstructionOccurrence, StockItem, StockMovement, AuditLog } f
  */
 export function downloadCsvFile(filename: string, headers: string[], rows: (string | number)[][]) {
   const csvContent = [
-    headers.join(','),
-    ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    headers.map(csvCell).join(','),
+    ...rows.map(row => row.map(csvCell).join(','))
   ].join('\n');
 
   const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -21,12 +22,15 @@ export function downloadCsvFile(filename: string, headers: string[], rows: (stri
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 /**
  * Generates an executive PDF report by opening a styled printable window
  */
 export function exportProjectSummaryPdf(project: Project, occurrences: ConstructionOccurrence[]) {
+  project = escapeReportRecord(project);
+  occurrences = occurrences.map(escapeReportRecord);
   const printWindow = window.open('', '_blank');
   if (!printWindow) return;
 
@@ -116,7 +120,7 @@ export function exportProjectSummaryPdf(project: Project, occurrences: Construct
       </table>
 
       <div class="footer">
-        Gerado automaticamente via Obra360 Enterprise em ${new Date().toLocaleString('pt-BR')} • Documento Auditado
+        Gerado via Obra360 em ${new Date().toLocaleString('pt-BR')} • Confira os registros de origem
       </div>
 
       <script>

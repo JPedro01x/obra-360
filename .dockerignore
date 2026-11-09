@@ -1,0 +1,19 @@
+.git
+node_modules
+dist
+backups
+.env
+.env.*
+**/.env
+**/.env.*
+**/*.local
+releases
+scratch
+test-results
+playwright-report
+obra360-backend/target
+obra360-backend/data
+obra360-backend/data-*
+obra360-backend/src/main/resources/static
+atividade avaliativa
+*.zip

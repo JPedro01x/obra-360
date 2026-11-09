@@ -4,6 +4,8 @@
  */
 
 import { BuildingElement, StockItem, StockMovement, AuditLog } from '../types';
+import { csvCell, escapeReportRecord } from './exportFormatting';
+import { sanitizeInput } from './security';
 
 /**
  * Export array of data to CSV file format downloaded in browser
@@ -13,19 +15,18 @@ export function exportToCSV(filename: string, rows: Record<string, any>[]) {
 
   const headers = Object.keys(rows[0]);
   const csvContent = [
-    headers.join(','),
+    headers.map(csvCell).join(','),
     ...rows.map((row) =>
       headers
         .map((header) => {
           const val = row[header] ?? '';
-          const escaped = String(val).replace(/"/g, '""');
-          return `"${escaped}"`;
+          return csvCell(val);
         })
         .join(',')
     )
   ].join('\n');
 
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const blob = new Blob(['\uFEFF', csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.setAttribute('href', url);
@@ -33,6 +34,7 @@ export function exportToCSV(filename: string, rows: Record<string, any>[]) {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 /**
@@ -43,13 +45,15 @@ export function generateExecutiveReportPDF(
   elements: BuildingElement[],
   stockItems: StockItem[]
 ) {
+  roleTitle = sanitizeInput(roleTitle);
+  elements = elements.map(escapeReportRecord);
   const printWindow = window.open('', '_blank');
   if (!printWindow) return;
 
   const totalElements = elements.length;
   const completedCount = elements.filter((e) => e.status === 'CONCLUIDO').length;
   const progressPercent = Math.round(
-    elements.reduce((acc, e) => acc + e.progressPercent, 0) / totalElements
+    elements.reduce((acc, e) => acc + e.progressPercent, 0) / (totalElements || 1)
   );
 
   const html = `
@@ -75,7 +79,7 @@ export function generateExecutiveReportPDF(
         <div class="header">
           <div>
             <div class="logo">Obra360</div>
-            <div class="title">Relatório Executivo Oficial de Obra</div>
+            <div class="title">Relatório de acompanhamento de obra</div>
           </div>
           <div style="text-align: right; font-size: 12px; color: #71717a;">
             Data: ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR')}<br/>
@@ -94,7 +98,7 @@ export function generateExecutiveReportPDF(
           </div>
           <div class="kpi-card">
             <div style="font-size: 11px; color: #71717a;">Status do Orçamento</div>
-            <div class="kpi-value" style="color: #10b981;">R$ 166.400,00</div>
+            <div class="kpi-value" style="color: #10b981;">Não informado</div>
           </div>
         </div>
 

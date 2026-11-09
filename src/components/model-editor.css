@@ -1,0 +1,531 @@
+.model-module {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+.model-plan-tools {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 18px;
+  min-width: 0;
+}
+.model-plan-tools > summary {
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.model-plan-tools > .model-toolbar {
+  margin: 16px 0 10px;
+}
+.model-plan-tools p {
+  margin: 8px 0;
+}
+.model-plan-warning {
+  padding: 10px;
+  border: 1px solid var(--warning-border);
+  border-radius: 8px;
+  background: var(--warning-bg);
+  color: var(--warning-text) !important;
+}
+.model-annotation-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 15px;
+  min-width: 0;
+}
+.model-annotation-columns > details,
+.model-print-settings {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+  min-width: 0;
+}
+.model-plan-tools details summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 650;
+}
+.model-room-list,
+.model-dimension-list {
+  display: grid;
+  gap: 10px;
+  max-height: 420px;
+  overflow: auto;
+  margin-top: 12px;
+}
+.model-room-list form,
+.model-dimension-list form {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  background: var(--surface-muted);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-width: 0;
+}
+.model-room-list form > div {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.model-dimension-list > details {
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.model-coordinate-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.model-print-settings {
+  margin-top: 15px;
+}
+.model-print-settings .model-view-options {
+  border: 0;
+  padding: 14px 0 0;
+}
+.model-print-settings .model-view-options > label {
+  flex: 1;
+  min-width: 130px;
+}
+.model-plan-tools .model-toolbar .model-check {
+  padding: 8px;
+}
+.plan-room-mark text {
+  user-select: none;
+}
+@media (max-width: 750px) {
+  .model-annotation-columns {
+    grid-template-columns: 1fr;
+  }
+  .model-plan-tools {
+    padding: 12px;
+  }
+  .model-coordinate-fields {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.model-module h1 {
+  font-size: 28px;
+  font-weight: 750;
+}
+.model-module h2 {
+  font-size: 18px;
+  font-weight: 700;
+}
+.model-module p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.model-module input,
+.model-module select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 9px 11px;
+  color: var(--ink);
+  font-size: 13px;
+}
+.model-module label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.model-module button {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 11px;
+  font-size: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.model-module .ws-primary {
+  background: var(--accent);
+  color: #111113;
+  border-color: var(--accent);
+}
+.model-module button:hover {
+  border-color: var(--accent);
+}
+.model-module button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.model-module :focus-visible {
+  outline: 3px solid var(--warning-border);
+  outline-offset: 2px;
+}
+.model-library,
+.model-savebar,
+.model-create,
+.model-view-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 14px;
+  padding: 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.model-library > label,
+.model-savebar > label,
+.model-create > label {
+  flex: 1;
+  min-width: 170px;
+}
+.model-module .model-check {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  flex: none;
+  font-weight: 500;
+  min-width: 0;
+}
+.model-check input {
+  width: auto;
+}
+.model-list {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.model-list > button {
+  justify-content: flex-start;
+  min-width: 180px;
+  max-width: 320px;
+  text-align: left;
+}
+.model-list > button span {
+  display: grid;
+  gap: 4px;
+  overflow-wrap: anywhere;
+}
+.model-list small {
+  font-size: 10px;
+  color: var(--muted);
+}
+.model-module .is-active,
+.model-list > button[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--warning-bg);
+}
+.model-list-pagination {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 11px;
+  flex-wrap: wrap;
+}
+.model-notice {
+  background: var(--success-bg);
+  padding: 12px 16px;
+  border: 1px solid var(--success-border);
+  border-radius: 10px;
+  color: var(--success-text) !important;
+}
+.model-dirty,
+.model-clean {
+  font-size: 12px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+.model-clean {
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+.model-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.model-toolbar > label {
+  min-width: 0;
+  max-width: 100%;
+}
+.model-view-options {
+  padding: 12px 16px;
+}
+.model-view-options label {
+  min-width: 140px;
+}
+.model-workbench {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 245px;
+  gap: 14px;
+  align-items: start;
+  min-width: 0;
+}
+.model-canvases {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.model-canvases.view-split {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 310px), 1fr));
+}
+.model-canvases > section {
+  min-width: 0;
+}
+.model-change-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin: 12px 0;
+  padding: 0;
+  list-style: none;
+}
+.model-change-legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.model-change-legend li span {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+.model-plan,
+.model-three {
+  height: 470px;
+  min-width: 0;
+  background: var(--surface-muted);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+}
+.model-plan svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+  cursor: crosshair;
+}
+.model-plan.is-readonly svg {
+  touch-action: pan-y pinch-zoom;
+}
+.model-plan-zoom {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 4px;
+}
+.model-module .model-plan-zoom button {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+}
+.model-plan .plan-dimension-mark {
+  stroke: var(--muted);
+}
+.model-plan .plan-dimension-mark text {
+  fill: var(--ink);
+  stroke: var(--surface-muted);
+}
+.model-plan .plan-room-mark text {
+  fill: var(--success-text);
+  stroke: var(--surface-muted);
+}
+.model-footprint {
+  cursor: move;
+}
+.model-three-canvas {
+  width: 100%;
+  height: 100%;
+}
+.model-three-canvas canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+.model-viewport-hint {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 7px;
+  padding: 5px 8px;
+  border-radius: 7px;
+  background: var(--overlay-surface);
+  pointer-events: none;
+  font-size: 10px !important;
+  line-height: 1.4 !important;
+  color: var(--muted) !important;
+}
+.model-webgl-error {
+  position: absolute;
+  inset: 15px;
+  padding: 16px;
+  background: var(--warning-bg);
+  border-radius: 10px;
+  color: var(--warning-text);
+  font-size: 13px;
+}
+.model-inspector {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+}
+.model-inspector h2 {
+  font-size: 14px;
+}
+.model-inspector h3 {
+  font-size: 13px;
+  font-weight: 700;
+}
+.model-inspector form {
+  display: grid;
+  gap: 10px;
+}
+.model-inspector small {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.model-element-list {
+  display: grid;
+  gap: 4px;
+  max-height: 160px;
+  overflow: auto;
+}
+.model-element-list button {
+  justify-content: flex-start;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.model-inspector details summary {
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.model-inspector details form {
+  margin-top: 12px;
+}
+.model-floor-actions {
+  display: grid;
+  gap: 7px;
+  margin-top: 12px;
+}
+.model-empty {
+  padding: 50px 20px;
+  text-align: center;
+  background: var(--surface);
+  border: 1px dashed var(--line);
+  border-radius: 14px;
+}
+.model-empty svg {
+  margin: 0 auto 16px;
+  color: var(--muted);
+}
+.model-empty h2 {
+  margin-bottom: 8px;
+}
+.model-revisions {
+  padding: 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  min-width: 0;
+}
+.model-revisions summary {
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 14px;
+}
+.model-revisions > p {
+  margin: 12px 0;
+}
+.model-revisions > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+.model-revisions > div > span {
+  display: grid;
+  gap: 5px;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+.model-revisions small {
+  font-size: 11px;
+  color: var(--muted);
+}
+.model-footnote {
+  font-size: 11px !important;
+}
+@media (max-width: 1350px) {
+  .model-canvases.view-split .model-plan,
+  .model-canvases.view-split .model-three {
+    height: 360px;
+  }
+}
+@media (max-width: 800px) {
+  .model-workbench {
+    grid-template-columns: 1fr;
+  }
+  .model-inspector {
+    grid-template-columns: 1fr;
+  }
+  .model-plan,
+  .model-three {
+    height: 400px;
+  }
+  .model-library > label,
+  .model-savebar > label,
+  .model-create > label {
+    min-width: 140px;
+  }
+  .model-revisions > div {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+@media (max-width: 480px) {
+  .model-module h1 {
+    font-size: 24px;
+  }
+  .model-library,
+  .model-savebar {
+    padding: 13px;
+  }
+  .model-toolbar button {
+    flex-grow: 1;
+  }
+  .model-plan,
+  .model-three {
+    height: 330px;
+  }
+  .model-view-options label {
+    min-width: 100%;
+  }
+  .model-list > button {
+    max-width: 100%;
+    width: 100%;
+  }
+  .model-module .model-check {
+    min-width: 0;
+  }
+}

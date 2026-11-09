@@ -5,6 +5,8 @@
  * originados do Autodesk Revit, ArchiCAD e Bentley Systems.
  */
 
+import { DEMO_MODE } from './http';
+
 export interface ParsedIfcElement {
   expressId: number;
   guid: string;
@@ -28,6 +30,7 @@ export interface IfcParsingResult {
  * Realiza o parsing assíncrono do arquivo .ifc selecionado pelo usuário
  */
 export async function parseIfcFile(file: File): Promise<IfcParsingResult> {
+  if (!DEMO_MODE) throw new Error('Leitor IFC real ainda não integrado. Nenhum quantitativo foi extraído do arquivo.');
   const textContent = await file.text();
   
   // Extrai esquema IFC do cabeçalho HEADER (ex: FILE_SCHEMA(('IFC4'));)

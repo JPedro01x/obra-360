@@ -5,12 +5,12 @@ test.describe('Obra 360 - Definitive React Frontend E2E Suite', () => {
 
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => localStorage.clear());
-    await page.goto('http://localhost:3000/');
+    await page.goto('/');
     await page.waitForSelector('canvas', { timeout: 15000 }).catch(() => {});
   });
 
   test('1. Deve carregar o título e a marca da plataforma Obra 360', async ({ page }) => {
-    await expect(page).toHaveTitle(/Obra 360/i);
+    await expect(page).toHaveTitle(/Obra360/i);
     await expect(page.locator('h1').first()).toContainText('Obra360');
   });
 

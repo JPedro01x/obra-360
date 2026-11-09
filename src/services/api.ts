@@ -18,6 +18,7 @@ import {
 } from '../data/mockData';
 import { logger } from './logger';
 import { eventBus } from './eventBus';
+import { DEMO_MODE, requestApi } from './http';
 
 // Simulated latency helper for real-world Async/Await Promises
 const simulateNetworkDelay = <T>(data: T, delayMs: number = 300): Promise<T> => {
@@ -28,47 +29,12 @@ const simulateNetworkDelay = <T>(data: T, delayMs: number = 300): Promise<T> => 
   });
 };
 
-/* ========================================================================= */
-/* CONFIGURAÇÃO DE INTEGRAÇÃO HÍBRIDA (API REST / MOCK FALLBACK)             */
-const metaEnv = (import.meta as any)?.env || {};
-const API_BASE_URL = (metaEnv.VITE_API_URL as string) || 'http://localhost:8080/api';
-// Se VITE_USE_MOCK for 'false' ou o usuário configurar no localStorage, tenta a API real do Spring Boot
-const isMockDisabled = 
-  metaEnv.VITE_USE_MOCK === 'false' || 
-  (typeof window !== 'undefined' && localStorage.getItem('obra360_use_mock') === 'false');
-
 async function hybridFetch<T>(endpoint: string, options?: RequestInit, fallbackData?: T): Promise<T> {
-  if (!isMockDisabled) {
+  if (DEMO_MODE) {
     return simulateNetworkDelay(fallbackData as T, 200);
   }
 
-  try {
-    const activeTenant = (typeof window !== 'undefined' && localStorage.getItem('obra360_active_tenant')) || 'CMP-001';
-    const activeToken = (typeof window !== 'undefined' && localStorage.getItem('obra360_token')) || '';
-
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'X-Tenant-ID': activeTenant,
-      ...(activeToken ? { 'Authorization': `Bearer ${activeToken}` } : {}),
-      ...(options?.headers as Record<string, string> || {})
-    };
-
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    logger.info(`[HYBRID API] Resposta recebida de ${endpoint} com sucesso`);
-    return data as T;
-  } catch (error) {
-    logger.warn(`[HYBRID API] Backend offline ou falha em ${endpoint}. Ativando fallback em memória.`, error);
-    return simulateNetworkDelay(fallbackData as T, 250);
-  }
+  return requestApi<T>(endpoint, options);
 }
 
 /* ========================================================================= */
@@ -123,7 +89,7 @@ export const api = {
    */
   documents: {
     async getByProjectId(projectId: string): Promise<ProjectDocument[]> {
-      const filtered = INITIAL_DOCUMENTS.filter(d => d.projectId === projectId || d.projectId === 'PRJ-001');
+      const filtered = INITIAL_DOCUMENTS.filter(d => d.projectId === projectId);
       return hybridFetch<ProjectDocument[]>(`/v1/documentos?projetoId=${projectId}`, { method: 'GET' }, filtered);
     },
     async upload(newDoc: Omit<ProjectDocument, 'id' | 'updatedAt'>): Promise<ProjectDocument> {
@@ -151,7 +117,7 @@ export const api = {
    */
   occurrences: {
     async getByProjectId(projectId: string): Promise<ConstructionOccurrence[]> {
-      const filtered = INITIAL_OCCURRENCES.filter(o => o.projectId === projectId || o.projectId === 'PRJ-001');
+      const filtered = INITIAL_OCCURRENCES.filter(o => o.projectId === projectId);
       return hybridFetch<ConstructionOccurrence[]>(`/v1/qualidade/ocorrencias?projetoId=${projectId}`, { method: 'GET' }, filtered);
     },
     async create(newOcc: Omit<ConstructionOccurrence, 'id' | 'createdAt'>): Promise<ConstructionOccurrence> {

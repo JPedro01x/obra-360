@@ -23,10 +23,18 @@ public class UsuarioEntity {
     @Column(name = "empresa_id", nullable = false)
     private Long empresaId;
 
+    @Column(name="google_subject",length=255,unique=true)
+    @com.fasterxml.jackson.annotation.JsonProperty(access=com.fasterxml.jackson.annotation.JsonProperty.Access.WRITE_ONLY)
+    private String googleSubject;
+
+    @Column(name="versao_credencial",nullable=false,columnDefinition="BIGINT DEFAULT 0")
+    private long versaoCredencial;
+
     @Column(name = "email", nullable = false, unique = true, length = 120)
     private String email;
 
     @Column(name = "senha_hash", nullable = false, length = 255)
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.WRITE_ONLY)
     private String senhaHash;
 
     @Column(name = "nome", nullable = false, length = 100)

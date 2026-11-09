@@ -23,6 +23,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class RateLimitingFilter extends OncePerRequestFilter {
 
     private static final int MAX_REQUISICOES_POR_MINUTO = 100;
+    @org.springframework.beans.factory.annotation.Value("${obra360.security.requests-per-minute:100}")
+    private int limit=MAX_REQUISICOES_POR_MINUTO;
     private final Map<String, AtomicInteger> contadorPorIp = new ConcurrentHashMap<>();
     private final Map<String, Instant> inicioJanelaPorIp = new ConcurrentHashMap<>();
 
@@ -42,7 +44,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             contadorPorIp.put(clientIp, new AtomicInteger(1));
         } else {
             AtomicInteger contador = contadorPorIp.computeIfAbsent(clientIp, k -> new AtomicInteger(0));
-            if (contador.incrementAndGet() > MAX_REQUISICOES_POR_MINUTO) {
+            if (contador.incrementAndGet() > limit) {
                 response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
                 response.setContentType(MediaType.APPLICATION_JSON_VALUE);
                 response.getWriter().write("""
@@ -62,10 +64,8 @@ public class RateLimitingFilter extends OncePerRequestFilter {
     }
 
     private String obterIpCliente(HttpServletRequest request) {
-        String xForwardedFor = request.getHeader("X-Forwarded-For");
-        if (xForwardedFor != null && !xForwardedFor.isBlank()) {
-            return xForwardedFor.split(",")[0].trim();
-        }
+        // Forwarded headers are not trusted unless resolved by an explicitly
+        // configured trusted reverse proxy; client input cannot bypass limits.
         return request.getRemoteAddr();
     }
 }

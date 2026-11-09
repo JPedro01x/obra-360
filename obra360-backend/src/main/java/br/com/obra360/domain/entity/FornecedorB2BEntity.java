@@ -20,6 +20,9 @@ public class FornecedorB2BEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name="empresa_id")
+    private Long empresaId;
+
     @Column(name = "cnpj", nullable = false, unique = true, length = 14)
     private String cnpj;
 

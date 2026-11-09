@@ -2,6 +2,8 @@
  * ☁️ AWS S3 PRE-SIGNED UPLOAD CLIENT - FRONTEND
  */
 
+import { DEMO_MODE } from './http';
+
 export interface PreSignedUploadResponse {
   fileId: string;
   objectKey: string;
@@ -13,6 +15,7 @@ export interface PreSignedUploadResponse {
  * Solicita a URL pré-assinada do AWS S3 e realiza o upload seguro via HTTP PUT
  */
 export async function uploadFileToAwsS3(file: File): Promise<PreSignedUploadResponse> {
+  if (!DEMO_MODE) throw new Error('Armazenamento de arquivos não configurado. Nenhum arquivo foi enviado.');
   // Simula a obtenção da URL assinada do backend Spring Boot
   const response: PreSignedUploadResponse = {
     fileId: `S3-FILE-${Date.now()}`,

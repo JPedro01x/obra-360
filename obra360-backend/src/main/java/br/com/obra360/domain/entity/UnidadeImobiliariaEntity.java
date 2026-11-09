@@ -23,6 +23,9 @@ public class UnidadeImobiliariaEntity {
     @Column(name = "projeto_obra_id", nullable = false)
     private Long projetoObraId;
 
+    @Column(name="reserva_usuario_id")
+    private Long reservaUsuarioId;
+
     @Column(name = "codigo_unidade", nullable = false, length = 30)
     private String codigoUnidade;
 

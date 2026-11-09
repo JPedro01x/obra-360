@@ -7,6 +7,18 @@ on:
     branches: [ main ]
 
 jobs:
+  production-image:
+    name: Test production Compose, HTTPS and backup restoration
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Exercise production services and restore into new volumes
+        run: bash scripts/ci-production-smoke.sh
+
   backend-build-test:
     name: Backend Java 21 & Spring Boot Build
     runs-on: ubuntu-latest
@@ -32,10 +44,10 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up Node.js 20.x
+      - name: Set up Node.js 22.x
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Install Frontend Dependencies
@@ -44,8 +56,33 @@ jobs:
       - name: Compile and Build Vite Production Bundle
         run: npm run build
 
+      - name: Audit Frontend Dependencies
+        run: npm audit --audit-level=moderate
+
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
 
       - name: Run Playwright End-to-End Tests
         run: npx playwright test
+
+      - name: Verify Backup and Restore
+        run: npm run test:backup
+
+      - name: Verify Protected Test Credentials
+        run: node --test scripts/homologacao-credentials.test.mjs
+
+      - name: Set up Java for Integrated Browser Journey
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Run Browser API Database Journey
+        run: npm run test:integrated
+
+      - name: Audit All User Profiles and Permissions
+        run: npm run test:roles
+
+      - name: Validate PostgreSQL Migrations and Workflows
+        run: npm run test:postgres

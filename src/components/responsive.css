@@ -1,0 +1,269 @@
+.ws-shell,
+.ws-main,
+.ws-content,
+.ws-modal,
+.rh-modal {
+  min-width: 0;
+}
+.ws {
+  overflow-wrap: break-word;
+}
+.ws-header {
+  height: auto;
+  min-height: 88px;
+  flex-wrap: wrap;
+}
+.ws-header > div {
+  min-width: 0;
+  flex-wrap: wrap;
+}
+.ws-header > div:last-child {
+  justify-content: flex-end;
+}
+.ws input,
+.ws select,
+.ws textarea {
+  max-width: 100%;
+  min-width: 0;
+}
+.ws button {
+  max-width: 100%;
+}
+.ws-table-scroll,
+.rh-table-scroll {
+  max-width: 100%;
+  overscroll-behavior-inline: contain;
+}
+.ws-table-scroll:focus-visible,
+.rh-table-scroll:focus-visible {
+  outline: 2px solid var(--brand-text);
+  outline-offset: -2px;
+}
+.ws-modal header > :first-child,
+.rh-modal header > :first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ws-modal header > button,
+.rh-modal header > button {
+  flex-shrink: 0;
+}
+.ws-modal,
+.rh-modal {
+  overscroll-behavior: contain;
+}
+.ws-account-center pre {
+  max-width: 100%;
+}
+.ws-service-panel dd {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ws-service-panel,
+.ws-service-grid > article {
+  min-width: 0;
+}
+.appearance-public + .ws-setup {
+  padding-top: 76px;
+}
+.ws .ws-primary {
+  text-align: center;
+}
+.ws .rh-modal {
+  max-height: calc(100dvh - 32px);
+}
+.ws .rh-modal footer {
+  flex-wrap: wrap;
+}
+@media (max-height: 520px) {
+  .ws .ws-modal-backdrop {
+    padding: 8px 12px;
+  }
+  .ws .ws-modal,
+  .ws .rh-modal,
+  .ws.ws-form-dialog {
+    max-height: calc(100dvh - 16px);
+  }
+  .ws .ws-modal header {
+    margin-bottom: 12px;
+  }
+  .ws .model-canvases .model-plan,
+  .ws .model-canvases .model-three {
+    height: clamp(170px, 64dvh, 320px);
+  }
+}
+@media (min-width: 1800px) {
+  .ws-content {
+    max-width: 1800px;
+  }
+  .ws-sidebar {
+    width: 260px;
+  }
+}
+@media (max-width: 1100px) {
+  .ws-header {
+    gap: 12px;
+  }
+  .ws-header > div:last-child {
+    gap: 8px;
+  }
+  .ws-header .ws-secondary {
+    padding: 10px 12px;
+  }
+}
+@media (max-width: 720px) {
+  .ws-header > div:first-child {
+    flex: 1 1 100%;
+  }
+  .ws-header > div:last-child {
+    justify-content: flex-start;
+    flex: 1 1 100%;
+  }
+  .ws-header strong {
+    max-width: 100%;
+  }
+  .ws-content {
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
+  }
+  .ws-modal-backdrop {
+    padding: 12px;
+  }
+  .ws-modal,
+  .rh-modal {
+    max-height: calc(100dvh - 24px);
+  }
+  .ws .ws-primary,
+  .ws .ws-secondary {
+    white-space: normal;
+  }
+  .ws .model-annotation-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ws .model-module input,
+  .model-module select {
+    max-width: 100%;
+  }
+  .ws .model-toolbar button {
+    white-space: normal;
+  }
+  .access-card {
+    min-width: 0;
+  }
+}
+@media (max-width: 480px) {
+  .ws-content {
+    padding-inline: 12px;
+  }
+  .ws-header {
+    padding: 14px 12px;
+  }
+  .ws-stat-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ws-table-toolbar > div {
+    flex-wrap: wrap;
+  }
+  .ws-search {
+    min-width: 0;
+  }
+  .ws-search input {
+    min-width: 0;
+  }
+  .ws-table-footer {
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .ws-service-panel,
+  .ws-account-center > article {
+    padding: 16px;
+  }
+  .ws-service-panel dl > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 5px;
+  }
+  .ws-title-row h1,
+  .rh-module h1 {
+    overflow-wrap: anywhere;
+  }
+  .ws .ws-modal {
+    padding: 18px;
+  }
+  .ws .rh-modal form {
+    padding: 16px;
+  }
+  .ws-form-grid,
+  .rh-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ws .rh-fields label {
+    min-width: 0;
+  }
+  .ws .rh-filters label {
+    min-width: 0;
+    width: 100%;
+  }
+  .ws .rh-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .ws .rh-history-event header {
+    flex-wrap: wrap;
+  }
+  .ws .model-library > label,
+  .model-savebar > label,
+  .model-create > label {
+    min-width: 0;
+    flex-basis: 100%;
+  }
+  .ws .model-module .model-check {
+    min-width: 0;
+    white-space: normal;
+  }
+  .ws .model-module .model-toolbar label {
+    max-width: 100%;
+  }
+  .ws .model-plan,
+  .model-three {
+    height: clamp(260px, 65vh, 400px);
+  }
+  .ws .model-room-list form > div,
+  .model-dimension-list form > div {
+    flex-wrap: wrap;
+  }
+  .ws .model-viewport-hint {
+    overflow-wrap: anywhere;
+  }
+}
+@media (max-width: 360px) {
+  .access-card {
+    padding: 18px;
+  }
+  .access-brand {
+    gap: 8px;
+  }
+  .access-brand h1 {
+    font-size: 22px;
+  }
+  .access-brand > span {
+    width: 44px;
+    height: 44px;
+    font-size: 22px;
+  }
+  .ws-header .ws-secondary {
+    font-size: 12px;
+    padding: 9px;
+  }
+  .ws .rh-metrics {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (pointer: coarse) {
+  .ws button,
+  .ws select,
+  .ws input:not([type='checkbox']):not([type='radio']):not([type='color']) {
+    min-height: 44px;
+  }
+  .ws .rh-check,
+  .ws .model-check {
+    min-height: 44px;
+  }
+}

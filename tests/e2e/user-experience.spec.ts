@@ -6,7 +6,7 @@ test.describe('Obra 360 - Simulação de Uso Real do Usuário', () => {
   test('Jornada Completa do Usuário no Ecossistema Obra 360', async ({ page }) => {
     // 1. Acesso inicial do Engenheiro Residente / Super Admin
     await page.addInitScript(() => localStorage.clear());
-    await page.goto('http://localhost:3000/');
+    await page.goto('/');
     await page.waitForSelector('canvas', { timeout: 15000 }).catch(() => {});
     await expect(page.locator('h1').first()).toContainText('Obra360');
     console.log('✓ 1. Acesso à Plataforma Obra 360 realizado com sucesso.');

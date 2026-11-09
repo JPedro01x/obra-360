@@ -10,5 +10,6 @@ import java.util.Optional;
 @Repository
 public interface UsuarioRepository extends JpaRepository<UsuarioEntity, Long> {
     Optional<UsuarioEntity> findByEmail(String email);
+    Optional<UsuarioEntity> findByEmailIgnoreCase(String email);
     List<UsuarioEntity> findByEmpresaId(Long empresaId);
 }

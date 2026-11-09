@@ -12,9 +12,7 @@ public class Obra360HealthIndicator implements HealthIndicator {
         // Health Check customizado para verificar disponibilidade dos módulos e broker do Obra360
         return Health.up()
                 .withDetail("plataforma", "Obra360 Corporativo")
-                .withDetail("status_servicos", "OPERACIONAL")
-                .withDetail("seguranca_rbac", "ATIVADO")
-                .withDetail("isolamento_multi_tenant", "HABILITADO")
+                .withDetail("componente", "aplicacao")
                 .build();
     }
 }

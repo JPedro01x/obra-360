@@ -20,8 +20,7 @@ public class BruteForceProtectionService {
     private final Map<String, Instant> ipBloqueadoAte = new ConcurrentHashMap<>();
 
     public void registrarFalhaLogin(String clientIp) {
-        int tentativas = tentativasPorIp.getOrDefault(clientIp, 0) + 1;
-        tentativasPorIp.put(clientIp, tentativas);
+        int tentativas = tentativasPorIp.merge(clientIp, 1, Integer::sum);
 
         if (tentativas >= MAX_TENTATIVAS_FALHAS) {
             ipBloqueadoAte.put(clientIp, Instant.now().plusSeconds(TEMPO_BLOQUEIO_SEGUNDOS));
