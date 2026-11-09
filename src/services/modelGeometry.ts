@@ -1,4 +1,5 @@
 import { topologyValidation } from './planTopology';
+import type { SavedPlanReference } from './planReference';
 export type ElementType = 'PAREDE' | 'LAJE' | 'PILAR' | 'PORTA' | 'JANELA';
 export type ModelFloor = { id: string; nome: string; cota: number; altura: number };
 export type ModelElement = {
@@ -49,6 +50,7 @@ export type ModelDocument = {
 };
 export type ModelDraft = { nome: string; documento: ModelDocument };
 export type SavedModel = ModelDraft & {
+  referencia?: SavedPlanReference | null;
   id: number;
   projetoObraId: number;
   versao: number;

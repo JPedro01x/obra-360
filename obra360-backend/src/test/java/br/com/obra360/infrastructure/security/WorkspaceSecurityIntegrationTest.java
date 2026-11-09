@@ -66,6 +66,51 @@ class WorkspaceSecurityIntegrationTest {
     }
     private String token(UsuarioEntity user) { return "Bearer " + jwt.issue(user); }
 
+    @Test void planReferenceBelongsToTheRevisionAndIsPrivateToTheWork() throws Exception {
+        var model = create("/modelador/modelos", Map.of("projetoObraId", ownProject(), "nome", "Modelo com referência"));
+        String path = "/api/v1/workspace/modelador/modelos/" + model.get("id").asLong();
+        String adminAuth = token(admin);
+        var document = modelDocument(List.of(modelElement("wall", "PAREDE")));
+        var floor = (Map<?,?>) ((List<?>) document.get("pavimentos")).get(0);
+        var save = new java.util.HashMap<String,Object>(Map.of("versao", 0, "nome", "Modelo com referência",
+            "documento", document, "motivo", "Referência calibrada"));
+        byte[] bytes = "%PDF-1.7 arquivo de teste".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        var revision = new org.springframework.mock.web.MockMultipartFile("revisao", "revisao.json",
+            "application/json", json.writeValueAsBytes(save));
+        var metadata = new org.springframework.mock.web.MockMultipartFile("referencia", "referencia.json",
+            "application/json", json.writeValueAsBytes(Map.of("pavimentoId", floor.get("id"), "pagina", 2,
+                "x", -4, "z", -2, "largura", 12, "altura", 8, "calibrada", true)));
+        var original = new org.springframework.mock.web.MockMultipartFile("arquivo", "planta.pdf", "application/pdf", bytes);
+        var response = mvc.perform(multipart(org.springframework.http.HttpMethod.PUT, path)
+                .file(revision).file(metadata).file(original).header("Authorization", adminAuth))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.referencia.pagina").value(2))
+            .andExpect(jsonPath("$.referencia.arquivoKey").doesNotExist()).andReturn();
+        var saved = json.readTree(response.getResponse().getContentAsString());
+        String historyFile = path + "/revisoes/2/referencia";
+        mvc.perform(get(historyFile).header("Authorization", token(engineer)))
+            .andExpect(status().isOk()).andExpect(content().bytes(bytes));
+        mvc.perform(get(historyFile).header("Authorization", token(outsider))).andExpect(status().isNotFound());
+        var client = user(admin.getEmpresaId(), "referencia-cliente@test.invalid", "CLIENTE");
+        mvc.perform(get(historyFile).header("Authorization", token(client))).andExpect(status().isForbidden());
+        mvc.perform(get(path + "/revisoes/1/referencia").header("Authorization", adminAuth))
+            .andExpect(status().isNotFound());
+        save.put("versao", saved.get("versao").asLong());
+        save.put("removerReferencia", true);
+        var removed = mvc.perform(put(path).header("Authorization", adminAuth).contentType("application/json")
+                .content(json.writeValueAsString(save)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.revisao").value(3))
+            .andExpect(jsonPath("$.referencia").doesNotExist()).andReturn();
+        mvc.perform(get(historyFile).header("Authorization", adminAuth)).andExpect(content().bytes(bytes));
+        long revisionId = em.createQuery("select r.id from ModeloRevisaoEntity r where r.modeloId=:id and r.numero=2", Long.class)
+            .setParameter("id", model.get("id").asLong()).getSingleResult();
+        mvc.perform(post(path + "/restaurar").header("Authorization", adminAuth).contentType("application/json")
+                .content(json.writeValueAsString(Map.of("versao", json.readTree(removed.getResponse().getContentAsString())
+                    .get("versao").asLong(), "revisaoId", revisionId, "motivo", "Repor referência"))))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.referencia.calibrada").value(true));
+        mvc.perform(get(path + "/revisoes/4/referencia").header("Authorization", adminAuth))
+            .andExpect(status().isOk()).andExpect(content().bytes(bytes));
+    }
+
     @Test void serverDraftsArePrivateVersionedAndSeparateFromOfficialRevisions() throws Exception {
         long id = create("/modelador/modelos", Map.of("projetoObraId", ownProject(), "nome", "Modelo com rascunho")).get("id").asLong();
         String modelPath = "/api/v1/workspace/modelador/modelos/" + id;

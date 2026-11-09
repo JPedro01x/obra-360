@@ -17,7 +17,9 @@ Uma obra pode ter vários modelos, como alternativas de projeto. **Duplicar mode
 
 Com o modelo aberto, expanda **Usar planta PDF ou imagem como referência**. Selecione um PDF, PNG, JPEG ou WebP de até 20 MB. Em PDFs com mais de uma folha, escolha a página que corresponde ao pavimento. Informe uma distância conhecida em metros, clique em **Calibrar escala** e marque na imagem os dois extremos dessa distância.
 
-Arraste na planta sobre o eixo da primeira parede. O segmento vira uma parede editável e aparece na vista 3D. Use **Desenhar parede** para continuar o traçado e o painel de propriedades para ajustar espessuras, alturas e medidas. Portas, janelas e lajes podem ser acrescentadas depois. O PDF ou a imagem é uma referência temporária processada no navegador. O banco guarda a geometria que você traçou e salvou. A identificação de paredes e aberturas é feita pelo usuário.
+Arraste na planta sobre o eixo da primeira parede. O segmento vira uma parede editável e aparece na vista 3D. Use **Desenhar parede** para continuar o traçado e o painel de propriedades para ajustar espessuras, alturas e medidas. Portas, janelas e lajes podem ser acrescentadas depois. A identificação de paredes e aberturas é feita pelo usuário.
+
+**Salvar modelo** registra um arquivo de referência por revisão, com o pavimento, a página e a escala aplicada. Outro usuário interno com acesso à obra pode reabrir a planta com a referência. No histórico, use **Mostrar referência desta revisão**. Substituir ou remover o arquivo muda a nova revisão. Restaurar uma revisão recupera também sua referência. O portal do cliente recebe a planta publicada sem acesso ao PDF ou à imagem de origem.
 
 ## Geometria e edição
 
@@ -37,7 +39,7 @@ Aberturas precisam caber na parede e não podem se sobrepor. Excluir uma parede 
 
 Na planta, clique para selecionar, use Shift para seleção múltipla e arraste para mover. As posições usam o incremento de grade escolhido. No painel lateral, edite medidas, posição, rotação, nome e cor e clique em **Aplicar propriedades**. Mudar o pavimento de uma parede também transfere suas aberturas; a validação impede ultrapassar a altura do novo pavimento. A edição por arraste ocorre na planta; a vista 3D oferece seleção, órbita, deslocamento de câmera e zoom, sem gizmo de transformação.
 
-**Desfazer/Refazer** e Ctrl+Z/Ctrl+Y mantêm até 50 estados enquanto o modelo está aberto. O estado atual da edição fica guardado como rascunho neste navegador, por conta, empresa e modelo. Ao reabrir, escolha **Recuperar rascunho** ou descarte a cópia local. Se a versão no banco mudou, baixe o rascunho em JSON para comparar. A pilha de desfazer e o PDF ou a imagem de referência ficam na sessão de edição. A disponibilidade do rascunho depende do armazenamento do navegador.
+**Desfazer/Refazer** e Ctrl+Z/Ctrl+Y mantêm até 50 estados da geometria enquanto o modelo está aberto. O estado atual da geometria fica guardado como rascunho neste navegador, por conta, empresa e modelo. Ao reabrir, escolha **Recuperar rascunho** ou descarte a cópia local. Se a versão no banco mudou, baixe o rascunho em JSON para comparar. Salve uma revisão para registrar as alterações da referência, que fica fora do rascunho e do JSON do modelo. A exportação privada da empresa inclui os arquivos de referência dentro do limite da exportação.
 
 **Salvar modelo** registra a revisão oficial no banco e limpa a cópia local usada nessa edição. É essa revisão que pode aparecer no timelapse e no portal. Em dispositivos compartilhados, use **Descartar rascunho** ao reabrir o modelo para remover uma cópia local que não precisa mais ficar no navegador.
 

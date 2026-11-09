@@ -1,3 +1,5 @@
+import { requestApi } from './http';
+
 export type PlanReference = {
   url: string;
   x: number;
@@ -5,6 +7,39 @@ export type PlanReference = {
   width: number;
   height: number;
 };
+
+export type SavedPlanReference = {
+  id: number;
+  nomeArquivo: string;
+  pavimentoId: string;
+  pagina: number;
+  x: number;
+  z: number;
+  largura: number;
+  altura: number;
+  calibrada: boolean;
+};
+
+export type OpenPlanReference = PlanReference & {
+  file: File;
+  page: number;
+  pages: number;
+  floorId: string;
+  calibrated: boolean;
+};
+
+export async function loadSavedPlanReference(modelId: number, revision: number,
+    metadata: SavedPlanReference, signal: AbortSignal): Promise<OpenPlanReference> {
+  const blob = await requestApi<Blob>(
+    `/v1/workspace/modelador/modelos/${modelId}/revisoes/${revision}/referencia`,
+    { signal }, 45000, 'blob',
+  );
+  const file = new File([blob], metadata.nomeArquivo);
+  const { reference, pages } = await renderPlanReference(file, metadata.pagina);
+  return { ...reference, file, pages, page: metadata.pagina, floorId: metadata.pavimentoId,
+    calibrated: metadata.calibrada, x: metadata.x, z: metadata.z,
+    width: metadata.largura, height: metadata.altura };
+}
 
 const maxDimension = 2400;
 

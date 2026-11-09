@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { PlanReference, renderPlanReference } from '../services/planReference';
+import { renderPlanReference, type OpenPlanReference } from '../services/planReference';
 
 export function ModelReference({
-  loaded,
+  reference,
+  floorId,
   calibrated,
   calibrating,
   disabled,
@@ -10,17 +11,17 @@ export function ModelReference({
   onCalibrate,
   onRemove,
 }: {
-  loaded: boolean;
+  reference?: OpenPlanReference;
+  floorId: string;
   calibrated: boolean;
   calibrating: boolean;
   disabled: boolean;
-  onLoad: (reference: PlanReference) => void;
+  onLoad: (reference: OpenPlanReference) => void;
   onCalibrate: (meters: number | null) => void;
   onRemove: () => void;
 }) {
-  const [file, setFile] = useState<File>();
-  const [page, setPage] = useState(1);
-  const [pages, setPages] = useState<number>();
+  const [pageChoice, setPageChoice] = useState<{ reference: OpenPlanReference; page: number }>();
+  const page = reference && pageChoice?.reference === reference ? pageChoice.page : reference?.page ?? 1;
   const [meters, setMeters] = useState('5');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -39,8 +40,7 @@ export function ModelReference({
     try {
       const result = await renderPlanReference(source, pageNumber);
       if (generation.current !== current) return;
-      setPages(result.pages);
-      onLoad(result.reference);
+      onLoad({ ...result.reference, file: source, page: pageNumber, pages: result.pages, floorId, calibrated: false });
     } catch (failure) {
       if (generation.current === current) setError((failure as Error).message);
     } finally {
@@ -56,8 +56,8 @@ export function ModelReference({
         referência. As paredes aparecem em 3D enquanto você desenha.
       </p>
       <p>
-        O arquivo fica no navegador enquanto o modelo está aberto. Salvar modelo grava a geometria
-        traçada.
+        Cada revisão pode guardar um arquivo, a página aberta e a escala. Salvar modelo registra
+        a referência junto com a geometria. Trocar o arquivo ou a página exige uma nova calibração.
       </p>
       <div className="model-toolbar">
         <label>
@@ -70,36 +70,33 @@ export function ModelReference({
               const source = event.target.files?.[0];
               event.target.value = '';
               if (!source) return;
-              setFile(source);
-              setPage(1);
-              setPages(undefined);
               void load(source, 1);
             }}
           />
         </label>
-        {file && (pages ?? 0) > 1 && (
+        {reference && reference.pages > 1 && (
           <>
             <label>
               Página do PDF
               <input
                 type="number"
                 min={1}
-                max={pages}
+                max={reference.pages}
                 step={1}
                 value={page}
                 disabled={busy || disabled}
-                onChange={(event) => setPage(Number(event.target.value))}
+                onChange={(event) => setPageChoice({ reference, page: Number(event.target.value) })}
               />
             </label>
             <button
-              disabled={busy || disabled || !Number.isInteger(page) || page < 1 || page > pages!}
-              onClick={() => load(file, page)}
+              disabled={busy || disabled || !Number.isInteger(page) || page < 1 || page > reference.pages || page === reference.page}
+              onClick={() => load(reference.file, page)}
             >
               Abrir página
             </button>
           </>
         )}
-        {loaded && (
+        {reference && (
           <>
             <label>
               Distância real (m)
@@ -125,6 +122,7 @@ export function ModelReference({
           </>
         )}
       </div>
+      {reference && <p>Referência atual: {reference.file.name} · página {reference.page}</p>}
       {busy && <p role="status">Abrindo arquivo da planta…</p>}
       {calibrated && !calibrating && (
         <p role="status">Escala calibrada. A planta está pronta para traçar.</p>

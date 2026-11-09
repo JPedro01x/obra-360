@@ -375,8 +375,9 @@ test('complete operation through browser, API and database', async ({
   let referencePdf: Buffer;
   let referenceImage: Buffer;
   try {
-    await referencePage.setContent('<svg xmlns="http://www.w3.org/2000/svg" width="320" height="240"><rect x="80" y="60" width="160" height="120" fill="white" stroke="black" stroke-width="4"/></svg>');
-    referenceImage = await referencePage.locator('svg').screenshot();
+    const drawing = '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="240"><rect x="80" y="60" width="160" height="120" fill="white" stroke="black" stroke-width="4"/></svg>';
+    await referencePage.setContent(`<style>body{margin:0}section{break-after:page}</style><section>${drawing}</section>${drawing}`);
+    referenceImage = await referencePage.locator('svg').first().screenshot();
     referencePdf = await referencePage.pdf({ width: '340px', height: '260px' });
   } finally {
     await referencePage.close();
@@ -385,12 +386,15 @@ test('complete operation through browser, API and database', async ({
   const referenceInput = page.getByLabel('Arquivo da planta', { exact: true });
   const referencePlan = page.getByRole('img', { name: 'Planta 2D editável em metros', exact: true });
   const referenceGraphic = referencePlan.locator('image');
-  await referenceInput.setInputFiles({ name: 'planta.pdf', mimeType: 'application/pdf', buffer: referencePdf });
+  await referenceInput.setInputFiles({ name: 'planta.png', mimeType: 'image/png', buffer: referenceImage });
   await expect(referenceGraphic).toHaveCount(1);
   await page.getByRole('button', { name: 'Remover referência', exact: true }).click();
   await expect(referenceGraphic).toHaveCount(0);
-  await referenceInput.setInputFiles({ name: 'planta.png', mimeType: 'image/png', buffer: referenceImage });
+  await referenceInput.setInputFiles({ name: 'planta.pdf', mimeType: 'application/pdf', buffer: referencePdf });
   await expect(referenceGraphic).toHaveCount(1);
+  await page.getByLabel('Página do PDF').fill('2');
+  await page.getByRole('button', { name: 'Abrir página', exact: true }).click();
+  await expect(page.getByText('Referência atual: planta.pdf · página 2')).toBeVisible();
   await page.getByLabel('Distância real (m)', { exact: true }).fill('6');
   await page.getByRole('button', { name: 'Calibrar escala', exact: true }).click();
   await referencePlan.scrollIntoViewIfNeeded();
@@ -415,7 +419,6 @@ test('complete operation through browser, API and database', async ({
   await page.mouse.up();
   await expect(page.locator('.model-element-list').getByRole('button')).toHaveCount(1);
   await expect(page.getByLabel('Largura (m)', { exact: true })).toHaveValue('6');
-  await page.getByRole('button', { name: 'Remover referência', exact: true }).click();
   await page.getByLabel('Rotação Y (graus)', { exact: true }).fill('30');
   await page.getByRole('button', { name: 'Aplicar propriedades', exact: true }).click();
   await page.getByRole('button', { name: 'Adicionar porta', exact: true }).click();
@@ -459,6 +462,29 @@ test('complete operation through browser, API and database', async ({
   await page.getByRole('button', { name: 'Salvar modelo', exact: true }).click();
   await removedDraft;
   await expect(page.getByText('Salvo · revisão 2', { exact: true })).toBeVisible();
+  const engineerContext = await page.context().browser()!.newContext();
+  try {
+    const engineer = await engineerContext.newPage();
+    await engineer.goto(new URL('/', page.url()).toString());
+    await engineer.getByLabel('E-mail corporativo').fill('engineer-e2e@test.invalid');
+    await engineer.getByLabel('Senha', { exact: true }).fill(password);
+    await engineer.getByRole('button', { name: 'Entrar na plataforma' }).click();
+    await engineer.getByRole('button', { name: 'Modelador 2D/3D', exact: true }).click();
+    await select(engineer, 'Obra do modelo', 'Obra E2E');
+    await engineer.getByRole('button', { name: /Projeto arquitetônico E2E/ }).click();
+    await engineer.getByText('Usar planta PDF ou imagem como referência', { exact: true }).click();
+    await expect(engineer.getByText('Referência atual: planta.pdf · página 2')).toBeVisible();
+    await expect(engineer.getByText('Escala calibrada. A planta está pronta para traçar.')).toBeVisible();
+    await expect(engineer.getByRole('img', { name: 'Planta 2D editável em metros' }).locator('image')).toHaveCount(1);
+    await engineer.getByText('Revisões salvas · 2', { exact: true }).click();
+    await engineer.getByRole('button', { name: 'Abrir timelapse', exact: true }).click();
+    const history = engineer.getByRole('region', { name: 'Timelapse das revisões' });
+    await history.getByRole('button', { name: 'Próxima', exact: true }).click();
+    await history.getByRole('button', { name: 'Mostrar referência desta revisão' }).click();
+    await expect(history.getByText('Referência: planta.pdf · página 2')).toBeVisible();
+  } finally {
+    await engineerContext.close();
+  }
   await page.getByRole('button', { name: 'Recarregar', exact: true }).click();
   await expect(page.getByLabel('Pavimento ativo', { exact: true }).locator('option')).toHaveCount(
     2,

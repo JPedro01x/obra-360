@@ -38,7 +38,7 @@ Comece por uma empresa e uma obra. Preencha esta ficha em um local privado da em
 | Empresa e obra | Razão social, CNPJ, nome da obra, datas e responsáveis pela obra e pelo aceite. |
 | Cadastros e saldos | Fonte e data de corte, total esperado por cadastro e saldo por material e unidade. Cadastre pelos módulos autorizados e confronte os totais com a fonte. Registre divergências antes de seguir. |
 | Usuários | E-mails corporativos, perfis e vínculos por obra ou unidade. Use convites e teste acesso permitido e bloqueado. |
-| Planta | Um PDF ou imagem autorizada, pavimento e medida conhecida confirmada pelo responsável técnico. Confira a escala, edite o traçado, salve a revisão, publique na unidade e valide o PDF e a vista 3D no portal. |
+| Planta | Um PDF ou imagem autorizada, pavimento e medida conhecida confirmada pelo responsável técnico. Confira a escala, salve a revisão e peça a outro usuário interno para reabrir a página e a referência calibrada. Publique na unidade e valide a planta no portal com a conta Cliente. |
 | Ambiente | Host, responsáveis por suporte e alertas, integrações do piloto, volume simultâneo, janela de manutenção, tempo de recuperação e perda de dados tolerada. |
 
 Execute a matriz de [aceite comercial](COMERCIALIZACAO.md), registrando responsável, data, evidência, resultado e correção por cenário. A avaliação técnica isolada usa dados sintéticos. Registre o aceite depois da conferência pelos usuários da empresa.

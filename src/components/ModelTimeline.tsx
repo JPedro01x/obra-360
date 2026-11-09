@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { requestApi } from '../services/http';
 import type { ModelDraft } from '../services/modelGeometry';
+import type { SavedPlanReference } from '../services/planReference';
 import { ModelPreview } from './ModelPreview';
 
-type Frame = ModelDraft & { numero: number; motivo: string; criadoEm: string };
+type Frame = ModelDraft & { numero: number; motivo: string; criadoEm: string; referencia?: SavedPlanReference | null };
 
 export function ModelTimeline({ modelId, last }: { modelId: number; last: number }) {
   const [number, setNumber] = useState(1);
@@ -93,7 +94,8 @@ export function ModelTimeline({ modelId, last }: { modelId: number; last: number
             Revisão exibida: {frame.numero} · {frame.nome} · {frame.motivo} ·{' '}
             {new Date(frame.criadoEm).toLocaleString('pt-BR')}
           </p>
-          <ModelPreview draft={frame} revision={frame.numero} />
+          <ModelPreview draft={frame} revision={frame.numero}
+            referenceSource={frame.referencia ? { modelId, metadata: frame.referencia } : undefined} />
         </>
       )}
     </section>

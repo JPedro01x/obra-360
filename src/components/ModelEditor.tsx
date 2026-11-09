@@ -35,7 +35,7 @@ import { ModelPublication } from './ModelPublication';
 import { ModelComparison } from './ModelComparison';
 import { ModelCloudDraft } from './ModelCloudDraft';
 import { ModelReference } from './ModelReference';
-import type { PlanReference } from '../services/planReference';
+import { loadSavedPlanReference, type OpenPlanReference, type SavedPlanReference } from '../services/planReference';
 import './model-editor.css';
 
 type ModelSummary = Omit<SavedModel, 'documento'>;
@@ -129,7 +129,12 @@ export function ModelEditor({
   const [timeline, setTimeline] = useState(false);
   const [publication, setPublication] = useState(false);
   const [comparisonSource, setComparisonSource] = useState<ModelDraft | null>(null);
-  const [reference, setReference] = useState<(PlanReference & { floorId: string; calibrated: boolean }) | null>(null);
+  const [reference, setReference] = useState<OpenPlanReference | null>(null);
+  const [referenceChanged, setReferenceChanged] = useState(false);
+  const [referenceLoading, setReferenceLoading] = useState(false);
+  const [referenceSource, setReferenceSource] = useState<{
+    modelId: number; revision: number; metadata: SavedPlanReference;
+  } | null>(null);
   const [calibration, setCalibration] = useState<{ meters: number; first?: PlanPoint } | null>(null);
   const [creating, setCreating] = useState(false),
     [modelName, setModelName] = useState(''),
@@ -138,10 +143,11 @@ export function ModelEditor({
     importInput = useRef<HTMLInputElement>(null);
   const importGeneration = useRef(0);
   const cloudDraftToken = useRef<string | null>(null);
-  const dirty =
+  const geometryDirty =
     !!draft &&
     !!saved &&
     JSON.stringify(draft) !== JSON.stringify({ nome: saved.nome, documento: saved.documento });
+  const dirty = geometryDirty || referenceChanged;
   const [recoverable, setRecoverable] = useState<LocalDraft | null>(null);
   const [draftStored, setDraftStored] = useState(false);
   const writtenDraft = useRef<{ key: string; raw: string } | null>(null);
@@ -153,7 +159,7 @@ export function ModelEditor({
   }, [saved, draft, writable]);
   useLayoutEffect(() => {
     if (!storageKey || !saved || !canEdit || saved.arquivado || recoverable) return;
-    if (!dirty || !draft) {
+    if (!geometryDirty || !draft) {
       if (writtenDraft.current?.key === storageKey) {
         removeLocalDraft(storageKey, writtenDraft.current.raw);
         writtenDraft.current = null;
@@ -174,11 +180,29 @@ export function ModelEditor({
     } catch {
       setDraftStored(false);
     }
-  }, [storageKey, saved, canEdit, recoverable, dirty, draft]);
+  }, [storageKey, saved, canEdit, recoverable, geometryDirty, draft]);
   const floor =
     draft?.documento.pavimentos.find((f) => f.id === floorId) || draft?.documento.pavimentos[0];
   const element = draft?.documento.elementos.find((e) => e.id === selected[0]);
   const floorReference = reference && reference.floorId === floor?.id ? reference : undefined;
+  useEffect(() => {
+    if (!referenceSource) return;
+    const controller = new AbortController();
+    const { modelId, revision, metadata } = referenceSource;
+    void loadSavedPlanReference(modelId, revision, metadata, controller.signal)
+      .then((loaded) => {
+        if (controller.signal.aborted) return;
+        setReference(loaded);
+        setFit((n) => n + 1);
+      })
+      .catch((failure: Error) => {
+        if (!controller.signal.aborted) setError(failure.message);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setReferenceLoading(false);
+      });
+    return () => controller.abort();
+  }, [referenceSource]);
   useEffect(() => {
     onDirtyChange(dirty);
     const warn = (e: BeforeUnloadEvent) => {
@@ -274,9 +298,14 @@ export function ModelEditor({
     cloudDraftToken.current = null;
     writtenDraft.current = null;
     setRecoverable(canEdit && !model.arquivado ? readLocalDraft(draftKey(model.id)) : null);
+    setReference(null);
+    setReferenceChanged(false);
+    setReferenceLoading(!!model.referencia);
+    setReferenceSource(model.referencia
+      ? { modelId: model.id, revision: model.revisao, metadata: model.referencia }
+      : null);
+    setCalibration(null);
     if (saved?.id !== model.id) {
-      setReference(null);
-      setCalibration(null);
       setTimeline(false);
       setPublication(false);
     }
@@ -324,6 +353,9 @@ export function ModelEditor({
     setRecoverable(null);
     writtenDraft.current = null;
     setReference(null);
+    setReferenceChanged(false);
+    setReferenceLoading(false);
+    setReferenceSource(null);
     setCalibration(null);
     setTimeline(false);
     setPublication(false);
@@ -360,6 +392,7 @@ export function ModelEditor({
       ...floorReference, calibrated: true, width: width * factor, height: height * factor,
       x: first.x + (x - first.x) * factor, z: first.z + (z - first.z) * factor,
     });
+    setReferenceChanged(true);
     setCalibration(null);
     setDrawWall(true);
     setFit((value) => value + 1);
@@ -455,10 +488,27 @@ export function ModelEditor({
     setBusy(true);
     setError('');
     try {
+      const nextReference = reference && draft.documento.pavimentos.some((f) => f.id === reference.floorId)
+        ? reference : null;
+      const revision = { ...draft, versao: saved.versao, motivo: reason.trim(),
+        rascunhoToken: cloudDraftToken.current,
+        ...(referenceChanged && !nextReference ? { removerReferencia: true } : {}),
+      };
+      let body: string | FormData = JSON.stringify(revision);
+      if (referenceChanged && nextReference) {
+        const form = new FormData();
+        const metadata = { pavimentoId: nextReference.floorId, pagina: nextReference.page,
+          x: nextReference.x, z: nextReference.z, largura: nextReference.width,
+          altura: nextReference.height, calibrada: nextReference.calibrated,
+        };
+        form.set('revisao', new Blob([JSON.stringify(revision)], { type: 'application/json' }));
+        form.set('referencia', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+        form.set('arquivo', nextReference.file);
+        body = form;
+      }
       const result = await api<SavedModel>(`/modelos/${saved.id}`, {
         method: 'PUT',
-        body: JSON.stringify({ ...draft, versao: saved.versao, motivo: reason.trim(),
-          rascunhoToken: cloudDraftToken.current }),
+        body,
       });
       if (writtenDraft.current) {
         removeLocalDraft(writtenDraft.current.key, writtenDraft.current.raw);
@@ -964,16 +1014,16 @@ export function ModelEditor({
           </div>
         </section>
       )}
-      {dirty && <p className="ws-help">{draftStored
+      {geometryDirty && <p className="ws-help">{draftStored
         ? 'Rascunho guardado neste navegador.'
         : 'O navegador não conseguiu guardar o rascunho. Salve o modelo ou exporte o JSON.'}</p>}
-      {dirty && !comparisonSource && (
+      {geometryDirty && !comparisonSource && (
         <button type="button" className="ws-secondary" onClick={() => setComparisonSource(draft)}>
           Comparar com o banco
         </button>
       )}
       {canEdit && saved && draft && (
-        <ModelCloudDraft key={saved.id} model={saved} draft={draft} canStore={writable && dirty}
+        <ModelCloudDraft key={saved.id} model={saved} draft={draft} canStore={writable && geometryDirty}
           hasLocalChanges={dirty || !!recoverable} disabled={busy}
           onAssociate={(token) => { cloudDraftToken.current = token; }}
           onCompare={setComparisonSource} onDownload={exportModel}
@@ -1160,12 +1210,15 @@ export function ModelEditor({
               onChange={importModel}
             />
           </section>
+          {referenceLoading && <p role="status">Carregando referência da revisão…</p>}
+          {referenceChanged && <p className="ws-help">Salve o modelo para registrar a alteração da referência.</p>}
           {canEdit && !saved.arquivado && (
-            <ModelReference key={`${saved.id}:${floor.id}`}
-              loaded={!!floorReference} calibrated={!!floorReference?.calibrated}
-              calibrating={!!calibration} disabled={!writable}
+            <ModelReference key={`${saved.id}:${saved.revisao}:${floor.id}`}
+              reference={floorReference} floorId={floor.id} calibrated={!!floorReference?.calibrated}
+              calibrating={!!calibration} disabled={!writable || referenceLoading}
               onLoad={(image) => {
-                setReference({ ...image, floorId: floor.id, calibrated: false });
+                setReference(image);
+                setReferenceChanged(true);
                 setView('split');
                 setDrawWall(false);
                 setMeasure(false);
@@ -1181,6 +1234,7 @@ export function ModelEditor({
               }}
               onRemove={() => {
                 setReference(null);
+                setReferenceChanged(!!saved.referencia);
                 setCalibration(null);
                 setDrawWall(false);
               }} />

@@ -7,13 +7,20 @@ import jakarta.persistence.*;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.CacheControl;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.util.*;
 
@@ -23,6 +30,7 @@ public class ModeladorObraController {
     private final EntityManager em;
     private final OperacaoService operation;
     private final ModeloDocumentoService documents;
+    private final ModeloReferenciaService references;
     private final LicencaService licenca;
     private Long tenant(){return TenantContext.getCurrentTenant();}
     private void availableName(Long projectId,String name,Long currentId){
@@ -38,13 +46,16 @@ public class ModeladorObraController {
     private Map<String,Object> detail(ModeloObraEntity e){
         var result=new LinkedHashMap<>(summary(e));
         result.put("documento",documents.decode(e.getDocumento()));
+        result.put("referencia", references.find(e.getReferenciaId(), tenant()));
         result.put("unidadePublicadaId",e.getUnidadePublicadaId());
         result.put("revisaoPublicada",e.getUnidadePublicadaId()==null ? null :
             Objects.requireNonNullElse(e.getRevisaoPublicada(), e.getRevisao()));
         return result;
     }
     private void revision(ModeloObraEntity model,String reason,Authentication a){
-        var e=new ModeloRevisaoEntity();e.setEmpresaId(tenant());e.setModeloId(model.getId());e.setUsuarioId(Long.valueOf(a.getName()));e.setNumero(model.getRevisao());e.setNome(model.getNome());e.setMotivo(reason);e.setDocumento(model.getDocumento());em.persist(e);
+        var e=new ModeloRevisaoEntity();e.setEmpresaId(tenant());e.setModeloId(model.getId());e.setUsuarioId(Long.valueOf(a.getName()));e.setNumero(model.getRevisao());e.setNome(model.getNome());e.setMotivo(reason);e.setDocumento(model.getDocumento());
+        e.setReferenciaId(model.getReferenciaId());
+        em.persist(e);
         operation.audit("SALVAR_REVISAO_3D","modelo_obra",model.getId(),Long.valueOf(a.getName()));
     }
     @GetMapping("/modelos") @Transactional(readOnly=true)
@@ -70,19 +81,43 @@ public class ModeladorObraController {
         licenca.model(tenant());
         var source=own(id,true);var project=operation.project(r.projetoObraId());em.lock(project,LockModeType.PESSIMISTIC_WRITE);
         availableName(r.projetoObraId(),r.nome(),null);
-        var e=new ModeloObraEntity();e.setEmpresaId(tenant());e.setProjetoObraId(project.getId());e.setNome(r.nome().trim());e.setRevisao(1);e.setDocumento(documents.encode(documents.decode(source.getDocumento())));em.persist(e);em.flush();revision(e,"Cópia do modelo #"+source.getId()+", revisão "+source.getRevisao(),a);return detail(e);
+        var e=new ModeloObraEntity();e.setEmpresaId(tenant());e.setProjetoObraId(project.getId());e.setNome(r.nome().trim());e.setRevisao(1);e.setDocumento(documents.encode(documents.decode(source.getDocumento())));e.setReferenciaId(source.getReferenciaId());em.persist(e);em.flush();revision(e,"Cópia do modelo #"+source.getId()+", revisão "+source.getRevisao(),a);return detail(e);
     }
-    @PutMapping("/modelos/{id}")
+    @PutMapping(value="/modelos/{id}", consumes=MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','GERENTE_OBRA','ENGENHEIRO','ARQUITETO')")
-    public Map<String,Object> save(@PathVariable Long id,@Valid @RequestBody SaveRequest r,Authentication a){
+    public Map<String,Object> save(@PathVariable Long id,@Valid @RequestBody SaveRequest r,Authentication a) throws IOException {
+        return saveRevision(id, r, a, null, null);
+    }
+
+    @PutMapping(value="/modelos/{id}", consumes=MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','GERENTE_OBRA','ENGENHEIRO','ARQUITETO')")
+    @Transactional(rollbackFor=IOException.class)
+    public Map<String,Object> saveWithReference(@PathVariable Long id, @Valid @RequestPart("revisao") SaveRequest r,
+            @Valid @RequestPart("referencia") ModeloReferenciaService.Metadata metadata,
+            @RequestPart("arquivo") MultipartFile file, Authentication a) throws IOException {
+        if (r.removerReferencia()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+        return saveRevision(id, r, a, metadata, file);
+    }
+
+    private Map<String,Object> saveRevision(Long id, SaveRequest r, Authentication a,
+            ModeloReferenciaService.Metadata metadata, MultipartFile file) throws IOException {
         var e=own(id,true);writable(e,r.versao());String document=documents.encode(r.documento());String name=r.nome().trim();
         availableName(e.getProjetoObraId(),name,e.getId());
+        var current = references.find(e.getReferenciaId(), tenant());
+        Long referenceId = e.getReferenciaId();
+        if (metadata != null) {
+            referenceId = references.save(tenant(), current, metadata, file, r.documento()).getId();
+        } else if (r.removerReferencia() || (current != null && r.documento().pavimentos().stream()
+                .noneMatch(floor -> floor.id().equals(current.getPavimentoId())))) {
+            referenceId = null;
+        }
         if (r.rascunhoToken()!=null) {
             var draft = privateDraft(id, Long.valueOf(a.getName()));
             if (draft!=null && r.rascunhoToken().equals(draft.getToken())) em.remove(draft);
         }
-        if(e.getDocumento().equals(document)&&e.getNome().equals(name))return detail(e);
+        if(e.getDocumento().equals(document)&&e.getNome().equals(name)&&Objects.equals(e.getReferenciaId(), referenceId))return detail(e);
         e.preservarPublicacaoLegada();
+        e.setReferenciaId(referenceId);
         e.setDocumento(document);e.setNome(name);e.setRevisao(e.getRevisao()+1);e.setAtualizadoEm(OffsetDateTime.now());revision(e,r.motivo().trim(),a);em.flush();return detail(e);
     }
 
@@ -162,20 +197,38 @@ public class ModeladorObraController {
         var model=own(id,true);writable(model,r.versao());var old=em.find(ModeloRevisaoEntity.class,r.revisaoId());if(old==null||!tenant().equals(old.getEmpresaId())||!id.equals(old.getModeloId()))throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         availableName(model.getProjetoObraId(),old.getNome(),model.getId());
         model.preservarPublicacaoLegada();
+        model.setReferenciaId(old.getReferenciaId());
         model.setDocumento(documents.encode(documents.decode(old.getDocumento())));model.setNome(old.getNome());model.setRevisao(model.getRevisao()+1);model.setAtualizadoEm(OffsetDateTime.now());revision(model,"Restauração da revisão "+old.getNumero()+": "+r.motivo().trim(),a);em.flush();return detail(model);
     }
     @GetMapping("/modelos/{id}/revisoes/{numero}") @Transactional(readOnly=true)
     public Map<String,Object> revisionFrame(@PathVariable Long id, @PathVariable int numero) {
         own(id,false);
-        var frame = em.createQuery("""
+        var frame = findRevision(id, numero);
+        var result = new LinkedHashMap<String,Object>(Map.of("numero", frame.getNumero(), "nome", frame.getNome(), "motivo", frame.getMotivo(),
+            "criadoEm", frame.getCriadoEm(), "documento", documents.decode(frame.getDocumento())));
+        result.put("referencia", references.find(frame.getReferenciaId(), tenant()));
+        return result;
+    }
+
+    @GetMapping("/modelos/{id}/revisoes/{numero}/referencia") @Transactional(readOnly=true)
+    public ResponseEntity<byte[]> referenceFile(@PathVariable Long id, @PathVariable int numero) throws IOException {
+        own(id, false);
+        var reference = references.find(findRevision(id, numero).getReferenciaId(), tenant());
+        byte[] bytes = references.read(reference);
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).contentType(MediaType.APPLICATION_OCTET_STREAM)
+            .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                .filename(reference.getNomeArquivo(), StandardCharsets.UTF_8).build().toString())
+            .body(bytes);
+    }
+
+    private ModeloRevisaoEntity findRevision(Long id, int numero) {
+        return em.createQuery("""
             select r from ModeloRevisaoEntity r
             where r.modeloId=:modelo and r.empresaId=:empresa and r.numero=:numero
             """, ModeloRevisaoEntity.class)
             .setParameter("modelo",id).setParameter("empresa",tenant()).setParameter("numero",numero)
             .getResultList().stream().findFirst()
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        return Map.of("numero", frame.getNumero(), "nome", frame.getNome(), "motivo", frame.getMotivo(),
-            "criadoEm", frame.getCriadoEm(), "documento", documents.decode(frame.getDocumento()));
     }
 
     @GetMapping("/modelos/{id}/unidades") @Transactional(readOnly=true)
@@ -277,7 +330,7 @@ public class ModeladorObraController {
         em.flush();return detail(e);
     }
     public record CreateRequest(@NotNull Long projetoObraId,@NotBlank @Size(max=150) String nome){}
-    public record SaveRequest(@Min(0) long versao,@NotBlank @Size(max=150) String nome,@NotNull @Valid ModeloDocumento documento,@NotBlank @Size(max=500) String motivo,@Size(max=36) String rascunhoToken){}
+    public record SaveRequest(@Min(0) long versao,@NotBlank @Size(max=150) String nome,@NotNull @Valid ModeloDocumento documento,@NotBlank @Size(max=500) String motivo,@Size(max=36) String rascunhoToken,boolean removerReferencia){}
     public record DraftRequest(@Min(0) long versaoBase,@NotBlank @Size(max=150) String nome,
         @NotNull @Valid ModeloDocumento documento,@Size(max=36) String token){}
     public record RestoreRequest(@Min(0) long versao,@NotNull Long revisaoId,@NotBlank @Size(max=400) String motivo){}

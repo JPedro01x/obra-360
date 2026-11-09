@@ -24,4 +24,6 @@ O ensaio local `npm run test:preproduction -- "releases/<id>/bundle"` cria Postg
 
 Configure o monitor externo para fazer GET em `/actuator/health/readiness` por HTTPS com validação de certificado. Trate HTTP diferente de 200, corpo com `status` diferente de `UP` ou falha de conexão como indisponibilidade. Acompanhe taxa de respostas 5xx, latência, uso de disco e idade da última cópia verificada. Nomeie o responsável, o substituto e o canal de atendimento. Combine com o piloto metas de recuperação e volume simultâneo. Faça o teste de carga com a quantidade de usuários, arquivos e operações esperados para o cliente, incluindo criação, edição e download. O ensaio local registra a latência de um arquivo pequeno em loopback.
 
+O comando `npm run monitorar:producao -- https://seu-dominio` emite JSON com prontidão, código HTTP e latência. Ele retorna código 1 para falha de prontidão e 2 para endereço inválido. No serviço de monitoramento escolhido, agende a checagem e associe esses resultados ao canal de alerta da equipe.
+
 Registre o incidente com horário, versão, impacto e ações. Preserve os logs necessários para diagnóstico, com acesso restrito e sem dados de login, tokens ou segredos.

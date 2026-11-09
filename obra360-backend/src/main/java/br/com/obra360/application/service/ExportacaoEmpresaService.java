@@ -26,6 +26,8 @@ public class ExportacaoEmpresaService {
         try(var zip=new ZipOutputStream(output)){
             write(zip,"empresa.json",json.writeValueAsBytes(em.find(EmpresaEntity.class,tenant)),budget);
             Map<String,String> scopes=new LinkedHashMap<>();DIRECT.forEach(e->scopes.put(e,"e.empresaId=:t"));
+            scopes.put("ModeloReferenciaEntity","e.empresaId=:t");
+            var exportedReferences = new HashSet<String>();
             for(String e:List.of("DocumentoProjetoEntity","EquipeTrabalhoEntity","EtapaCronogramaEntity","OcorrenciaQualidadeEntity","UnidadeImobiliariaEntity"))scopes.put(e,PROJECT);
             scopes.put("MovimentacaoEstoqueEntity","e.itemEstoqueId in (select i.id from ItemEstoqueEntity i where i.empresaId=:t)");
             scopes.put("ConsumoOrdemEntity","e.itemEstoqueId in (select i.id from ItemEstoqueEntity i where i.empresaId=:t)");
@@ -41,6 +43,12 @@ public class ExportacaoEmpresaService {
                         if(++budget[1]>MAX_ROWS)throw tooLarge();
                         ObjectNode node=json.valueToTree(row);
                         if(row instanceof UsuarioEntity)node.remove(List.of("senhaHash","googleSubject","versaoCredencial","tentativasLoginFalhas","bloqueadoAte"));
+                        if(row instanceof ModeloReferenciaEntity reference){
+                            String name="arquivos/planta-"+reference.getSha256();
+                            node.put("arquivoExportado", name);
+                            if(exportedReferences.add(name))
+                                file(zip,name,storage.read(reference.getArquivoKey()),reference.getSha256(),budget);
+                        }
                         write(zip,"registros/"+entry.getKey()+"/"+(++count)+".json",json.writeValueAsBytes(node),budget);
                         if(row instanceof DocumentoProjetoEntity d)file(zip,"arquivos/projeto-"+d.getId(),storage.read(d.getUrlArmazenamento()),d.getHashArquivoSha256(),budget);
                         if(row instanceof RhDocumentoEntity d)file(zip,"arquivos/rh-"+d.getId(),storage.readRh(d.getReferenciaArquivo()),d.getSha256(),budget);

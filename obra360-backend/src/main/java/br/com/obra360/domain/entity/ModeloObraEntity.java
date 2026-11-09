@@ -9,6 +9,7 @@ public class ModeloObraEntity {
  @Column(name="projeto_obra_id",nullable=false) private Long projetoObraId;
  @Column(name="unidade_publicada_id") private Long unidadePublicadaId;
  @Column(name="revisao_publicada") private Integer revisaoPublicada;
+ @Column(name="referencia_id") private Long referenciaId;
  @Column(nullable=false,length=150) private String nome;
  @Column(nullable=false) private boolean arquivado;
  @Version @Column(nullable=false) private long versao;

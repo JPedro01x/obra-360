@@ -9,6 +9,7 @@ public class ModeloRevisaoEntity {
  @Column(name="modelo_id",nullable=false) private Long modeloId;
  @Column(name="empresa_id",nullable=false) private Long empresaId;
  @Column(name="usuario_id",nullable=false) private Long usuarioId;
+ @Column(name="referencia_id") private Long referenciaId;
  @Column(nullable=false) private int numero;
  @Column(nullable=false,length=150) private String nome;
  @Column(nullable=false,length=500) private String motivo;

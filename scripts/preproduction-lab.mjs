@@ -184,6 +184,11 @@ const login = (payload, status) => api('/api/v1/auth/login', { method: 'POST', p
 const hash = (data) => createHash('sha256').update(data).digest('hex');
 const authMfa = '/api/v1/workspace/mfa';
 const bytes = Buffer.from('Documento sintético do laboratório Obra360.\n');
+const planBytes = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aZ2kAAAAASUVORK5CYII=', 'base64');
+async function multipartPayload(form) {
+  const request = new Request('https://127.0.0.1/', { method: 'POST', body: form });
+  return { headers: Object.fromEntries(request.headers), payload: Buffer.from(await request.arrayBuffer()) };
+}
 const started = performance.now();
 console.log(`Laboratório isolado em ${lab}`);
 try {
@@ -211,11 +216,22 @@ try {
   form.set('titulo', 'Documento de verificação');
   form.set('tipoDocumento', 'RELATORIO');
   form.set('arquivo', new Blob([bytes]), 'laboratorio.txt');
-  const multipart = new Request('https://127.0.0.1/', { method: 'POST', body: form });
   const document = await api('/api/v1/workspace/documentos', { method: 'POST', token, status: 201,
-    headers: Object.fromEntries(multipart.headers), payload: Buffer.from(await multipart.arrayBuffer()) });
+    ...await multipartPayload(form) });
   const documentRoute = `/api/v1/workspace/documentos/${document.id}/arquivo`;
   assert.equal(hash(await api(documentRoute, { token })), hash(bytes));
+  const modelRoute = '/api/v1/workspace/modelador/modelos';
+  const model = await post(modelRoute, { nome: 'Planta do laboratório', projetoObraId: obra.id }, 201);
+  const plan = new FormData();
+  const jsonPart = (data) => new Blob([JSON.stringify(data)], { type: 'application/json' });
+  plan.set('revisao', jsonPart({ nome: model.nome, versao: model.versao, documento: model.documento,
+    motivo: 'Referência calibrada para o ensaio de recuperação' }));
+  plan.set('referencia', jsonPart({ pavimentoId: model.documento.pavimentos[0].id, pagina: 1,
+    x: -3, z: -3, largura: 6, altura: 6, calibrada: true }));
+  plan.set('arquivo', new Blob([planBytes], { type: 'image/png' }), 'planta.png');
+  const savedPlan = await api(`${modelRoute}/${model.id}`, { method: 'PUT', token, ...await multipartPayload(plan) });
+  const planRevision = `${modelRoute}/${model.id}/revisoes/${savedPlan.revisao}`;
+  assert.equal(hash(await api(planRevision + '/referencia', { token })), hash(planBytes));
   const { segredo } = await post(authMfa + '/preparar', { senha });
   const counter = Math.floor(Date.now() / 30_000);
   await post(authMfa + '/ativar', { senha, codigo: totp(segredo, counter) });
@@ -232,9 +248,13 @@ try {
   const nextCounter = Math.max(counter + 1, Math.floor(Date.now() / 30_000));
   const restoredLogin = await login({ ...admin, codigo: totp(segredo, nextCounter) });
   assert.equal(hash(await api(documentRoute, { token: restoredLogin.token })), hash(bytes));
+  const restoredPlan = await api(planRevision, { token: restoredLogin.token });
+  assert.equal(restoredPlan.referencia.largura, 6);
+  assert.equal(restoredPlan.referencia.calibrada, true);
+  assert.equal(hash(await api(planRevision + '/referencia', { token: restoredLogin.token })), hash(planBytes));
   assert.equal((await api(authMfa, { token: restoredLogin.token })).ativo, true);
   const recoveryMs = Math.round(performance.now() - recoveryStarted);
-  console.log('Restauração verificada com login MFA e SHA-256 do documento.');
+  console.log('Restauração verificada com MFA, SHA-256 dos arquivos e escala da referência.');
 
   const samples = (await Promise.all(Array.from({ length: 8 }, async () => {
     const worker = [];
@@ -257,7 +277,7 @@ try {
   const report = { ambiente: 'laboratório HTTPS em loopback com dados sintéticos', migrations,
     verificacoes: ['frontend compilado', 'TLS com certificado confiado', 'provisionamento offline', 'rota privada',
       'persistência PostgreSQL', 'revogação de token ao ativar MFA', 'restauração física',
-      'MFA após restauração', 'SHA-256 do arquivo após restauração'],
+      'MFA após restauração', 'SHA-256 dos arquivos após restauração', 'escala da referência restaurada'],
     recoveryMs, totalMs: Math.round(performance.now() - started),
     carga: { requisicoes: samples.length, concorrencia: 8, falhas: 0,
       p50Ms: Math.round(samples[Math.ceil(samples.length * 0.50) - 1]),

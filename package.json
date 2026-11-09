@@ -9,6 +9,7 @@
   "scripts": {
     "acessos:homologacao": "node scripts/acessos-homologacao.mjs",
     "verificar:producao": "node scripts/production-check.mjs",
+    "monitorar:producao": "node scripts/production-health.mjs",
     "release:package": "node scripts/package-release.mjs",
     "test:preproduction": "node scripts/preproduction-lab.mjs",
     "configurar:seguranca-local": "node scripts/configure-local-security.mjs",
