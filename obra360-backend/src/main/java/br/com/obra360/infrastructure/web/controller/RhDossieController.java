@@ -85,7 +85,7 @@ public class RhDossieController {
     @GetMapping("/documentos/{id}/arquivo")
     public ResponseEntity<ByteArrayResource> download(@PathVariable Long id,Authentication a) throws Exception {
         var e=own(RhDocumentoEntity.class,id);own(RhFuncionarioEntity.class,e.getFuncionarioId());
-        byte[] bytes;try{bytes=storage.readRh(e.getReferenciaArquivo());}catch(java.nio.file.NoSuchFileException|software.amazon.awssdk.services.s3.model.NoSuchKeyException ex){throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Arquivo privado indisponível.");}
+        byte[] bytes;try{bytes=storage.readRh(e.getReferenciaArquivo());}catch(java.nio.file.NoSuchFileException ex){throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Arquivo privado indisponível.");}
         if(bytes.length!=e.getTamanho()||!MessageDigest.isEqual(hash(bytes).getBytes(StandardCharsets.US_ASCII),e.getSha256().getBytes(StandardCharsets.US_ASCII)))throw new ResponseStatusException(HttpStatus.CONFLICT,"Integridade do arquivo divergente. Restaure uma cópia verificada antes de utilizar.");
         audit("RH_BAIXAR_DOCUMENTO","rh_documento",e.getId(),a);
         return ResponseEntity.ok().contentType(MediaType.APPLICATION_OCTET_STREAM).cacheControl(CacheControl.noStore())

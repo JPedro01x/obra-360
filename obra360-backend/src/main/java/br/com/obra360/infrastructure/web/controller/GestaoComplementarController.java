@@ -21,11 +21,14 @@ import java.time.LocalDate;
 public class GestaoComplementarController {
     private final EntityManager em;
     private final OperacaoService operation;
+    private final br.com.obra360.application.service.PlanningDates dates;
+    private final br.com.obra360.application.service.QualidadeService qualityService;
+    private final br.com.obra360.application.service.GarantiaWorkflowService warrantyService;
     private void audit(String action,String entity,Long id,Authentication a) { operation.audit(action,entity,id,Long.valueOf(a.getName())); }
     @PostMapping("/cronograma") @ResponseStatus(HttpStatus.CREATED)
     public EtapaCronogramaEntity stage(@Valid @RequestBody StageRequest r,Authentication a) {
         operation.project(r.projetoObraId());
-        if(r.dataFimPrevista().isBefore(r.dataInicioPrevista())) throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+        dates.newPeriod(r.dataInicioPrevista(),r.dataFimPrevista());
         var e=EtapaCronogramaEntity.builder().projetoObraId(r.projetoObraId()).nomeEtapa(r.nomeEtapa().trim()).ordemExecucao(r.ordemExecucao())
             .dataInicioPrevista(r.dataInicioPrevista()).dataFimPrevista(r.dataFimPrevista()).percentualExecutado(BigDecimal.ZERO).build();
         em.persist(e);audit("CRIAR_ETAPA","etapa_cronograma",e.getId(),a);return e;
@@ -36,18 +39,18 @@ public class GestaoComplementarController {
         if(e==null) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         operation.project(e.getProjetoObraId());e.setPercentualExecutado(r.percentualExecutado());audit("ATUALIZAR_PROGRESSO","etapa_cronograma",id,a);return e;
     }
-    @PostMapping("/qualidade") @ResponseStatus(HttpStatus.CREATED)
+    @PostMapping(value="/qualidade",consumes="application/json") @ResponseStatus(HttpStatus.CREATED)
     public OcorrenciaQualidadeEntity quality(@Valid @RequestBody QualityRequest r,Authentication a) {
-        operation.project(r.projetoObraId());operation.member(r.responsavelId());
-        var e=OcorrenciaQualidadeEntity.builder().projetoObraId(r.projetoObraId()).responsavelId(r.responsavelId()).titulo(r.titulo().trim())
-            .normaRegulamentadora(r.normaRegulamentadora().trim()).grauSeveridade(r.grauSeveridade()).statusPlanoAcao("PENDENTE").build();
-        em.persist(e);audit("REGISTRAR_OCORRENCIA","ocorrencia_qualidade",e.getId(),a);return e;
+        return qualityService.create(r.projetoObraId(),r.responsavelId(),r.titulo(),r.normaRegulamentadora(),r.grauSeveridade(),null,Long.valueOf(a.getName()));
+    }
+    @PostMapping(value="/qualidade",consumes="multipart/form-data") @ResponseStatus(HttpStatus.CREATED)
+    public OcorrenciaQualidadeEntity qualityWithPhoto(@Valid @RequestPart("dados") QualityRequest r,
+        @RequestPart(value="arquivo",required=false) org.springframework.web.multipart.MultipartFile file,Authentication a) {
+        return qualityService.create(r.projetoObraId(),r.responsavelId(),r.titulo(),r.normaRegulamentadora(),r.grauSeveridade(),file,Long.valueOf(a.getName()));
     }
     @PatchMapping("/qualidade/{id}/status")
     public OcorrenciaQualidadeEntity qualityStatus(@PathVariable Long id,@Valid @RequestBody QualityStatusRequest r,Authentication a) {
-        var e=em.find(OcorrenciaQualidadeEntity.class,id,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
-        if(e==null) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
-        operation.project(e.getProjetoObraId());e.setStatusPlanoAcao(r.status());audit("OCORRENCIA_"+r.status(),"ocorrencia_qualidade",id,a);return e;
+        return qualityService.state(id,r.status(),Long.valueOf(a.getName()));
     }
     @PostMapping("/unidades") @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','GERENTE_OBRA','INCORPORADOR')")
@@ -69,7 +72,7 @@ public class GestaoComplementarController {
     @PostMapping("/cotacoes") @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','GERENTE_OBRA','FINANCEIRO','INCORPORADOR')")
     public CotacaoB2BEntity quote(@Valid @RequestBody QuoteRequest r,Authentication a) {
-        var supplier=em.find(FornecedorB2BEntity.class,r.fornecedorB2bId());
+        var supplier=em.find(FornecedorB2BEntity.class,r.fornecedorB2bId(),jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
         if(supplier==null || !TenantContext.getCurrentTenant().equals(supplier.getEmpresaId())) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         var e=CotacaoB2BEntity.builder().empresaId(TenantContext.getCurrentTenant()).fornecedorB2bId(r.fornecedorB2bId())
             .codigoCotacao(r.codigoCotacao().trim()).valorProposta(r.valorProposta()).prazoEntregaDias(r.prazoEntregaDias()).statusCotacao("EM_ANALISE").build();
@@ -77,21 +80,11 @@ public class GestaoComplementarController {
     }
     @PostMapping("/garantias") @ResponseStatus(HttpStatus.CREATED)
     public GarantiaPosVendaEntity warranty(@Valid @RequestBody WarrantyRequest r,Authentication a) {
-        var unit=em.find(UnidadeImobiliariaEntity.class,r.unidadeImobiliariaId());
-        if(unit==null) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
-        operation.project(unit.getProjetoObraId());operation.member(r.usuarioClienteId());
-        var e=GarantiaPosVendaEntity.builder().unidadeImobiliariaId(r.unidadeImobiliariaId()).usuarioClienteId(r.usuarioClienteId())
-            .codigoChamado("AT-"+java.util.UUID.randomUUID().toString().replace("-","").substring(0,24))
-            .descricaoDefeito(r.descricaoDefeito().trim()).categoriaDefeito(r.categoriaDefeito().trim()).statusChamado("ABERTO").build();
-        em.persist(e);audit("ABRIR_GARANTIA","garantia_pos_venda",e.getId(),a);return e;
+        return warrantyService.create(r.unidadeImobiliariaId(),r.usuarioClienteId(),r.descricaoDefeito(),r.categoriaDefeito(),Long.valueOf(a.getName()));
     }
     @PatchMapping("/garantias/{id}/status")
     public GarantiaPosVendaEntity warrantyStatus(@PathVariable Long id,@Valid @RequestBody WarrantyStatusRequest r,Authentication a) {
-        var e=em.find(GarantiaPosVendaEntity.class,id,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
-        if(e==null) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
-        var unit=em.find(UnidadeImobiliariaEntity.class,e.getUnidadeImobiliariaId());operation.project(unit.getProjetoObraId());
-        e.setStatusChamado(r.status());e.setDataAtendimento(r.status().equals("CONCLUIDO")?java.time.OffsetDateTime.now():null);
-        audit("GARANTIA_"+r.status(),"garantia_pos_venda",id,a);return e;
+        return warrantyService.state(id,r.status(),Long.valueOf(a.getName()));
     }
     public record StageRequest(@NotNull @Positive Long projetoObraId,@NotBlank @Size(max=200) String nomeEtapa,@Min(1) int ordemExecucao,@NotNull LocalDate dataInicioPrevista,@NotNull LocalDate dataFimPrevista) {}
     public record ProgressRequest(@NotNull @DecimalMin("0") @DecimalMax("100") @Digits(integer=3,fraction=2) BigDecimal percentualExecutado) {}

@@ -1,6 +1,7 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { API_BASE_URL, requestApi } from '../services/http';
+import { planningError, planningMinimum } from '../utils/planningDates';
 
 type Field = {
   name: string;
@@ -12,8 +13,14 @@ type Field = {
   max?: number;
   step?: string;
   maxLength?: number;
+  accept?: string;
+  maxBytes?: number;
   optional?: boolean;
   value?: string;
+  futureOnly?: boolean;
+  dependsOn?: string;
+  contextParam?: string;
+  contextLabel?: string;
 };
 export type OperationDefinition = {
   title: string;
@@ -23,9 +30,12 @@ export type OperationDefinition = {
   roles: string[];
   hidden?: Record<string, unknown>;
   multipart?: boolean;
+  jsonMultipart?: boolean;
   portal?: boolean;
   success?: string;
   logout?: boolean;
+  confirmation?: string;
+  warning?: string;
 };
 const managers = ['SUPER_ADMIN', 'GERENTE_OBRA', 'ENGENHEIRO'];
 const commercial = ['SUPER_ADMIN', 'GERENTE_OBRA', 'FINANCEIRO', 'INCORPORADOR'];
@@ -50,9 +60,29 @@ const choice = (name: string, label: string, values: string[], value?: string): 
   options: values.map((v) => [v, v.replace(/_/g, ' ')]),
   value,
 });
-const date = (name: string, label: string): Field => ({ name, label, type: 'date' });
+const date = (name: string, label: string): Field => ({
+  name,
+  label,
+  type: 'date',
+  futureOnly: true,
+});
 
 export const createOperations: Record<string, OperationDefinition> = {
+  compras: {
+    title: 'Nova requisição de compra',
+    path: '/compras',
+    roles: commercial,
+    fields: [
+      source('itemEstoqueId', 'Material', 'estoque'),
+      number('quantidade', 'Quantidade a comprar', 0.0001, '0.0001'),
+      {
+        name: 'justificativa',
+        label: 'Justificativa (mínimo de 10 caracteres)',
+        type: 'textarea',
+        maxLength: 1000,
+      },
+    ],
+  },
   acessos: {
     title: 'Novo acesso externo',
     path: '/acessos',
@@ -62,6 +92,9 @@ export const createOperations: Record<string, OperationDefinition> = {
       source('projetoObraId', 'Empreendimento', 'projetos'),
       {
         ...source('unidadeImobiliariaId', 'Unidade (obrigatória para cliente)', 'unidades'),
+        dependsOn: 'projetoObraId',
+        contextParam: 'projetoObraId',
+        contextLabel: 'empreendimento',
         optional: true,
       },
       {
@@ -128,10 +161,30 @@ export const createOperations: Record<string, OperationDefinition> = {
     roles: [...managers, 'MESTRE_OBRA'],
     fields: [
       source('contratoServicoId', 'Contrato', 'contratos'),
-      source('equipeTrabalhoId', 'Equipe', 'equipes'),
+      {
+        ...source('equipeTrabalhoId', 'Equipe', 'equipes'),
+        dependsOn: 'contratoServicoId',
+        contextParam: 'contratoServicoId',
+        contextLabel: 'contrato',
+      },
       { name: 'descricao', label: 'Descrição do serviço', type: 'textarea', maxLength: 10000 },
       choice('prioridade', 'Prioridade', ['BAIXA', 'MEDIA', 'ALTA', 'URGENTE'], 'MEDIA'),
-      { name: 'dataLimiteSla', label: 'Prazo de atendimento', type: 'datetime-local' },
+      {
+        name: 'dataLimiteSla',
+        label: 'Prazo manual (opcional; vazio calcula pelo SLA e prioridade)',
+        type: 'datetime-local',
+        futureOnly: true,
+        optional: true,
+      },
+      {
+        name: 'exigeMaterial',
+        label: 'Exigir consumo de material para concluir',
+        options: [
+          ['false', 'Não'],
+          ['true', 'Sim'],
+        ],
+        value: 'false',
+      },
     ],
   },
   movimentacoes: {
@@ -160,12 +213,43 @@ export const createOperations: Record<string, OperationDefinition> = {
     title: 'Nova ocorrência',
     path: '/qualidade',
     roles: managers,
+    multipart: true,
+    jsonMultipart: true,
     fields: [
       project,
       text('titulo', 'Título da ocorrência', 200),
       source('responsavelId', 'Responsável', 'usuarios'),
       text('normaRegulamentadora', 'Norma ou referência', 30),
       choice('grauSeveridade', 'Severidade', ['BAIXA', 'MEDIA', 'ALTA', 'CRITICA']),
+      {
+        name: 'arquivo',
+        label: 'Foto PNG/JPEG (obrigatória para alta/crítica; até 5 MB)',
+        type: 'file',
+        optional: true,
+        accept: '.png,.jpg,.jpeg',
+        maxBytes: 5 * 1024 * 1024,
+      },
+    ],
+  },
+  coberturas: {
+    title: 'Cadastrar cobertura de garantia',
+    path: '/coberturas',
+    roles: managers,
+    fields: [
+      source('unidadeId', 'Unidade', 'unidades'),
+      text('categoria', 'Categoria do defeito', 50),
+      date('dataInicio', 'Início da cobertura'),
+      date('dataFim', 'Fim da cobertura'),
+      { name: 'descricao', label: 'Condições da cobertura', type: 'textarea', maxLength: 1000 },
+      {
+        name: 'ativo',
+        label: 'Cobertura ativa',
+        options: [
+          ['true', 'Sim'],
+          ['false', 'Não'],
+        ],
+        value: 'true',
+      },
     ],
   },
   unidades: {
@@ -246,6 +330,11 @@ export function rowOperations(
   const id = String(row.id);
   const actions: OperationDefinition[] = [];
   const permitted = (roles: string[]) => roles.includes(role);
+  const deletionRoles: Record<string, string[]> = {
+    projetos: ['SUPER_ADMIN', 'GERENTE_OBRA', 'INCORPORADOR'],
+    fornecedores: ['SUPER_ADMIN', 'GERENTE_OBRA', 'FINANCEIRO', 'INCORPORADOR'],
+    equipes: ['SUPER_ADMIN', 'GERENTE_OBRA', 'ENGENHEIRO', 'MESTRE_OBRA'],
+  };
   if (resource === 'acessos' && role === 'SUPER_ADMIN')
     actions.push({
       title: 'Revogar acesso',
@@ -295,12 +384,41 @@ export function rowOperations(
       hidden: { itemEstoqueId: row.id },
     });
   if (resource === 'ordens') {
+    const late = new Date(String(row.dataLimiteSla)).getTime() < Date.now();
+    if (row.statusOs === 'EM_ANDAMENTO' && late && permitted([...managers, 'MESTRE_OBRA']))
+      actions.push({
+        title: 'Justificar encerramento atrasado',
+        path: `/ordens/${id}/justificativa`,
+        roles: [],
+        fields: [
+          {
+            name: 'justificativa',
+            label: 'Justificativa (mínimo de 10 caracteres)',
+            type: 'textarea',
+            maxLength: 2000,
+          },
+        ],
+      });
+    if (
+      row.statusOs === 'EM_ANDAMENTO' &&
+      row.solicitanteEncerramentoId &&
+      permitted(['SUPER_ADMIN', 'ENGENHEIRO', 'GERENTE_OBRA'])
+    )
+      actions.push({
+        title: 'Aprovar e concluir OS atrasada',
+        path: `/ordens/${id}/aprovar-encerramento`,
+        roles: [],
+        fields: [],
+        success: 'Encerramento aprovado e registrado.',
+      });
     if (permitted([...managers, 'MESTRE_OBRA'])) {
       const states =
         row.statusOs === 'ABERTO'
           ? ['EM_ANDAMENTO', 'CANCELADO']
           : row.statusOs === 'EM_ANDAMENTO'
-            ? ['CONCLUIDO', 'CANCELADO']
+            ? late
+              ? ['CANCELADO']
+              : ['CONCLUIDO', 'CANCELADO']
             : [];
       if (states.length)
         actions.push({
@@ -321,11 +439,87 @@ export function rowOperations(
         roles: [],
         hidden: { ordemServicoId: row.id, tipoMovimentacao: 'CONSUMO_OS' },
         fields: [
-          source('itemEstoqueId', 'Material da obra', 'estoque'),
+          {
+            ...source('itemEstoqueId', 'Material da obra', 'estoque'),
+            dependsOn: 'ordemServicoId',
+            contextParam: 'ordemServicoId',
+            contextLabel: 'ordem de serviço',
+          },
           number('quantidade', 'Quantidade consumida', 0.001, '0.001'),
         ],
       });
   }
+  if (resource === 'compras') {
+    if (row.status === 'COTACAO' && permitted(commercial)) {
+      actions.push({
+        title: 'Registrar proposta',
+        path: `/compras/${id}/propostas`,
+        roles: [],
+        fields: [
+          source('fornecedorB2bId', 'Fornecedor', 'fornecedores'),
+          number('valorProposta', 'Valor total da quantidade solicitada (R$)', 0.01),
+          number('prazoEntregaDias', 'Entrega (dias)', 0, '1', '0'),
+        ],
+      });
+      actions.push({
+        title: 'Comparar e selecionar proposta',
+        path: `/compras/${id}/selecionar`,
+        roles: [],
+        fields: [
+          source('cotacaoId', 'Propostas por valor total, fornecedor e prazo', `propostas-${id}`),
+        ],
+      });
+    }
+    if (row.status === 'APROVACAO') {
+      if (!row.aprovadorGestaoId && permitted(['SUPER_ADMIN', 'GERENTE_OBRA', 'INCORPORADOR']))
+        actions.push({
+          title: 'Aprovar pela gestão',
+          path: `/compras/${id}/aprovar`,
+          roles: [],
+          fields: [],
+          hidden: { alcada: 'GESTAO' },
+        });
+      if (!row.aprovadorFinanceiroId && permitted(['SUPER_ADMIN', 'FINANCEIRO']))
+        actions.push({
+          title: 'Aprovar pelo financeiro',
+          path: `/compras/${id}/aprovar`,
+          roles: [],
+          fields: [],
+          hidden: { alcada: 'FINANCEIRO' },
+        });
+    }
+    if (row.status === 'APROVADO' && permitted(commercial))
+      actions.push({
+        title: 'Emitir pedido de compra',
+        path: `/compras/${id}/pedido`,
+        roles: [],
+        fields: [],
+      });
+    if (row.status === 'PEDIDO' && permitted(['SUPER_ADMIN', 'GERENTE_OBRA', 'ALMOXARIFE']))
+      actions.push({
+        title: 'Confirmar recebimento integral',
+        path: `/compras/${id}/receber`,
+        roles: [],
+        fields: [],
+        success: 'Recebimento registrado e estoque atualizado.',
+      });
+    if (!['RECEBIDO', 'CANCELADO'].includes(String(row.status)) && permitted(commercial))
+      actions.push({
+        title: 'Cancelar compra',
+        path: `/compras/${id}/cancelar`,
+        roles: [],
+        fields: [],
+      });
+  }
+  if (resource === 'contratos' && permitted(commercial))
+    actions.push({
+      title: row.ativo === false ? 'Ativar contrato' : 'Inativar contrato',
+      path: `/contratos/${id}/ativo`,
+      method: 'PATCH',
+      roles: [],
+      fields: [],
+      hidden: { ativo: row.ativo === false },
+    });
   if (resource === 'cronograma' && permitted(managers))
     actions.push({
       title: 'Informar avanço',
@@ -345,7 +539,23 @@ export function rowOperations(
         },
       ],
     });
-  if (resource === 'qualidade' && permitted(managers))
+  if (resource === 'qualidade' && row.statusPlanoAcao !== 'RESOLVIDO' && permitted(managers))
+    actions.push({
+      title: 'Adicionar foto',
+      path: `/qualidade/${id}/evidencias`,
+      roles: [],
+      multipart: true,
+      fields: [
+        {
+          name: 'arquivo',
+          label: 'Foto PNG/JPEG (até 5 MB)',
+          type: 'file',
+          accept: '.png,.jpg,.jpeg',
+          maxBytes: 5 * 1024 * 1024,
+        },
+      ],
+    });
+  if (resource === 'qualidade' && row.statusPlanoAcao !== 'RESOLVIDO' && permitted(managers))
     actions.push({
       title: 'Atualizar ocorrência',
       path: `/qualidade/${id}/status`,
@@ -376,7 +586,63 @@ export function rowOperations(
         ),
       ],
     });
-  if (resource === 'garantias' && permitted(managers))
+  if (resource === 'garantias' && row.statusChamado !== 'CONCLUIDO' && permitted(managers)) {
+    actions.push({
+      title: 'Agendar vistoria',
+      path: `/garantias/${id}/vistoria`,
+      roles: [],
+      fields: [
+        source('responsavelId', 'Responsável pela vistoria', 'engenheiros'),
+        {
+          name: 'data',
+          label: 'Data e hora da vistoria',
+          type: 'datetime-local',
+          futureOnly: true,
+        },
+      ],
+    });
+    if (!row.ordemServicoId)
+      actions.push({
+        title: 'Avaliar cobertura',
+        path: `/garantias/${id}/avaliacao`,
+        roles: [],
+        fields: [
+          choice('decisao', 'Decisão técnica', ['COBERTA', 'NAO_COBERTA']),
+          {
+            name: 'motivo',
+            label: 'Motivo da avaliação (mínimo de 10 caracteres)',
+            type: 'textarea',
+            maxLength: 2000,
+          },
+        ],
+      });
+    if (!row.ordemServicoId && row.situacaoCobertura === 'COBERTA')
+      actions.push({
+        title: 'Gerar OS da garantia',
+        path: `/garantias/${id}/ordem`,
+        roles: [],
+        fields: [
+          source('contratoServicoId', 'Contrato', 'contratos'),
+          {
+            ...source('equipeTrabalhoId', 'Equipe', 'equipes'),
+            dependsOn: 'contratoServicoId',
+            contextParam: 'contratoServicoId',
+            contextLabel: 'contrato',
+          },
+          choice('prioridade', 'Prioridade', ['BAIXA', 'MEDIA', 'ALTA', 'URGENTE'], 'MEDIA'),
+          {
+            name: 'exigeMaterial',
+            label: 'Exigir consumo de material',
+            options: [
+              ['false', 'Não'],
+              ['true', 'Sim'],
+            ],
+            value: 'false',
+          },
+        ],
+      });
+  }
+  if (resource === 'garantias' && row.statusChamado !== 'CONCLUIDO' && permitted(managers))
     actions.push({
       title: 'Atualizar chamado',
       path: `/garantias/${id}/status`,
@@ -419,6 +685,7 @@ export function rowOperations(
             'CORRETOR',
             'LOCADOR_MAQUINAS',
             'INVESTIDOR',
+            'COLABORADOR',
           ],
           String(row.perfil),
         ),
@@ -453,24 +720,62 @@ export function rowOperations(
       },
       fields: [{ name: 'arquivo', label: 'Arquivo da nova versão (até 20 MB)', type: 'file' }],
     });
+  if (deletionRoles[resource] && permitted(deletionRoles[resource])) {
+    const name = String(row.nome ?? row.razaoSocial ?? row.nomeEquipe ?? '');
+    actions.push({
+      title:
+        resource === 'projetos'
+          ? 'Excluir obra'
+          : resource === 'equipes'
+            ? 'Excluir equipe'
+            : 'Excluir fornecedor',
+      path: `/${resource}/${id}`,
+      method: 'DELETE',
+      roles: [],
+      confirmation: name,
+      warning: `A exclusão é permanente e só será permitida se não houver vínculos. Digite exatamente: ${name}`,
+      fields: [text('confirmacao', 'Nome do cadastro para confirmar', 255)],
+      success: 'Cadastro excluído com sucesso.',
+    });
+  }
   return actions;
 }
 
-function Lookup({ field, disabled }: { field: Field; disabled: boolean }) {
+const optionLabel = (option: { nome: string; empreendimento?: string }) =>
+  option.empreendimento ? `${option.nome} — ${option.empreendimento}` : option.nome;
+type LookupOption = { id: number; nome: string; empreendimento?: string };
+function Lookup({
+  field,
+  disabled,
+  context,
+  onValueChange,
+}: {
+  field: Field;
+  disabled: boolean;
+  context?: string;
+  onValueChange: (name: string, value: string) => void;
+}) {
   const [query, setQuery] = useState('');
-  const [options, setOptions] = useState<{ id: number; nome: string }[]>([]);
+  const [options, setOptions] = useState<LookupOption[]>([]);
   const [selected, setSelected] = useState<{ id: string; nome: string } | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const id = useId();
+  const waitingForContext = !!field.dependsOn && !context;
   useEffect(() => {
     let current = true;
     const controller = new AbortController();
+    setOptions([]);
+    setError('');
+    if (waitingForContext) {
+      setLoading(false);
+      return () => controller.abort();
+    }
     setLoading(true);
     const timer = setTimeout(
       () =>
-        requestApi<{ id: number; nome: string }[]>(
-          `/v1/workspace/opcoes/${field.source}?q=${encodeURIComponent(query)}`,
+        requestApi<LookupOption[]>(
+          `/v1/workspace/opcoes/${field.source}?q=${encodeURIComponent(query)}${field.contextParam && context ? `&${field.contextParam}=${encodeURIComponent(context)}` : ''}`,
           { signal: controller.signal },
         )
           .then((value) => {
@@ -492,7 +797,7 @@ function Lookup({ field, disabled }: { field: Field; disabled: boolean }) {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [field.source, query]);
+  }, [field.source, query, context, field.contextParam, waitingForContext]);
   return (
     <div className="ws-lookup">
       <label htmlFor={id}>{field.label}</label>
@@ -501,17 +806,18 @@ function Lookup({ field, disabled }: { field: Field; disabled: boolean }) {
         placeholder="Buscar pelo nome…"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        disabled={disabled}
+        disabled={disabled || waitingForContext}
       />
       <select
         id={id}
         name={field.name}
         required={!field.optional}
-        disabled={disabled}
+        disabled={disabled || waitingForContext || loading || !!error}
         value={selected?.id || ''}
         onChange={(e) => {
           const found = options.find((o) => String(o.id) === e.target.value);
-          setSelected(found ? { id: String(found.id), nome: found.nome } : null);
+          setSelected(found ? { id: String(found.id), nome: optionLabel(found) } : null);
+          onValueChange(field.name, found ? String(found.id) : '');
         }}
       >
         <option value="">{loading ? 'Carregando opções…' : 'Selecione uma opção'}</option>
@@ -520,7 +826,7 @@ function Lookup({ field, disabled }: { field: Field; disabled: boolean }) {
         )}
         {options.map((o) => (
           <option key={o.id} value={o.id}>
-            {o.nome} · #{o.id}
+            {optionLabel(o)} · #{o.id}
           </option>
         ))}
       </select>
@@ -529,8 +835,14 @@ function Lookup({ field, disabled }: { field: Field; disabled: boolean }) {
           {error}
         </span>
       )}
-      {!loading && !error && !options.length && (
-        <small>Nenhum cadastro encontrado. Cadastre o registro no módulo correspondente.</small>
+      {waitingForContext && (
+        <small>Selecione primeiro o {field.contextLabel || 'registro relacionado'}.</small>
+      )}
+      {!waitingForContext && !loading && !error && !options.length && (
+        <small>
+          Nenhum cadastro encontrado. Cadastre o registro no módulo correspondente
+          {context ? ' para esta obra' : ''}.
+        </small>
       )}
       {options.length === 100 && <small>Exibindo até 100 opções. Refine a busca pelo nome.</small>}
     </div>
@@ -550,6 +862,24 @@ export function OperationForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [key] = useState(() => crypto.randomUUID());
+  const [dateValues, setDateValues] = useState<Record<string, unknown>>(() =>
+    Object.fromEntries(definition.fields.map((field) => [field.name, field.value || ''])),
+  );
+  const [lookupValues, setLookupValues] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      Object.entries(definition.hidden || {}).map(([name, value]) => [name, String(value)]),
+    ),
+  );
+  function changeLookup(name: string, value: string) {
+    setLookupValues((previous) => {
+      const next = { ...previous, [name]: value };
+      for (const field of definition.fields) if (field.dependsOn === name) delete next[field.name];
+      return next;
+    });
+  }
+  const originals = Object.fromEntries(
+    definition.fields.map((field) => [field.name, field.value || '']),
+  );
   useEffect(() => {
     dialog.current?.showModal();
     return () => dialog.current?.close();
@@ -560,34 +890,62 @@ export function OperationForm({
     const form = new FormData(event.currentTarget);
     const body: Record<string, unknown> = Object.fromEntries(form.entries());
     Object.assign(body, definition.hidden || {});
+    if (
+      definition.confirmation !== undefined &&
+      String(body.confirmacao || '').trim() !== definition.confirmation
+    ) {
+      setError('Digite o nome do cadastro exatamente como exibido para confirmar a exclusão.');
+      return;
+    }
     for (const field of definition.fields) {
+      if (field.type === 'file' && field.optional && !(body[field.name] as File)?.size) {
+        delete body[field.name];
+        continue;
+      }
+      if (field.optional && body[field.name] === '') {
+        delete body[field.name];
+        continue;
+      }
       if (field.type === 'datetime-local' && body[field.name])
         body[field.name] = new Date(String(body[field.name])).toISOString();
-      if (field.name === 'ativo') body[field.name] = body[field.name] === 'true';
+      if (['ativo', 'exigeMaterial'].includes(field.name))
+        body[field.name] = body[field.name] === 'true';
       if (field.name === 'cnpj')
         body[field.name] = String(body[field.name])
           .replace(/[.\/\-\s]/g, '')
           .toUpperCase();
-      if (field.type === 'file' && (body[field.name] as File)?.size > 20 * 1024 * 1024) {
-        setError('O arquivo excede o limite de 20 MB.');
+      if (
+        field.type === 'file' &&
+        (body[field.name] as File)?.size > (field.maxBytes || 20 * 1024 * 1024)
+      ) {
+        setError(
+          `O arquivo excede o limite de ${(field.maxBytes || 20 * 1024 * 1024) / (1024 * 1024)} MB.`,
+        );
         return;
       }
     }
     if (definition.path === '/movimentacoes') body.chaveOperacao = key;
-    if (
-      (body.dataTermino && body.dataInicio && String(body.dataTermino) < String(body.dataInicio)) ||
-      (body.dataFimPrevista &&
-        body.dataInicioPrevista &&
-        String(body.dataFimPrevista) < String(body.dataInicioPrevista))
-    ) {
-      setError('A data final deve ser igual ou posterior ao início.');
+    const dateError = planningError(definition.fields, body, originals);
+    if (dateError) {
+      setError(dateError);
       return;
     }
     let payload: BodyInit;
     if (definition.multipart) {
       const multipart = new FormData();
-      for (const [name, value] of Object.entries(body))
-        multipart.append(name, value instanceof File ? value : String(value));
+      if (definition.jsonMultipart) {
+        const metadata: Record<string, unknown> = {};
+        for (const [name, value] of Object.entries(body)) {
+          if (value instanceof File) multipart.append(name, value);
+          else metadata[name] = value;
+        }
+        multipart.append(
+          'dados',
+          new Blob([JSON.stringify(metadata)], { type: 'application/json' }),
+        );
+      } else
+        for (const [name, value] of Object.entries(body))
+          multipart.append(name, value instanceof File ? value : String(value));
       payload = multipart;
     } else payload = JSON.stringify(body);
     setSaving(true);
@@ -626,7 +984,22 @@ export function OperationForm({
             <X size={20} />
           </button>
         </header>
-        <form onSubmit={submit}>
+        {definition.warning && (
+          <p className="ws-help" role="note">
+            {definition.warning}
+          </p>
+        )}
+        <form
+          onSubmit={submit}
+          onChange={(event) => {
+            const input = event.target;
+            if (
+              input instanceof HTMLInputElement &&
+              ['date', 'datetime-local'].includes(input.type)
+            )
+              setDateValues((values) => ({ ...values, [input.name]: input.value }));
+          }}
+        >
           {error && (
             <div className="ws-alert" role="alert">
               {error}
@@ -634,7 +1007,13 @@ export function OperationForm({
           )}
           {definition.fields.map((field) =>
             field.source ? (
-              <Lookup key={field.name} field={field} disabled={saving} />
+              <Lookup
+                key={`${field.name}:${field.dependsOn ? lookupValues[field.dependsOn] || '' : ''}`}
+                field={field}
+                disabled={saving}
+                context={field.dependsOn ? lookupValues[field.dependsOn] : undefined}
+                onValueChange={changeLookup}
+              />
             ) : (
               <label key={field.name}>
                 {field.label}
@@ -669,10 +1048,11 @@ export function OperationForm({
                     aria-label={field.label}
                     name={field.name}
                     type={field.type || 'text'}
+                    accept={field.accept}
                     required={!field.optional}
                     disabled={saving}
                     defaultValue={field.type === 'file' ? undefined : field.value}
-                    min={field.min}
+                    min={planningMinimum(field, dateValues, originals) ?? field.min}
                     max={field.max}
                     step={field.step}
                     maxLength={field.maxLength}
@@ -688,7 +1068,11 @@ export function OperationForm({
               Cancelar
             </button>
             <button className="ws-primary" disabled={saving}>
-              {saving ? 'Salvando…' : 'Salvar'}
+              {saving
+                ? 'Salvando…'
+                : definition.confirmation !== undefined
+                  ? 'Confirmar exclusão'
+                  : 'Salvar'}
             </button>
           </footer>
         </form>

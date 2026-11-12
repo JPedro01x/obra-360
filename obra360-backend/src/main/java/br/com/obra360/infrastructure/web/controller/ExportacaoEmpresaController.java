@@ -17,15 +17,15 @@ import org.springframework.web.server.ResponseStatusException;
 @RestController @RequiredArgsConstructor
 public class ExportacaoEmpresaController {
     private final ExportacaoEmpresaService exporter;private final EntityManager em;private final PasswordEncoder encoder;
-    private final MfaService mfa;private final BruteForceProtectionService brute;private final OperacaoService operation;
+    private final BruteForceProtectionService brute;private final OperacaoService operation;
     @PostMapping("/api/v1/workspace/exportar") @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<byte[]> export(@Valid @RequestBody Proof r,Authentication a,HttpServletRequest request)throws java.io.IOException{
         if(brute.isIpBloqueado(request.getRemoteAddr()))throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS);
         var user=em.find(UsuarioEntity.class,Long.valueOf(a.getName()));
-        if(!encoder.matches(r.senha(),user.getSenhaHash())||!mfa.verify(user.getId(),r.codigo())){brute.registrarFalhaLogin(request.getRemoteAddr());throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Confira sua senha e o código de autenticação.");}
+        if(!encoder.matches(r.senha(),user.getSenhaHash())){brute.registrarFalhaLogin(request.getRemoteAddr());throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Confira sua senha.");}
         var bytes=exporter.export(TenantContext.getCurrentTenant());operation.audit("EXPORTAR_EMPRESA","empresa",TenantContext.getCurrentTenant(),user.getId());
         return ResponseEntity.ok().contentType(MediaType.parseMediaType("application/zip")).cacheControl(CacheControl.noStore())
             .header(HttpHeaders.CONTENT_DISPOSITION,"attachment; filename=obra360-empresa.zip").body(bytes);
     }
-    public record Proof(@NotBlank @Size(max=200) String senha,@Size(max=64) String codigo){}
+    public record Proof(@NotBlank @Size(max=200) String senha){}
 }

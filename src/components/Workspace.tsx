@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Building2,
+  Bell,
   ChevronRight,
   Database,
   Eye,
@@ -31,6 +32,11 @@ import { AccessLayout, SelectedAccess } from './AccessLayout';
 import { AccountCenter } from './AccountCenter';
 import { AcceptInvitation } from './UserInvitations';
 import { HumanResources } from './HumanResources';
+import { EmployeePortal } from './EmployeePortal';
+import { QualityEvidence } from './QualityEvidence';
+import { RecordDetails, type DetailTarget } from './RecordDetails';
+import { Notifications } from './Notifications';
+import { localCalendarDate, planningError } from '../utils/planningDates';
 import { ExternalPortal } from './ExternalPortal';
 import { GoogleSignIn, PasswordRecoveryPanel } from './ConnectedAuth';
 import {
@@ -48,6 +54,7 @@ const ModelEditor = React.lazy(() =>
 );
 type Row = Record<string, string | number | boolean | null>;
 interface Session {
+  exigeTrocaSenha?: boolean;
   nome: string;
   email: string;
   perfil: string;
@@ -68,6 +75,20 @@ interface Resource {
   adminOnly?: boolean;
 }
 const resources: Resource[] = [
+  {
+    id: 'coberturas',
+    title: 'Coberturas de garantia',
+    description:
+      'Categorias, condições e prazos cadastrados por unidade. A avaliação técnica é registrada no chamado.',
+    columns: [
+      ['unidadeId', 'Unidade (ID)'],
+      ['categoria', 'Categoria'],
+      ['dataInicio', 'Início', 'date'],
+      ['dataFim', 'Fim', 'date'],
+      ['descricao', 'Condições'],
+      ['ativo', 'Ativa'],
+    ],
+  },
   {
     id: 'acessos',
     title: 'Acessos externos',
@@ -211,6 +232,9 @@ const resources: Resource[] = [
       ['descricao', 'Descrição'],
       ['statusOs', 'Status'],
       ['dataLimiteSla', 'Prazo', 'date'],
+      ['exigeMaterial', 'Exige material'],
+      ['justificativaAtraso', 'Justificativa do atraso'],
+      ['aprovadorEncerramentoId', 'Aprovador (ID)'],
     ],
   },
   {
@@ -224,6 +248,7 @@ const resources: Resource[] = [
       ['retencaoTecnicaPct', 'Retenção (%)', 'number'],
       ['dataInicio', 'Início', 'date'],
       ['dataTermino', 'Término', 'date'],
+      ['ativo', 'Ativo'],
     ],
   },
   {
@@ -236,6 +261,26 @@ const resources: Resource[] = [
       ['valorProposta', 'Proposta', 'money'],
       ['prazoEntregaDias', 'Prazo (dias)'],
       ['statusCotacao', 'Status'],
+      ['requisicaoCompraId', 'Requisição (ID)'],
+      ['fornecedorB2bId', 'Fornecedor (ID)'],
+    ],
+  },
+  {
+    id: 'compras',
+    title: 'Requisições e pedidos',
+    description:
+      'Compra de um material por requisição: propostas, duas aprovações e recebimento integral no estoque.',
+    columns: [
+      ['id', 'Requisição'],
+      ['itemEstoqueId', 'Material (ID)'],
+      ['quantidade', 'Quantidade', 'number'],
+      ['justificativa', 'Justificativa'],
+      ['status', 'Situação'],
+      ['cotacaoSelecionadaId', 'Proposta (ID)'],
+      ['aprovadorGestaoId', 'Gestão (ID)'],
+      ['aprovadorFinanceiroId', 'Financeiro (ID)'],
+      ['numeroPedido', 'Pedido'],
+      ['dataRecebimento', 'Recebimento', 'date'],
     ],
   },
   {
@@ -260,6 +305,9 @@ const resources: Resource[] = [
       ['categoriaDefeito', 'Categoria'],
       ['statusChamado', 'Status'],
       ['dataAbertura', 'Abertura', 'date'],
+      ['situacaoCobertura', 'Cobertura'],
+      ['vistoriaEm', 'Vistoria', 'date'],
+      ['ordemServicoId', 'OS (ID)'],
     ],
   },
   {
@@ -279,9 +327,28 @@ const resources: Resource[] = [
 const privileged = ['SUPER_ADMIN', 'GERENTE_OBRA', 'FINANCEIRO', 'AUDITOR', 'INCORPORADOR'];
 const internal = ['RH', ...privileged, 'ENGENHEIRO', 'ARQUITETO', 'MESTRE_OBRA', 'ALMOXARIFE'];
 const navigationGroups = [
-  { title: 'Obras e projetos', ids: ['projetos', 'cronograma', 'equipes', 'ordens', 'documentos', 'qualidade', 'modelador', 'ifc'] },
-  { title: 'Estoque e compras', ids: ['estoque', 'movimentacoes', 'consumos', 'fornecedores', 'cotacoes'] },
-  { title: 'Financeiro e relacionamento', ids: ['contratos', 'unidades', 'garantias'] },
+  { title: 'Colaborador', ids: ['colaborador'] },
+  {
+    title: 'Obras e projetos',
+    ids: [
+      'projetos',
+      'cronograma',
+      'equipes',
+      'ordens',
+      'documentos',
+      'qualidade',
+      'modelador',
+      'ifc',
+    ],
+  },
+  {
+    title: 'Estoque e compras',
+    ids: ['estoque', 'movimentacoes', 'consumos', 'fornecedores', 'cotacoes', 'compras'],
+  },
+  {
+    title: 'Financeiro e relacionamento',
+    ids: ['contratos', 'unidades', 'coberturas', 'garantias'],
+  },
   { title: 'Recursos humanos', ids: ['rh'] },
   { title: 'Administração', ids: ['usuarios', 'acessos', 'auditoria', 'dados', 'integracoes'] },
 ];
@@ -318,8 +385,6 @@ function WorkspaceContent() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [accessRole, setAccessRole] = useState('');
-  const [mfaCode, setMfaCode] = useState('');
-  const [mfaRequired, setMfaRequired] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [active, updateActive] = useState('projetos');
@@ -333,7 +398,9 @@ function WorkspaceContent() {
     if (
       next !== active &&
       modelDirty.current &&
-      !window.confirm('Há alterações que ainda não foram salvas no banco. Deseja sair do modelador?')
+      !window.confirm(
+        'Há alterações que ainda não foram salvas no banco. Deseja sair do modelador?',
+      )
     )
       return false;
     updateActive(next);
@@ -355,6 +422,9 @@ function WorkspaceContent() {
   const [creatingUser, setCreatingUser] = useState(false);
   const [notice, setNotice] = useState('');
   const [operation, setOperation] = useState<OperationDefinition | null>(null);
+  const [evidenceId, setEvidenceId] = useState<string | null>(null);
+  const [detailTarget, setDetailTarget] = useState<DetailTarget | null>(null);
+  const [modelTarget, setModelTarget] = useState<{ project: string; model: number } | null>(null);
   const resource =
     resources.find((r) => r.id === active) || resources.find((r) => r.id === 'projetos')!;
   const [authConfiguration, setAuthConfiguration] = useState({
@@ -394,7 +464,9 @@ function WorkspaceContent() {
   const logout = async () => {
     if (
       modelDirty.current &&
-      !window.confirm('Há alterações que ainda não foram salvas no banco. Deseja sair da plataforma?')
+      !window.confirm(
+        'Há alterações que ainda não foram salvas no banco. Deseja sair da plataforma?',
+      )
     )
       return;
     try {
@@ -410,12 +482,12 @@ function WorkspaceContent() {
     setNavigationOpen(false);
     setPassword('');
     setShowPassword(false);
-    resetLoginChallenge();
     setData(null);
     setError('');
     setCreating(false);
     setCreatingUser(false);
     setOperation(null);
+    setEvidenceId(null);
   };
   useEffect(() => {
     const expired = () => {
@@ -424,6 +496,7 @@ function WorkspaceContent() {
       setCreating(false);
       setCreatingUser(false);
       setOperation(null);
+      setEvidenceId(null);
       setError('Sua sessão expirou. Entre novamente para continuar.');
     };
     window.addEventListener('obra360:session-expired', expired);
@@ -443,8 +516,11 @@ function WorkspaceContent() {
   useEffect(() => {
     if (
       !session ||
+      session.exigeTrocaSenha ||
       !internal.includes(session.perfil) ||
-      ['integracoes', 'ifc', 'rh', 'modelador', 'dados', 'conta'].includes(active) ||
+      ['integracoes', 'ifc', 'rh', 'modelador', 'dados', 'conta', 'notificacoes'].includes(
+        active,
+      ) ||
       session.perfil === 'RH'
     )
       return;
@@ -474,11 +550,6 @@ function WorkspaceContent() {
     };
   }, [session, active, page, revision]);
 
-  function resetLoginChallenge() {
-    setMfaRequired(false);
-    setMfaCode('');
-  }
-
   async function login(event: React.FormEvent) {
     event.preventDefault();
     if (busy) return;
@@ -491,7 +562,6 @@ function WorkspaceContent() {
         body: JSON.stringify({
           email: email.trim(),
           senha: password,
-          codigo: mfaCode,
           perfil: accessRole || undefined,
         }),
       });
@@ -499,18 +569,10 @@ function WorkspaceContent() {
       const user = await requestApi<Session>('/v1/workspace/sessao');
       setSession(user);
       setPassword('');
-      resetLoginChallenge();
       setPage(0);
       setActive('projetos');
     } catch (e) {
-      if (e instanceof ApiError && e.status === 401 && e.code === 'MFA_REQUIRED') {
-        setMfaRequired(true);
-      } else if (e instanceof ApiError && e.status === 401 && e.code === 'MFA_INVALID') {
-        setMfaRequired(true);
-        setError('Código inválido ou já utilizado. Confira o código e tente novamente.');
-      } else {
-        setError(e instanceof Error ? e.message : 'Não foi possível entrar.');
-      }
+      setError(e instanceof Error ? e.message : 'Não foi possível entrar.');
     } finally {
       setBusy(false);
     }
@@ -569,7 +631,6 @@ function WorkspaceContent() {
             if (busy) return;
             setAccessRole(role);
             setError('');
-            resetLoginChallenge();
           }}
         >
           <form onSubmit={login} className="ws-login-form">
@@ -598,7 +659,6 @@ function WorkspaceContent() {
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value);
-                  resetLoginChallenge();
                 }}
                 placeholder="voce@empresa.com.br"
               />
@@ -614,7 +674,6 @@ function WorkspaceContent() {
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value);
-                    resetLoginChallenge();
                   }}
                 />
               </label>
@@ -631,21 +690,6 @@ function WorkspaceContent() {
                 )}
               </button>
             </div>
-            {mfaRequired && (
-              <label>
-                Código de duas etapas
-                <input
-                  autoFocus
-                  required
-                  readOnly={busy}
-                  autoComplete="one-time-code"
-                  maxLength={64}
-                  value={mfaCode}
-                  onChange={(e) => setMfaCode(e.target.value.trim())}
-                  placeholder="Código do autenticador ou de recuperação"
-                />
-              </label>
-            )}
             <button className="ws-primary" disabled={busy}>
               {busy ? 'Entrando…' : 'Entrar na plataforma'}
               <ArrowRight size={18} />
@@ -660,7 +704,6 @@ function WorkspaceContent() {
                 disabled={busy}
                 onClick={() => {
                   setShowPassword(false);
-                  resetLoginChallenge();
                   setRecovery({});
                 }}
               >
@@ -683,7 +726,6 @@ function WorkspaceContent() {
                     setSession(user);
                     setPassword('');
                     setShowPassword(false);
-                    resetLoginChallenge();
                     setActive('projetos');
                     setPage(0);
                   } catch (e) {
@@ -723,8 +765,33 @@ function WorkspaceContent() {
       </PublicAppearance>
     );
 
+  if (session.exigeTrocaSenha)
+    return (
+      <PublicAppearance>
+        <main className="ws ws-center">
+          <section className="ws-service-panel">
+            <h1>Troque a senha inicial</h1>
+            <p>Defina uma senha pessoal para liberar seu acesso.</p>
+          </section>
+          <OperationForm
+            definition={{ ...passwordOperation, title: 'Primeiro acesso: defina sua senha' }}
+            onClose={() => {
+              void logout();
+            }}
+            onSaved={() => {
+              sessionStorage.removeItem('obra360_access_token');
+              setSession(null);
+              setPassword('');
+              setShowPassword(false);
+              setNotice('Senha definida. Entre novamente com sua senha pessoal.');
+            }}
+          />
+        </main>
+      </PublicAppearance>
+    );
   const available = resources.filter(
     (r) =>
+      (r.id !== 'compras' || [...privileged, 'ALMOXARIFE'].includes(session.perfil)) &&
       (!r.restricted || privileged.includes(session.perfil)) &&
       (!r.adminOnly || session.perfil === 'SUPER_ADMIN'),
   );
@@ -739,44 +806,79 @@ function WorkspaceContent() {
         ),
     ) || [];
   const isInternal = internal.includes(session.perfil);
+  const hasNavigation = isInternal || session.perfil === 'COLABORADOR';
   const links = new Map<string, { title: string; icon: typeof Layers3 }>();
   if (isInternal && session.perfil !== 'RH') {
     for (const item of available) {
-      const icon = item.id === 'projetos' ? FolderKanban
-        : item.id === 'estoque' ? Package : item.id === 'documentos' ? FileText : Layers3;
+      const icon =
+        item.id === 'projetos'
+          ? FolderKanban
+          : item.id === 'estoque'
+            ? Package
+            : item.id === 'documentos'
+              ? FileText
+              : Layers3;
       links.set(item.id, { title: item.title, icon });
     }
     links.set('integracoes', { title: 'Integrações', icon: Layers3 });
     links.set('ifc', { title: 'Leitor IFC', icon: Layers3 });
-    if (modelRoles.includes(session.perfil)) links.set('modelador', { title: 'Modelador 2D/3D', icon: Layers3 });
+    if (modelRoles.includes(session.perfil))
+      links.set('modelador', { title: 'Modelador 2D/3D', icon: Layers3 });
   }
-  if (session.perfil === 'SUPER_ADMIN') links.set('dados', { title: 'Qualidade dos dados', icon: Database });
-  if (['SUPER_ADMIN', 'RH'].includes(session.perfil)) links.set('rh', { title: 'Recursos humanos', icon: Building2 });
-  const currentPage = active !== 'conta' && session.perfil === 'RH' ? 'rh' : active;
-  const currentPageTitle = currentPage === 'conta' ? 'Conta e atendimento' : links.get(currentPage)?.title;
+  if (session.perfil === 'SUPER_ADMIN')
+    links.set('dados', { title: 'Qualidade dos dados', icon: Database });
+  if (['SUPER_ADMIN', 'RH'].includes(session.perfil))
+    links.set('rh', { title: 'Recursos humanos', icon: Building2 });
+  if (session.perfil === 'COLABORADOR')
+    links.set('colaborador', { title: 'Meu cadastro', icon: Building2 });
+  const currentPage =
+    !['conta', 'notificacoes'].includes(active) && session.perfil === 'RH'
+      ? 'rh'
+      : !['conta', 'notificacoes'].includes(active) && session.perfil === 'COLABORADOR'
+        ? 'colaborador'
+        : active;
+  const currentPageTitle =
+    currentPage === 'conta'
+      ? 'Conta e atendimento'
+      : currentPage === 'notificacoes'
+        ? 'Notificações'
+        : links.get(currentPage)?.title;
   const mayCreate = ['SUPER_ADMIN', 'GERENTE_OBRA', 'INCORPORADOR'].includes(session.perfil);
   return (
     <div className="ws ws-shell">
-      <aside className="ws-sidebar" onKeyDown={(event) => {
-        if (event.key === 'Escape' && navigationOpen) closeNavigation();
-      }}>
+      <aside
+        className="ws-sidebar"
+        onKeyDown={(event) => {
+          if (event.key === 'Escape' && navigationOpen) closeNavigation();
+        }}
+      >
         <div className="ws-sidebar-heading">
           <div className="ws-brand">
             <span>360</span> Obra360
           </div>
-          {internal.includes(session.perfil) && (
-            <button type="button" className="ws-secondary ws-navigation-toggle"
-              ref={navigationToggle} aria-expanded={navigationOpen} aria-controls="ws-navigation"
-              onClick={() => setNavigationOpen((open) => !open)}>
-              {navigationOpen ? <X size={18} aria-hidden="true" /> : <Menu size={18} aria-hidden="true" />}
+          {hasNavigation && (
+            <button
+              type="button"
+              className="ws-secondary ws-navigation-toggle"
+              ref={navigationToggle}
+              aria-expanded={navigationOpen}
+              aria-controls="ws-navigation"
+              onClick={() => setNavigationOpen((open) => !open)}
+            >
+              {navigationOpen ? (
+                <X size={18} aria-hidden="true" />
+              ) : (
+                <Menu size={18} aria-hidden="true" />
+              )}
               Menu
             </button>
           )}
         </div>
-        {isInternal && currentPageTitle && (
-          <p className="ws-current-page">{currentPageTitle}</p>
-        )}
-        <div id="ws-navigation" className={navigationOpen ? 'ws-navigation is-open' : 'ws-navigation'}>
+        {hasNavigation && currentPageTitle && <p className="ws-current-page">{currentPageTitle}</p>}
+        <div
+          id="ws-navigation"
+          className={navigationOpen ? 'ws-navigation is-open' : 'ws-navigation'}
+        >
           <nav aria-label="Módulos da empresa">
             {navigationGroups.map((group) => {
               const items = group.ids.filter((id) => links.has(id));
@@ -830,6 +932,14 @@ function WorkspaceContent() {
               <small>{session.perfil.replace(/_/g, ' ')}</small>
             </span>
             <AppearanceToggle />
+            <button
+              className="ws-icon-button"
+              aria-label="Notificações"
+              title="Notificações"
+              onClick={() => setActive('notificacoes')}
+            >
+              <Bell size={19} />
+            </button>
             <button className="ws-secondary" onClick={() => setOperation(passwordOperation)}>
               Minha senha
             </button>
@@ -864,8 +974,12 @@ function WorkspaceContent() {
               />
             </article>
           )}
-          {active === 'conta' ? (
+          {active === 'notificacoes' ? (
+            <Notifications />
+          ) : active === 'conta' ? (
             <AccountCenter admin={session.perfil === 'SUPER_ADMIN'} />
+          ) : session.perfil === 'COLABORADOR' ? (
+            <EmployeePortal />
           ) : session.perfil === 'RH' || (active === 'rh' && session.perfil === 'SUPER_ADMIN') ? (
             <HumanResources />
           ) : !internal.includes(session.perfil) ? (
@@ -876,6 +990,7 @@ function WorkspaceContent() {
             <React.Suspense fallback={<p role="status">Carregando editor 2D/3D…</p>}>
               <ModelEditor
                 role={session.perfil}
+                initialTarget={modelTarget}
                 draftScope={JSON.stringify([session.empresa.cnpj, session.email.toLowerCase()])}
                 onDirtyChange={onModelDirty}
               />
@@ -992,7 +1107,12 @@ function WorkspaceContent() {
                     <p>Consultando os registros…</p>
                   </div>
                 ) : data && rows.length > 0 ? (
-                  <div className="ws-table-scroll" tabIndex={0} role="region" aria-label="Tabela de registros">
+                  <div
+                    className="ws-table-scroll"
+                    tabIndex={0}
+                    role="region"
+                    aria-label="Tabela de registros"
+                  >
                     <table>
                       <caption className="sr-only">{resource.title} da empresa</caption>
                       <thead>
@@ -1010,11 +1130,41 @@ function WorkspaceContent() {
                           <tr key={String(row.id)}>
                             {resource.columns.map(([key, , type], i) => (
                               <td key={key} className={i === 0 ? 'ws-cell-title' : ''}>
-                                {format(row[key], type)}
+                                {i === 0 ? (
+                                  <button
+                                    className="ws-record-link"
+                                    onClick={() =>
+                                      setDetailTarget({ resource: active, id: String(row.id) })
+                                    }
+                                  >
+                                    {format(row[key], type)}
+                                  </button>
+                                ) : (
+                                  format(row[key], type)
+                                )}
                               </td>
                             ))}
                             <td>
                               <div className="ws-row-actions">
+                                <button
+                                  className="ws-secondary"
+                                  onClick={() =>
+                                    setDetailTarget({ resource: active, id: String(row.id) })
+                                  }
+                                >
+                                  Ver detalhes
+                                </button>
+                                {active === 'qualidade' &&
+                                  ['SUPER_ADMIN', 'GERENTE_OBRA', 'ENGENHEIRO', 'AUDITOR'].includes(
+                                    session.perfil,
+                                  ) && (
+                                    <button
+                                      className="ws-secondary"
+                                      onClick={() => setEvidenceId(String(row.id))}
+                                    >
+                                      Ver evidências
+                                    </button>
+                                  )}
                                 {rowOperations(active, row, session.perfil).map((action) => (
                                   <button
                                     className="ws-secondary"
@@ -1138,6 +1288,30 @@ function WorkspaceContent() {
               setRevision((v) => v + 1);
               setNotice(message);
             }
+          }}
+        />
+      )}
+      {evidenceId && (
+        <QualityEvidence key={evidenceId} id={evidenceId} onClose={() => setEvidenceId(null)} />
+      )}
+      {detailTarget && (
+        <RecordDetails
+          key={`${detailTarget.resource}-${detailTarget.id}`}
+          target={detailTarget}
+          definition={(id) => resources.find((r) => r.id === id)}
+          onClose={() => setDetailTarget(null)}
+          onDocument={downloadDocument}
+          canDownload={[
+            'SUPER_ADMIN',
+            'GERENTE_OBRA',
+            'ENGENHEIRO',
+            'ARQUITETO',
+            'AUDITOR',
+          ].includes(session.perfil)}
+          onModel={(project, model) => {
+            setDetailTarget(null);
+            setModelTarget({ project, model });
+            setActive('modelador');
           }}
         />
       )}
@@ -1358,6 +1532,7 @@ function UserForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => vo
                 'CLIENTE',
                 'CORRETOR',
                 'INVESTIDOR',
+                'COLABORADOR',
                 'FORNECEDOR',
                 'LOCADOR_MAQUINAS',
               ].map((role) => (
@@ -1397,6 +1572,7 @@ function UserForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => vo
 }
 
 function ProjectForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const [startDate, setStartDate] = useState('');
   const [engineers, setEngineers] = useState<{ id: number; nome: string }[]>([]);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -1452,8 +1628,15 @@ function ProjectForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
     e.preventDefault();
     const fields = new FormData(e.currentTarget);
     const body = Object.fromEntries(fields.entries());
-    if (String(body.dataPrevisaoFim) < String(body.dataInicio)) {
-      setError('A entrega prevista deve ser igual ou posterior ao início.');
+    const dateError = planningError(
+      [
+        { name: 'dataInicio', label: 'Data de início', type: 'date', futureOnly: true },
+        { name: 'dataPrevisaoFim', label: 'Entrega prevista', type: 'date', futureOnly: true },
+      ],
+      body,
+    );
+    if (dateError) {
+      setError(dateError);
       return;
     }
     setSaving(true);
@@ -1547,11 +1730,22 @@ function ProjectForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
             </label>
             <label>
               Data de início
-              <input name="dataInicio" type="date" required />
+              <input
+                name="dataInicio"
+                type="date"
+                min={localCalendarDate()}
+                onChange={(event) => setStartDate(event.target.value)}
+                required
+              />
             </label>
             <label>
               Entrega prevista
-              <input name="dataPrevisaoFim" type="date" required />
+              <input
+                name="dataPrevisaoFim"
+                type="date"
+                min={startDate > localCalendarDate() ? startDate : localCalendarDate()}
+                required
+              />
             </label>
           </div>
           <footer>

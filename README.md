@@ -4,7 +4,7 @@ Gestão da construção com React, TypeScript e API Java 21/Spring Boot. O modo 
 
 Autores: João Pedro e Marcos Henrique. O material acadêmico anterior está preservado em [docs/README-legado.md](docs/README-legado.md), como histórico; suas afirmações de integrações e conformidade não descrevem o estado atual.
 
-Controle de sessões, MFA, convites, limites, exportação privada e atendimento estão descritos em [Preparação comercial](docs/COMERCIALIZACAO.md), junto às pendências para contratação e operação com clientes reais. Não há cobrança automática nem aceite de cliente real comprovado.
+Controle de sessões, convites, limites, exportação privada e atendimento estão descritos em [Preparação comercial](docs/COMERCIALIZACAO.md), junto às pendências para contratação e operação com clientes reais. Não há cobrança automática nem aceite de cliente real comprovado.
 
 A interface conectada alterna entre os temas **Claro e Escuro** com um toque no botão de sol ou lua, com preferência salva no navegador e layout adaptável a celular, tablet e desktop. Uso e dimensões testadas estão em [Aparência e responsividade](docs/APARENCIA-RESPONSIVIDADE.md). A cobertura por perfil, os processos testados e os limites da confirmação estão em [Validação funcional](docs/VALIDACAO-FUNCIONAL.md). `npm run test:roles` percorre os quinze perfis nos dois temas e verifica a matriz de permissões da API em base isolada.
 
@@ -26,7 +26,7 @@ O banco H2 persistente é criado em `obra360-backend/data/obra360.mv.db`. Esse d
 
 Após entrar, abra **Usuários**, cadastre um usuário com perfil **ENGENHEIRO** ou **GERENTE OBRA** e crie o empreendimento selecionando esse responsável. O cadastro de usuários pertence sempre à empresa autenticada.
 
-A tela de acesso oferece escolha de perfil por nível, e-mail, senha e Google. O perfil escolhido deve corresponder ao cadastro. A opção automática identifica o perfil da conta. Use o ícone de olho para mostrar ou ocultar a senha. O campo de código aparece após a validação da senha para contas com autenticação em duas etapas ativa. O login por Google requer GOOGLE_CLIENT_ID configurado e uma conta vinculada.
+A tela de acesso oferece escolha de perfil por nível, e-mail, senha e Google. O perfil escolhido deve corresponder ao cadastro. A opção automática identifica o perfil da conta. Use o ícone de olho para mostrar ou ocultar a senha. O login por Google requer GOOGLE_CLIENT_ID configurado e uma conta vinculada.
 
 ## O que está integrado ao banco
 
@@ -41,15 +41,15 @@ A tela de acesso oferece escolha de perfil por nível, e-mail, senha e Google. O
 - Resumo de ordens abertas/atrasadas, materiais abaixo do mínimo e custo de consumo calculado a partir dos custos unitários cadastrados.
 - Eventos de auditoria para os novos cadastros, movimentações e alterações de situação, vinculados ao usuário e à empresa.
 
-As consultas exibem os registros efetivamente existentes. Banco vazio produz tela vazia; erro de API produz erro visível. As operações disponíveis dependem do perfil. Perfis de cliente, fornecedor, corretor, locador e investidor ainda não recebem um portal operacional próprio. Veja o percurso completo em [docs/OPERACAO.md](docs/OPERACAO.md).
+As consultas exibem os registros efetivamente existentes. Banco vazio produz tela vazia; erro de API produz erro visível. As operações disponíveis dependem do perfil. Clientes, fornecedores, corretores, locadores e investidores possuem portais com dados limitados aos vínculos concedidos pelo administrador. Veja o percurso completo em [docs/OPERACAO.md](docs/OPERACAO.md).
 
 O backend antigo continha endpoints sem isolamento suficiente. Eles estão bloqueados por padrão; o modo real usa `/api/v1/workspace/**`. Consumidores externos dos endpoints antigos precisarão ser migrados para os contratos seguros. Os serviços e telas históricos foram preservados para revisão e demonstração.
 
-## Integrações que ainda não estão implementadas
+## Integrações e limites de ativação
 
-S3, Google, IA e consulta SEFAZ têm conectores implementados; sua ativação e validação real dependem das credenciais e contas. IFC e portais externos estão disponíveis. Veja [docs/INTEGRACOES.md](docs/INTEGRACOES.md). Sincronização Supabase não foi implementada. Validar o dígito da NF-e não comprova autorização fiscal. O projeto não possui certificação de conformidade LGPD/ISO/NR nem auditoria externa.
+Google, IA e consulta SEFAZ têm conectores implementados; sua ativação e validação real dependem das credenciais e contas. IFC e portais externos estão disponíveis. Veja [docs/INTEGRACOES.md](docs/INTEGRACOES.md). Sincronização Supabase não foi implementada. Validar o dígito da NF-e não comprova autorização fiscal. O projeto não possui certificação de conformidade LGPD/ISO/NR nem auditoria externa.
 
-O armazenamento padrão de documentos é local (S3 é configurável), em `obra360-backend/data/documentos`. O MongoDB do Compose não é usado pela auditoria atual: os eventos persistem em tabela relacional. A auditoria não oferece garantia de imutabilidade. Os listeners Kafka históricos ficam desabilitados.
+O armazenamento de documentos é exclusivamente local, em `obra360-backend/data/documentos`. O MongoDB do Compose não é usado pela auditoria atual: os eventos persistem em tabela relacional. A auditoria não oferece garantia de imutabilidade. Os listeners Kafka históricos ficam desabilitados.
 
 ## PostgreSQL e execução fora do computador local
 
@@ -106,3 +106,11 @@ Vários modelos por obra, pavimentos, paredes, lajes, pilares, portas e janelas 
 ## Homologação persistida
 
 A instalação local foi preenchida, a pedido, com empresa e contas de teste identificadas como HOMOLOGACAO. Os dados estão no banco, mas não representam pessoas/empresas reais. Acesse as credenciais em ACESSO-HOMOLOGACAO.local (ignorado pelo Git). Consulte [docs/HOMOLOGACAO.md](docs/HOMOLOGACAO.md). O diagnóstico administrativo está em Qualidade dos dados.
+
+## Primeira versão comercial
+
+O escopo inicial é gestão de obras: projetos, equipes, OS, compras, estoque, documentos, RH administrativo e plantas. O roteiro e os critérios de aceite estão em [docs/PILOTO-COMERCIAL.md](docs/PILOTO-COMERCIAL.md). O produto usa armazenamento local e login sem autenticação em duas etapas. Testes automatizados não substituem o aceite de uma empresa real.
+
+## Operação local preparada
+
+Inicie com `npm run dev`, consulte `npm run diagnostico:local` e acompanhe com `npm run monitorar:local`. O guia de inicialização, encerramento, backup, recuperação e treinamento está em [docs/OPERACAO-LOCAL.md](docs/OPERACAO-LOCAL.md).

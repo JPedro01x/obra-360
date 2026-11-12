@@ -1,9 +1,20 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Plus, RefreshCw, Search, Users, X } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  Plus,
+  RefreshCw,
+  Search,
+  Users,
+  X,
+  Eye,
+  EyeOff,
+} from 'lucide-react';
 import { requestApi } from '../services/http';
 import './rh.css';
 import { RhSelect } from './RhSelect';
 import { RhDossie } from './RhDossie';
+import { localCalendarDate, planningError, planningMinimum } from '../utils/planningDates';
 
 type RecordData = Record<string, string | number | boolean | null>;
 type Option = { id: number; nome: string };
@@ -54,7 +65,7 @@ const sections: Section[] = [
     title: 'Funcionários',
     singular: 'funcionário',
     description:
-      'Admissão, vínculo, remuneração e alocação. O cadastro não cria automaticamente uma conta de acesso.',
+      'Admissão, vínculo, remuneração e alocação. Novos cadastros criam login pelo e-mail e senha inicial, com acesso de Colaborador.',
     fields: [
       f('matricula', 'Matrícula', { maxLength: 30 }),
       f('nome', 'Nome completo', { maxLength: 150 }),
@@ -316,7 +327,9 @@ const label = (value: string) =>
   value === 'true' ? 'Sim' : value === 'false' ? 'Não' : value.replace(/_/g, ' ');
 
 function RhModal({
+  resource,
   title,
+  warning,
   fields,
   initial,
   editing,
@@ -324,7 +337,9 @@ function RhModal({
   onClose,
   busy,
 }: {
+  resource: string;
   title: string;
+  warning?: string;
   fields: Field[];
   initial: RecordData;
   editing?: boolean;
@@ -344,6 +359,14 @@ function RhModal({
     ),
   );
   const [error, setError] = useState('');
+  const planningFields = fields.map((field) => ({
+    ...field,
+    futureOnly:
+      (resource === 'afastamentos' &&
+        values.tipo === 'FERIAS' &&
+        ['inicio', 'fim'].includes(field.name)) ||
+      (resource === 'vagas' && values.situacao === 'ABERTA' && field.name === 'abertura'),
+  }));
   useEffect(() => {
     const previous = document.activeElement as HTMLElement;
     ref.current?.querySelector<HTMLElement>('input,select,button')?.focus();
@@ -382,6 +405,11 @@ function RhModal({
       if (field.name === 'ativo') value = value === 'true';
       body[field.name] = value;
     }
+    const dateError = planningError(planningFields, body, initial);
+    if (dateError) {
+      setError(dateError);
+      return;
+    }
     try {
       await onSave(body);
     } catch (e) {
@@ -408,6 +436,11 @@ function RhModal({
             <X size={20} />
           </button>
         </header>
+        {warning && (
+          <p className="ws-help" role="note">
+            {warning}
+          </p>
+        )}
         <form onSubmit={submit}>
           {error && (
             <div className="ws-alert" role="alert">
@@ -429,7 +462,29 @@ function RhModal({
                     <RhSelect
                       field={field}
                       value={values[field.name]}
-                      onChange={(value) => setValues((v) => ({ ...v, [field.name]: value }))}
+                      context={
+                        field.source === 'cargos'
+                          ? {
+                              param: 'departamentoId',
+                              value: values.departamentoId,
+                              label: 'departamento',
+                            }
+                          : field.source === 'equipes'
+                            ? {
+                                param: 'projetoObraId',
+                                value: values.projetoObraId,
+                                label: 'obra de alocação',
+                              }
+                            : undefined
+                      }
+                      onChange={(value) =>
+                        setValues((v) => ({
+                          ...v,
+                          [field.name]: value,
+                          ...(field.name === 'departamentoId' ? { cargoId: '' } : {}),
+                          ...(field.name === 'projetoObraId' ? { equipeId: '' } : {}),
+                        }))
+                      }
                       disabled={busy}
                     />
                   ) : field.options ? (
@@ -462,8 +517,20 @@ function RhModal({
                       name={field.name}
                       type={field.type || 'text'}
                       required={!field.optional}
-                      min={field.min}
-                      max={field.max}
+                      min={
+                        planningMinimum(
+                          planningFields.find((item) => item.name === field.name)!,
+                          values,
+                          initial,
+                        ) ?? field.min
+                      }
+                      max={
+                        field.name === 'nascimento' ||
+                        ((resource === 'ponto' || title.startsWith('Registrar desligamento')) &&
+                          field.name === 'data')
+                          ? localCalendarDate()
+                          : field.max
+                      }
                       step={field.step}
                       maxLength={field.maxLength}
                       readOnly={editing && field.readonly}
@@ -492,6 +559,7 @@ function RhModal({
 
 type Action = {
   title: string;
+  warning?: string;
   path: string;
   method?: string;
   fields: Field[];
@@ -510,6 +578,7 @@ type Statement = {
   liquido: number;
 };
 export function HumanResources() {
+  const [initialAccess, setInitialAccess] = useState<InitialAccess | null>(null);
   const [sectionId, setSectionId] = useState('funcionarios');
   const section = sections.find((s) => s.id === sectionId) || sections[0];
   const dossierMode = sectionId === 'documentos-rh' || sectionId === 'historico';
@@ -617,13 +686,14 @@ export function HumanResources() {
     if (!action || busy) return;
     setBusy(true);
     try {
-      await api(action.path, {
+      const result = await api<{ acessoInicial?: InitialAccess }>(action.path, {
         method: action.method || 'POST',
         ...(action.method === 'DELETE'
           ? {}
           : { body: JSON.stringify({ ...body, ...action.hidden }) }),
       });
       setAction(null);
+      if (result?.acessoInicial) setInitialAccess(result.acessoInicial);
       setNotice('Operação de RH registrada.');
       refresh();
     } finally {
@@ -636,9 +706,11 @@ export function HumanResources() {
     suffix: string,
     fields: Field[] = [],
     hidden: RecordData = {},
+    warning?: string,
   ) =>
     setAction({
       title,
+      warning,
       path: `/${sectionId}/${row.id}/${suffix}`,
       fields,
       initial: {},
@@ -822,9 +894,14 @@ export function HumanResources() {
                           {sectionId === 'funcionarios' && row.situacao === 'ATIVO' && (
                             <button
                               onClick={() =>
-                                versionAction(row, 'Registrar desligamento', 'desligar', [
-                                  date('data', 'Data de desligamento'),
-                                ])
+                                versionAction(
+                                  row,
+                                  `Registrar desligamento de ${row.nome}`,
+                                  'desligar',
+                                  [date('data', 'Data de desligamento')],
+                                  {},
+                                  'O vínculo ficará como desligado e a conta de acesso será desativada. O histórico será preservado. Esta ação não calcula nem paga uma rescisão.',
+                                )
                               }
                             >
                               Desligar
@@ -1015,9 +1092,15 @@ export function HumanResources() {
       )}
       {action && (
         <RhModal
+          resource={action.path.split('/')[1]}
           key={action.path}
           title={action.title}
-          fields={action.fields}
+          warning={action.warning}
+          fields={action.fields.map((field) =>
+            action.path === '/funcionarios' && field.name === 'email'
+              ? { ...field, optional: false }
+              : field,
+          )}
           initial={action.initial}
           editing={action.editing}
           onSave={save}
@@ -1025,6 +1108,69 @@ export function HumanResources() {
           busy={busy}
         />
       )}
+      {initialAccess && (
+        <InitialAccessDialog access={initialAccess} onClose={() => setInitialAccess(null)} />
+      )}
     </div>
+  );
+}
+
+type InitialAccess = { usuarioId: number; email: string; senha: string; perfil: string };
+function InitialAccessDialog({ access, onClose }: { access: InitialAccess; onClose: () => void }) {
+  const ref = useRef<HTMLDialogElement>(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    ref.current?.showModal();
+    return () => ref.current?.close();
+  }, []);
+  return (
+    <dialog
+      ref={ref}
+      className="ws ws-form-dialog"
+      aria-labelledby="rh-initial-title"
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
+    >
+      <section className="ws-modal">
+        <h2 id="rh-initial-title">Acesso do funcionário criado</h2>
+        <p>
+          Compartilhe estes dados com o funcionário por um canal privado. A senha aparece somente
+          agora e deverá ser trocada no primeiro acesso.
+        </p>
+        <label>
+          Login (e-mail)
+          <input readOnly value={access.email} onFocus={(event) => event.currentTarget.select()} />
+        </label>
+        <label>
+          Senha inicial
+          <input
+            readOnly
+            autoComplete="off"
+            type={visible ? 'text' : 'password'}
+            value={access.senha}
+            onFocus={(event) => event.currentTarget.select()}
+          />
+        </label>
+        <button
+          className="ws-secondary"
+          aria-label={visible ? 'Ocultar senha inicial' : 'Visualizar senha inicial'}
+          onClick={() => setVisible((value) => !value)}
+        >
+          {visible ? <EyeOff size={18} /> : <Eye size={18} />}{' '}
+          {visible ? 'Ocultar senha' : 'Visualizar senha'}
+        </button>
+        <p>
+          Perfil inicial: Colaborador. Permissões de gestão são concedidas separadamente pelo
+          administrador.
+        </p>
+        <footer>
+          <button className="ws-primary" onClick={onClose}>
+            Concluir e fechar
+          </button>
+        </footer>
+      </section>
+    </dialog>
   );
 }

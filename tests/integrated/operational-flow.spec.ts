@@ -117,7 +117,7 @@ test('complete operation through browser, API and database', async ({
   await select(page, 'Contrato', 'CT-E2E');
   await select(page, 'Equipe', 'Equipe E2E');
   await page.getByLabel('Descrição do serviço').fill('Executar alvenaria E2E');
-  await page.getByLabel('Prazo de atendimento', { exact: true }).fill(future + 'T18:00');
+  await page.getByLabel('Exigir consumo de material para concluir').selectOption('true');
   await save(page);
   const order = () => page.getByRole('row').filter({ hasText: 'Executar alvenaria E2E' });
   await order().getByRole('button', { name: 'Registrar consumo' }).click();
@@ -139,6 +139,48 @@ test('complete operation through browser, API and database', async ({
       .filter({ hasText: 'Cimento E2E' })
       .getByRole('cell', { name: '6', exact: true }),
   ).toBeVisible();
+  await navigate(page, 'Usuários');
+  await page.getByRole('button', { name: 'Novo usuário', exact: true }).click();
+  await page.getByLabel('Nome completo').fill('Financeiro E2E');
+  await page.getByLabel('E-mail do usuário').fill('finance-e2e@test.invalid');
+  await page.getByLabel('Perfil de acesso').selectOption('FINANCEIRO');
+  await page.getByLabel('Senha inicial (mínimo de 12 caracteres)').fill(password);
+  await page.getByRole('button', { name: 'Cadastrar usuário', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await navigate(page, 'Requisições e pedidos');
+  await page.getByRole('button', { name: 'Nova requisição de compra', exact: true }).click();
+  await select(page, 'Material', 'Cimento E2E');
+  await page.getByLabel('Quantidade a comprar').fill('4');
+  await page
+    .getByLabel('Justificativa (mínimo de 10 caracteres)')
+    .fill('Reposição de cimento para a obra');
+  await save(page);
+  await page.getByRole('button', { name: 'Registrar proposta', exact: true }).click();
+  await select(page, 'Fornecedor', 'Fornecedor E2E');
+  await page.getByLabel('Valor total da quantidade solicitada (R$)').fill('240');
+  await save(page);
+  await page.getByRole('button', { name: 'Comparar e selecionar proposta', exact: true }).click();
+  await select(page, 'Propostas por valor total, fornecedor e prazo', 'Fornecedor E2E');
+  await save(page);
+  await page.getByRole('button', { name: 'Aprovar pela gestão', exact: true }).click();
+  await save(page);
+  await page.getByLabel('Sair da plataforma').click();
+  await login(password, 'finance-e2e@test.invalid');
+  await navigate(page, 'Requisições e pedidos');
+  await page.getByRole('button', { name: 'Aprovar pelo financeiro', exact: true }).click();
+  await save(page);
+  await page.getByLabel('Sair da plataforma').click();
+  await login(password);
+  await navigate(page, 'Requisições e pedidos');
+  await page.getByRole('button', { name: 'Emitir pedido de compra', exact: true }).click();
+  await save(page);
+  await page.getByRole('button', { name: 'Confirmar recebimento integral', exact: true }).click();
+  await save(page);
+  await expect(page.getByRole('cell', { name: 'RECEBIDO', exact: true })).toBeVisible();
+  await navigate(page, 'Almoxarifado');
+  const purchasedMaterial = page.getByRole('row').filter({ hasText: 'Cimento E2E' });
+  await expect(purchasedMaterial.getByRole('cell', { name: '10', exact: true })).toBeVisible();
+  await expect(purchasedMaterial).toContainText('54,00');
   await navigate(page, 'Documentos');
   await page.getByRole('button', { name: 'Enviar documento', exact: true }).click();
   await select(page, 'Empreendimento', 'Obra E2E');
@@ -210,6 +252,16 @@ test('complete operation through browser, API and database', async ({
   await select(page, 'Empreendimento', 'Obra E2E');
   await select(page, 'Unidade (obrigatória para cliente)', 'AP-E2E');
   await save(page);
+  await navigate(page, 'Coberturas de garantia');
+  await page.getByRole('button', { name: 'Cadastrar cobertura de garantia', exact: true }).click();
+  await select(page, 'Unidade', 'AP-E2E');
+  await page.getByLabel('Categoria do defeito', { exact: true }).fill('Hidráulica');
+  await page.getByLabel('Início da cobertura').fill(today);
+  await page.getByLabel('Fim da cobertura').fill(future);
+  await page
+    .getByLabel('Condições da cobertura')
+    .fill('Condição administrativa do laboratório E2E');
+  await save(page);
   await page.getByLabel('Sair da plataforma').click();
   await login(password, 'client-e2e@test.invalid', true);
   await expect(page.getByRole('heading', { name: 'AP-E2E' })).toBeVisible();
@@ -222,6 +274,67 @@ test('complete operation through browser, API and database', async ({
   // HR uses the same real API/database and its own restricted endpoints.
   await page.getByLabel('Sair da plataforma').click();
   await login('SenhaRecuperadaE2e@12345');
+  await navigate(page, 'Pós-venda');
+  const warranty = () => page.getByRole('row').filter({ hasText: 'Chamado do cliente E2E' });
+  await expect(warranty()).toContainText('DENTRO PRAZO');
+  await warranty().getByRole('button', { name: 'Avaliar cobertura', exact: true }).click();
+  await page.getByLabel('Decisão técnica').selectOption('COBERTA');
+  await page
+    .getByLabel('Motivo da avaliação (mínimo de 10 caracteres)')
+    .fill('Defeito confirmado na avaliação do laboratório');
+  await save(page);
+  await warranty().getByRole('button', { name: 'Agendar vistoria', exact: true }).click();
+  await select(page, 'Responsável pela vistoria', 'Engenheiro E2E');
+  await page.getByLabel('Data e hora da vistoria').fill(future + 'T12:00');
+  await save(page);
+  await warranty().getByRole('button', { name: 'Gerar OS da garantia', exact: true }).click();
+  await select(page, 'Contrato', 'CT-E2E');
+  await select(page, 'Equipe', 'Equipe E2E');
+  await save(page);
+  await navigate(page, 'Ordens de serviço');
+  const warrantyOrder = () => page.getByRole('row').filter({ hasText: 'Chamado do cliente E2E' });
+  for (const state of ['EM_ANDAMENTO', 'CONCLUIDO']) {
+    await warrantyOrder().getByRole('button', { name: 'Atualizar ordem', exact: true }).click();
+    await page.getByLabel('Nova situação').selectOption(state);
+    await save(page);
+  }
+  await navigate(page, 'Pós-venda');
+  await warranty().getByRole('button', { name: 'Atualizar chamado', exact: true }).click();
+  await page.getByLabel('Situação do chamado').selectOption('CONCLUIDO');
+  await save(page);
+  await expect(warranty()).toContainText('CONCLUIDO');
+  await navigate(page, 'Qualidade e segurança');
+  await page.getByRole('button', { name: 'Nova ocorrência', exact: true }).click();
+  await select(page, 'Empreendimento', 'Obra E2E');
+  await select(page, 'Responsável', 'Engenheiro E2E');
+  await page.getByLabel('Título da ocorrência').fill('Ocorrência E2E com foto');
+  await page.getByLabel('Norma ou referência').fill('Referência de teste');
+  await page.getByLabel('Severidade', { exact: true }).selectOption('ALTA');
+  const photoBytes = await page.evaluate(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 4;
+    canvas.height = 4;
+    canvas.getContext('2d')!.fillRect(0, 0, 4, 4);
+    return canvas.toDataURL('image/png').split(',')[1];
+  });
+  await page
+    .getByLabel(/Foto PNG\/JPEG/)
+    .setInputFiles({
+      name: 'evidencia.png',
+      mimeType: 'image/png',
+      buffer: Buffer.from(photoBytes, 'base64'),
+    });
+  await save(page);
+  const occurrence = () => page.getByRole('row').filter({ hasText: 'Ocorrência E2E com foto' });
+  await occurrence().getByRole('button', { name: 'Ver evidências', exact: true }).click();
+  const evidenceDownload = page.waitForEvent('download');
+  await page.getByRole('button', { name: /Baixar foto/ }).click();
+  const evidenceFile = await evidenceDownload;
+  expect((await readFile((await evidenceFile.path())!)).subarray(1, 4).toString()).toBe('PNG');
+  await page.getByRole('button', { name: 'Fechar evidências', exact: true }).click();
+  await occurrence().getByRole('button', { name: 'Atualizar ocorrência', exact: true }).click();
+  await page.getByLabel('Plano de ação', { exact: true }).selectOption('RESOLVIDO');
+  await save(page);
   await page.getByRole('button', { name: 'Recursos humanos', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Recursos humanos', exact: true })).toBeVisible();
   async function rhSection(name: string) {
@@ -250,11 +363,50 @@ test('complete operation through browser, API and database', async ({
   await page.getByLabel('Matrícula', { exact: true }).fill('RH-E2E-001');
   await page.getByLabel('Nome completo', { exact: true }).fill('Funcionário E2E');
   await page.getByLabel('CPF (somente dígitos)', { exact: true }).fill('52998224725');
+  await page.getByLabel('E-mail', { exact: true }).fill('employee-e2e@test.invalid');
   await page.getByLabel('Data de admissão', { exact: true }).fill(today);
   await select(page, 'Departamento', 'Operações E2E');
   await select(page, 'Cargo', 'Técnico E2E');
   await page.getByLabel('Salário base / valor contratual (R$)', { exact: true }).fill('3000');
-  await rhSave();
+  await page.getByRole('button', { name: 'Salvar RH', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Acesso do funcionário criado', exact: true }),
+  ).toBeVisible();
+  const employeeInitialPassword = await page
+    .getByLabel('Senha inicial', { exact: true })
+    .inputValue();
+  await expect(page.getByLabel('Login (e-mail)', { exact: true })).toHaveValue(
+    'employee-e2e@test.invalid',
+  );
+  await page.getByRole('button', { name: 'Concluir e fechar', exact: true }).click();
+  const employeeContext = await page.context().browser()!.newContext();
+  const employeePage = await employeeContext.newPage();
+  await employeePage.goto(new URL('/', page.url()).toString());
+  await employeePage.getByLabel('E-mail corporativo').fill('employee-e2e@test.invalid');
+  await employeePage.getByLabel('Senha', { exact: true }).fill(employeeInitialPassword);
+  await employeePage.getByRole('button', { name: 'Entrar na plataforma' }).click();
+  await expect(
+    employeePage.getByRole('heading', { name: 'Troque a senha inicial', exact: true }),
+  ).toBeVisible();
+  await employeePage.getByLabel('Senha atual', { exact: true }).fill(employeeInitialPassword);
+  await employeePage
+    .getByLabel('Nova senha (mínimo de 12 caracteres)', { exact: true })
+    .fill('SenhaPessoalFuncionario@12345');
+  await employeePage.getByRole('button', { name: 'Salvar', exact: true }).click();
+  await expect(
+    employeePage.getByRole('heading', { name: 'Acessar Plataforma', exact: true }),
+  ).toBeVisible();
+  await employeePage.getByLabel('E-mail corporativo').fill('employee-e2e@test.invalid');
+  await employeePage.getByLabel('Senha', { exact: true }).fill('SenhaPessoalFuncionario@12345');
+  await employeePage.getByRole('button', { name: 'Entrar na plataforma' }).click();
+  await expect(
+    employeePage.getByRole('heading', { name: 'Meu cadastro', exact: true }),
+  ).toBeVisible();
+  await expect(employeePage.getByLabel('Meus dados funcionais')).toContainText('RH-E2E-001');
+  await expect(
+    employeePage.getByRole('button', { name: 'Recursos humanos', exact: true }),
+  ).toHaveCount(0);
+  await employeeContext.close();
   await expect(page.getByRole('cell', { name: 'Funcionário E2E', exact: true })).toBeVisible();
   await expect(page.getByRole('cell', { name: '***.***.247-**', exact: true })).toBeVisible();
   await page
@@ -375,8 +527,11 @@ test('complete operation through browser, API and database', async ({
   let referencePdf: Buffer;
   let referenceImage: Buffer;
   try {
-    const drawing = '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="240"><rect x="80" y="60" width="160" height="120" fill="white" stroke="black" stroke-width="4"/></svg>';
-    await referencePage.setContent(`<style>body{margin:0}section{break-after:page}</style><section>${drawing}</section>${drawing}`);
+    const drawing =
+      '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="240"><rect x="80" y="60" width="160" height="120" fill="white" stroke="black" stroke-width="4"/></svg>';
+    await referencePage.setContent(
+      `<style>body{margin:0}section{break-after:page}</style><section>${drawing}</section>${drawing}`,
+    );
     referenceImage = await referencePage.locator('svg').first().screenshot();
     referencePdf = await referencePage.pdf({ width: '340px', height: '260px' });
   } finally {
@@ -384,13 +539,24 @@ test('complete operation through browser, API and database', async ({
   }
   await page.getByText('Usar planta PDF ou imagem como referência', { exact: true }).click();
   const referenceInput = page.getByLabel('Arquivo da planta', { exact: true });
-  const referencePlan = page.getByRole('img', { name: 'Planta 2D editável em metros', exact: true });
+  const referencePlan = page.getByRole('img', {
+    name: 'Planta 2D editável em metros',
+    exact: true,
+  });
   const referenceGraphic = referencePlan.locator('image');
-  await referenceInput.setInputFiles({ name: 'planta.png', mimeType: 'image/png', buffer: referenceImage });
+  await referenceInput.setInputFiles({
+    name: 'planta.png',
+    mimeType: 'image/png',
+    buffer: referenceImage,
+  });
   await expect(referenceGraphic).toHaveCount(1);
   await page.getByRole('button', { name: 'Remover referência', exact: true }).click();
   await expect(referenceGraphic).toHaveCount(0);
-  await referenceInput.setInputFiles({ name: 'planta.pdf', mimeType: 'application/pdf', buffer: referencePdf });
+  await referenceInput.setInputFiles({
+    name: 'planta.pdf',
+    mimeType: 'application/pdf',
+    buffer: referencePdf,
+  });
   await expect(referenceGraphic).toHaveCount(1);
   await page.getByLabel('Página do PDF').fill('2');
   await page.getByRole('button', { name: 'Abrir página', exact: true }).click();
@@ -398,15 +564,18 @@ test('complete operation through browser, API and database', async ({
   await page.getByLabel('Distância real (m)', { exact: true }).fill('6');
   await page.getByRole('button', { name: 'Calibrar escala', exact: true }).click();
   await referencePlan.scrollIntoViewIfNeeded();
-  const endpoints = () => referenceGraphic.evaluate((node) => {
-    const image = node as SVGImageElement;
-    const y = image.y.baseVal.value + image.height.baseVal.value / 4;
-    return [0.25, 0.75].map((ratio) => {
-      const point = new DOMPoint(image.x.baseVal.value + image.width.baseVal.value * ratio, y)
-        .matrixTransform(image.getScreenCTM()!);
-      return { x: point.x, y: point.y };
+  const endpoints = () =>
+    referenceGraphic.evaluate((node) => {
+      const image = node as SVGImageElement;
+      const y = image.y.baseVal.value + image.height.baseVal.value / 4;
+      return [0.25, 0.75].map((ratio) => {
+        const point = new DOMPoint(
+          image.x.baseVal.value + image.width.baseVal.value * ratio,
+          y,
+        ).matrixTransform(image.getScreenCTM()!);
+        return { x: point.x, y: point.y };
+      });
     });
-  });
   const [scaleStart, scaleEnd] = await endpoints();
   await page.mouse.click(scaleStart.x, scaleStart.y);
   await page.mouse.click(scaleEnd.x, scaleEnd.y);
@@ -438,7 +607,9 @@ test('complete operation through browser, API and database', async ({
   await page.getByLabel('Motivo da revisão 3D', { exact: true }).fill('Planta e pavimentos E2E');
   await page.getByText('Rascunho privado no servidor', { exact: true }).click();
   await page.getByRole('button', { name: 'Guardar rascunho no servidor', exact: true }).click();
-  await expect(page.getByText('Rascunho guardado no servidor para esta conta.', { exact: true })).toBeVisible();
+  await expect(
+    page.getByText('Rascunho guardado no servidor para esta conta.', { exact: true }),
+  ).toBeVisible();
   const secondDevice = await page.context().browser()!.newContext();
   try {
     const remotePage = await secondDevice.newPage();
@@ -449,15 +620,22 @@ test('complete operation through browser, API and database', async ({
     await remotePage.getByRole('button', { name: 'Modelador 2D/3D', exact: true }).click();
     await select(remotePage, 'Obra do modelo', 'Obra E2E');
     await remotePage.getByRole('button', { name: /Projeto arquitetônico E2E/ }).click();
-    await remotePage.getByText('Rascunho privado no servidor · disponível', { exact: true }).click();
-    await remotePage.getByRole('button', { name: 'Recuperar rascunho do servidor', exact: true }).click();
+    await remotePage
+      .getByText('Rascunho privado no servidor · disponível', { exact: true })
+      .click();
+    await remotePage
+      .getByRole('button', { name: 'Recuperar rascunho do servidor', exact: true })
+      .click();
     await expect(remotePage.locator('.model-element-list').getByRole('button')).toHaveCount(4);
     await expect(remotePage.getByText('Alterações não salvas', { exact: true })).toBeVisible();
   } finally {
     await secondDevice.close();
   }
-  const removedDraft = page.waitForResponse((response) =>
-    response.url().endsWith('/rascunho') && response.request().method() === 'GET' && response.status() === 204,
+  const removedDraft = page.waitForResponse(
+    (response) =>
+      response.url().endsWith('/rascunho') &&
+      response.request().method() === 'GET' &&
+      response.status() === 204,
   );
   await page.getByRole('button', { name: 'Salvar modelo', exact: true }).click();
   await removedDraft;
@@ -474,8 +652,12 @@ test('complete operation through browser, API and database', async ({
     await engineer.getByRole('button', { name: /Projeto arquitetônico E2E/ }).click();
     await engineer.getByText('Usar planta PDF ou imagem como referência', { exact: true }).click();
     await expect(engineer.getByText('Referência atual: planta.pdf · página 2')).toBeVisible();
-    await expect(engineer.getByText('Escala calibrada. A planta está pronta para traçar.')).toBeVisible();
-    await expect(engineer.getByRole('img', { name: 'Planta 2D editável em metros' }).locator('image')).toHaveCount(1);
+    await expect(
+      engineer.getByText('Escala calibrada. A planta está pronta para traçar.'),
+    ).toBeVisible();
+    await expect(
+      engineer.getByRole('img', { name: 'Planta 2D editável em metros' }).locator('image'),
+    ).toHaveCount(1);
     await engineer.getByText('Revisões salvas · 2', { exact: true }).click();
     await engineer.getByRole('button', { name: 'Abrir timelapse', exact: true }).click();
     const history = engineer.getByRole('region', { name: 'Timelapse das revisões' });
@@ -503,11 +685,14 @@ test('complete operation through browser, API and database', async ({
     rotacao: 30,
   });
   await page.getByText('Compartilhar planta com o cliente', { exact: true }).click();
-  await page.getByRole('combobox', { name: 'Unidade para publicar', exact: true })
+  await page
+    .getByRole('combobox', { name: 'Unidade para publicar', exact: true })
     .selectOption({ label: 'AP-E2E' });
   await page.getByRole('spinbutton', { name: 'Revisão para publicar' }).fill('2');
   await page.getByRole('button', { name: 'Aplicar publicação', exact: true }).click();
-  await expect(page.getByText('Planta disponível aos clientes vinculados à unidade.')).toBeVisible();
+  await expect(
+    page.getByText('Planta disponível aos clientes vinculados à unidade.'),
+  ).toBeVisible();
   await page.getByRole('button', { name: 'Duplicar modelo salvo', exact: true }).click();
   await page
     .getByLabel('Nome do novo modelo', { exact: true })
@@ -655,18 +840,25 @@ test('complete operation through browser, API and database', async ({
   await expect(timeline.getByText(/Revisão exibida: 2/)).toBeVisible();
   await page.getByRole('button', { name: 'Fechar timelapse', exact: true }).click();
   await page.getByText('Compartilhar planta com o cliente', { exact: true }).click();
-  await page.getByRole('combobox', { name: 'Unidade para publicar', exact: true }).selectOption({ label: 'AP-E2E' });
+  await page
+    .getByRole('combobox', { name: 'Unidade para publicar', exact: true })
+    .selectOption({ label: 'AP-E2E' });
   await page.getByRole('spinbutton', { name: 'Revisão para publicar' }).fill('1');
   await page.getByRole('button', { name: 'Ver prévia da revisão', exact: true }).click();
   const preview = page.getByRole('region', { name: 'Prévia da revisão', exact: true });
-  await expect(preview.getByRole('heading', { name: 'Planta anotada E2E · revisão 1' })).toBeVisible();
+  await expect(
+    preview.getByRole('heading', { name: 'Planta anotada E2E · revisão 1' }),
+  ).toBeVisible();
   await expect(preview.getByRole('img', { name: 'Vista 3D do modelo', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Fechar prévia', exact: true }).click();
   await page.getByRole('button', { name: 'Aplicar publicação', exact: true }).click();
-  await expect(page.getByText('Planta disponível aos clientes vinculados à unidade.')).toBeVisible();
+  await expect(
+    page.getByText('Planta disponível aos clientes vinculados à unidade.'),
+  ).toBeVisible();
   await page.getByRole('button', { name: 'Ver histórico de publicação', exact: true }).click();
-  await expect(page.getByRole('region', { name: 'Histórico de publicação', exact: true }))
-    .toContainText('publicada · revisão 1 · AP-E2E · Administrador E2E');
+  await expect(
+    page.getByRole('region', { name: 'Histórico de publicação', exact: true }),
+  ).toContainText('publicada · revisão 1 · AP-E2E · Administrador E2E');
   await page.getByRole('button', { name: 'Conta e atendimento', exact: true }).click();
   await expect(
     page.getByRole('heading', { name: 'Conta e atendimento', exact: true }),
@@ -700,9 +892,8 @@ test('complete operation through browser, API and database', async ({
   await guestPage.getByRole('button', { name: 'Criar meu acesso', exact: true }).click();
   await expect(guestPage.getByLabel('E-mail corporativo')).toBeVisible();
   await guest.close();
-  await page.getByLabel('Senha atual', { exact: true }).fill('SenhaRecuperadaE2e@12345');
-  await page.getByRole('button', { name: 'Configurar autenticador', exact: true }).click();
-  await expect(page.getByText(/A configuração expira em 10 minutos/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Configurar autenticador', exact: true })).toHaveCount(0);
+  await expect(page.getByLabel('Código de duas etapas (se ativado)')).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('conta-atendimento.png'), fullPage: true });
   const oldToken = await page.evaluate(() => sessionStorage.getItem('obra360_access_token'));
   await page.getByRole('button', { name: 'Sair da plataforma', exact: true }).click();
@@ -715,7 +906,9 @@ test('complete operation through browser, API and database', async ({
   await page.getByRole('button', { name: 'Ver plantas da unidade', exact: true }).click();
   const publishedPlans = page.getByRole('combobox', { name: 'Planta da unidade', exact: true });
   await publishedPlans.selectOption({ label: 'Projeto arquitetônico E2E' });
-  await expect(page.getByRole('heading', { name: 'Projeto arquitetônico E2E · revisão 2' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Projeto arquitetônico E2E · revisão 2' }),
+  ).toBeVisible();
   await expect(page.getByRole('img', { name: 'Planta 2D em metros', exact: true })).toBeVisible();
   await expect(page.getByRole('img', { name: 'Vista 3D do modelo', exact: true })).toBeVisible();
   await publishedPlans.selectOption({ label: 'Planta anotada E2E' });

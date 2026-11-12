@@ -25,7 +25,6 @@ import static org.hamcrest.Matchers.*;
     "spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect",
     "spring.datasource.url=jdbc:h2:mem:workspace_migrations;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
     "spring.flyway.enabled=true",
-    "MFA_ENCRYPTION_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
     "obra360.storage.directory=${java.io.tmpdir}/obra360-test-documents-${random.uuid}",
     "spring.jpa.hibernate.ddl-auto=validate"
 })
@@ -65,6 +64,302 @@ class WorkspaceSecurityIntegrationTest {
             .vgvEstimado(BigDecimal.TEN).areaTotalM2(BigDecimal.TEN).dataInicio(LocalDate.now()).dataPrevisaoFim(LocalDate.now().plusDays(10)).build());
     }
     private String token(UsuarioEntity user) { return "Bearer " + jwt.issue(user); }
+
+    @Test void projectDetailsShowPersistedLinksAndProtectPersonnelAndOtherTenants() throws Exception {
+        var flow=workflow();Long employeeId=hrEmployee();var employee=em.find(RhFuncionarioEntity.class,employeeId);
+        employee.setProjetoObraId(flow.get("project"));employee.setEquipeId(flow.get("team"));em.flush();
+        create("/modelador/modelos",Map.of("projetoObraId",flow.get("project"),"nome","Planta vinculada"));
+        create("/cronograma",Map.of("projetoObraId",flow.get("project"),"nomeEtapa","Fundação","ordemExecucao",1,"dataInicioPrevista",LocalDate.now(),"dataFimPrevista",LocalDate.now().plusDays(10)));
+        var response=mvc.perform(get("/api/v1/workspace/detalhes/projetos/"+flow.get("project")).header("Authorization",token(admin)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.registro.id").value(flow.get("project")))
+            .andExpect(jsonPath("$.secoes[?(@.key=='equipes')].total",contains(1)))
+            .andExpect(jsonPath("$.secoes[?(@.key=='membros')].total",contains(1)))
+            .andExpect(jsonPath("$.secoes[?(@.key=='plantas')].total",contains(1))).andReturn().getResponse().getContentAsString();
+        org.junit.jupiter.api.Assertions.assertFalse(response.contains("salarioBase"));
+        org.junit.jupiter.api.Assertions.assertFalse(response.contains(employee.getCpf()));
+        org.junit.jupiter.api.Assertions.assertFalse(response.contains("senhaHash"));
+        mvc.perform(get("/api/v1/workspace/detalhes/projetos/"+flow.get("project")).header("Authorization",token(outsider))).andExpect(status().isNotFound());
+        mvc.perform(get("/api/v1/workspace/detalhes/projetos/"+flow.get("project")).header("Authorization",token(engineer)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.secoes[?(@.key=='contratos')]").isEmpty()).andExpect(jsonPath("$.secoes[?(@.key=='clientes')]").isEmpty());
+        mvc.perform(get("/api/v1/workspace/detalhes/contratos/"+flow.get("contract")).header("Authorization",token(engineer))).andExpect(status().isForbidden());
+    }
+    @Test void relatedDetailsAreScopedAndTheirSectionsArePaginated() throws Exception {
+        var flow=workflow();Long supplier=em.find(ContratoServicoEntity.class,flow.get("contract")).getFornecedorB2bId();
+        for(var entry:Map.of("equipes",flow.get("team"),"contratos",flow.get("contract"),"ordens",flow.get("order"),"fornecedores",supplier,"estoque",flow.get("item")).entrySet())
+            mvc.perform(get("/api/v1/workspace/detalhes/"+entry.getKey()+"/"+entry.getValue()).header("Authorization",token(admin))).andExpect(status().isOk());
+        for(int i=0;i<11;i++)em.persist(EquipeTrabalhoEntity.builder().projetoObraId(flow.get("project")).liderEncarregadoId(engineer.getId()).nomeEquipe("Equipe extra "+i).especialidade("ALVENARIA").quantidadeOperarios(1).build());
+        em.flush();
+        mvc.perform(get("/api/v1/workspace/detalhes/projetos/"+flow.get("project")+"?secao=equipes&page=1").header("Authorization",token(admin)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.secoes[?(@.key=='equipes')].total",contains(12)))
+            .andExpect(jsonPath("$.secoes[?(@.key=='equipes')].page",contains(1)));
+        mvc.perform(get("/api/v1/workspace/detalhes/projetos/"+flow.get("project")+"?page=-1").header("Authorization",token(admin))).andExpect(status().isBadRequest());
+    }
+    @Test void deletionRequiresPermissionTenantAndExactConfirmation() throws Exception {
+        Long id=ownProject();String path="/api/v1/workspace/projetos/"+id;
+        mvc.perform(delete(path).header("Authorization",token(engineer)).contentType("application/json").content("{\"confirmacao\":\"Obra da empresa A\"}")).andExpect(status().isForbidden());
+        var foreignAdmin=user(outsider.getEmpresaId(),"foreign-admin@test.invalid","SUPER_ADMIN");
+        mvc.perform(delete(path).header("Authorization",token(foreignAdmin)).contentType("application/json").content("{\"confirmacao\":\"Obra da empresa A\"}")).andExpect(status().isNotFound());
+        mvc.perform(delete(path).header("Authorization",token(admin)).contentType("application/json").content("{\"confirmacao\":\"Nome incorreto\"}")).andExpect(status().isConflict());
+        mvc.perform(delete(path).header("Authorization",token(admin)).contentType("application/json").content("{\"confirmacao\":\"Obra da empresa A\"}")).andExpect(status().isNoContent());
+        org.junit.jupiter.api.Assertions.assertNull(em.find(ProjetoObraEntity.class,id));
+        org.junit.jupiter.api.Assertions.assertEquals(1L,em.createQuery("select count(l) from LogAuditoriaEntity l where l.acao='EXCLUIR_PROJETO'",Long.class).getSingleResult());
+        mvc.perform(delete(path).header("Authorization",token(admin)).contentType("application/json").content("{\"confirmacao\":\"Obra da empresa A\"}")).andExpect(status().isNotFound());
+    }
+    @Test void unusedSupplierAndTeamCanBeDeletedByTheirAllowedRoles() throws Exception {
+        Long supplier=create("/fornecedores",Map.of("cnpj","12345678000190","razaoSocial","Fornecedor vazio","categoriaFornecimento","INSUMOS")).get("id").asLong();
+        var finance=user(admin.getEmpresaId(),"deletion-finance@test.invalid","FINANCEIRO");
+        mvc.perform(delete("/api/v1/workspace/fornecedores/"+supplier).header("Authorization",token(engineer)).contentType("application/json").content("{\"confirmacao\":\"Fornecedor vazio\"}")).andExpect(status().isForbidden());
+        mvc.perform(delete("/api/v1/workspace/fornecedores/"+supplier).header("Authorization",token(finance)).contentType("application/json").content("{\"confirmacao\":\"Fornecedor vazio\"}")).andExpect(status().isNoContent());
+        Long team=create("/equipes",Map.of("projetoObraId",ownProject(),"liderEncarregadoId",engineer.getId(),"nomeEquipe","Equipe vazia","especialidade","ALVENARIA","quantidadeOperarios",1)).get("id").asLong();
+        mvc.perform(delete("/api/v1/workspace/equipes/"+team).header("Authorization",token(finance)).contentType("application/json").content("{\"confirmacao\":\"Equipe vazia\"}")).andExpect(status().isForbidden());
+        mvc.perform(delete("/api/v1/workspace/equipes/"+team).header("Authorization",token(engineer)).contentType("application/json").content("{\"confirmacao\":\"Equipe vazia\"}")).andExpect(status().isNoContent());
+        org.junit.jupiter.api.Assertions.assertNull(em.find(FornecedorB2BEntity.class,supplier));
+        org.junit.jupiter.api.Assertions.assertNull(em.find(EquipeTrabalhoEntity.class,team));
+    }
+    @Test void deletionPreservesLinkedOperationalRecords() throws Exception {
+        var flow=workflow();Long supplier=em.find(ContratoServicoEntity.class,flow.get("contract")).getFornecedorB2bId();
+        for(var entry:Map.of("projetos/"+flow.get("project"),"Obra da empresa A","equipes/"+flow.get("team"),"Equipe de teste","fornecedores/"+supplier,"Fornecedor de teste").entrySet())
+            mvc.perform(delete("/api/v1/workspace/"+entry.getKey()).header("Authorization",token(admin)).contentType("application/json").content(json.writeValueAsString(Map.of("confirmacao",entry.getValue())))).andExpect(status().isConflict());
+        org.junit.jupiter.api.Assertions.assertNotNull(em.find(SolicitacaoServicoEntity.class,flow.get("order")));
+        org.junit.jupiter.api.Assertions.assertNotNull(em.find(ContratoServicoEntity.class,flow.get("contract")));
+    }
+    @Test void deletionPreservesLegacyBimInsteadOfCascading() throws Exception {
+        Long id=ownProject();
+        em.createNativeQuery("insert into elemento_bim_3d(projeto_obra_id,categoria_ifc,nome_identificador) values(:id,'IfcWall','Parede legada')").setParameter("id",id).executeUpdate();
+        mvc.perform(delete("/api/v1/workspace/projetos/"+id).header("Authorization",token(admin)).contentType("application/json").content("{\"confirmacao\":\"Obra da empresa A\"}")).andExpect(status().isConflict());
+        org.junit.jupiter.api.Assertions.assertEquals(1L,((Number)em.createNativeQuery("select count(*) from elemento_bim_3d where projeto_obra_id=:id").setParameter("id",id).getSingleResult()).longValue());
+    }
+    @Test void projectApiRejectsPastDatesAndPreservesExistingHistoryOnEdit() throws Exception {
+        Long originalProject=ownProject();
+        var body=new java.util.HashMap<String,Object>(Map.of("nome","Planejamento válido","engenheiroResponsavelId",engineer.getId(),"vgvEstimado",100,"areaTotalM2",50,"dataInicio",LocalDate.now(),"dataPrevisaoFim",LocalDate.now().minusDays(1)));
+        mvc.perform(post("/api/v1/workspace/projetos").header("Authorization",token(admin)).contentType("application/json").content(json.writeValueAsString(body))).andExpect(status().isBadRequest());
+        body.put("dataInicio",LocalDate.now().minusDays(2));body.put("dataPrevisaoFim",LocalDate.now().minusDays(1));
+        mvc.perform(post("/api/v1/workspace/projetos").header("Authorization",token(admin)).contentType("application/json").content(json.writeValueAsString(body))).andExpect(status().isBadRequest());
+        body.put("dataInicio",LocalDate.now());body.put("dataPrevisaoFim",LocalDate.now());create("/projetos",body);
+        var old=em.find(ProjetoObraEntity.class,originalProject);old.setDataInicio(LocalDate.now().minusDays(20));old.setDataPrevisaoFim(LocalDate.now().minusDays(10));em.flush();
+        body.put("dataInicio",old.getDataInicio());body.put("dataPrevisaoFim",old.getDataPrevisaoFim());
+        mvc.perform(put("/api/v1/workspace/projetos/"+old.getId()).header("Authorization",token(admin)).contentType("application/json").content(json.writeValueAsString(body))).andExpect(status().isOk());
+        body.put("dataPrevisaoFim",LocalDate.now().plusDays(5));
+        mvc.perform(put("/api/v1/workspace/projetos/"+old.getId()).header("Authorization",token(admin)).contentType("application/json").content(json.writeValueAsString(body))).andExpect(status().isOk());
+        body.put("dataInicio",LocalDate.now().minusDays(19));
+        mvc.perform(put("/api/v1/workspace/projetos/"+old.getId()).header("Authorization",token(admin)).contentType("application/json").content(json.writeValueAsString(body))).andExpect(status().isBadRequest());
+    }
+    @Test void planningEndpointsRejectPastContractsStagesAndCoverage() throws Exception {
+        var ids=workflow();var contract=em.find(ContratoServicoEntity.class,ids.get("contract"));
+        mvc.perform(post("/api/v1/workspace/contratos").header("Authorization",token(admin)).contentType("application/json").content(json.writeValueAsString(Map.of("projetoObraId",ids.get("project"),"fornecedorB2bId",contract.getFornecedorB2bId(),"numeroContrato","CT-PAST","valorTotal",100,"retencaoTecnicaPct",0,"tempoLimiteSlaHoras",48,"dataInicio",LocalDate.now().minusDays(2),"dataTermino",LocalDate.now().minusDays(1))))).andExpect(status().isBadRequest());
+        mvc.perform(post("/api/v1/workspace/cronograma").header("Authorization",token(admin)).contentType("application/json").content(json.writeValueAsString(Map.of("projetoObraId",ids.get("project"),"nomeEtapa","Etapa passada","ordemExecucao",1,"dataInicioPrevista",LocalDate.now().minusDays(2),"dataFimPrevista",LocalDate.now().minusDays(1))))).andExpect(status().isBadRequest());
+        var fixture=warrantyFixture(ids.get("project"));
+        mvc.perform(post("/api/v1/workspace/coberturas").header("Authorization",token(admin)).contentType("application/json").content(json.writeValueAsString(Map.of("unidadeId",fixture.get("unit"),"categoria","TESTE","dataInicio",LocalDate.now().minusDays(2),"dataFim",LocalDate.now().minusDays(1),"descricao","Cobertura passada","ativo",true)))).andExpect(status().isBadRequest());
+    }
+    @Test void plannedHolidaysCannotBeBackdatedButMedicalHistoryCanBeRecorded() throws Exception {
+        Long employee=hrEmployee();var body=new java.util.HashMap<String,Object>(Map.of("funcionarioId",employee,"tipo","FERIAS","inicio",LocalDate.now().minusDays(2),"fim",LocalDate.now().minusDays(1)));
+        mvc.perform(post("/api/v1/workspace/rh/afastamentos").header("Authorization",token(admin)).contentType("application/json").content(json.writeValueAsString(body))).andExpect(status().isBadRequest());
+        body.put("tipo","ATESTADO");rh("afastamentos",body);
+    }
+
+    @Test void contextualOptionsOnlyReturnRecordsFromTheSelectedProject() throws Exception {
+        var flow=workflow();
+        var second=ProjetoObraEntity.builder().empresaId(admin.getEmpresaId()).engenheiroResponsavelId(engineer.getId()).nome("Segunda obra")
+            .vgvEstimado(BigDecimal.TEN).areaTotalM2(BigDecimal.TEN).dataInicio(LocalDate.now()).dataPrevisaoFim(LocalDate.now().plusDays(10)).build();em.persist(second);em.flush();
+        create("/equipes",Map.of("projetoObraId",second.getId(),"liderEncarregadoId",engineer.getId(),"nomeEquipe","Outra equipe","especialidade","ALVENARIA","quantidadeOperarios",2));
+        create("/estoque",Map.of("projetoObraId",second.getId(),"sku","SECOND","nome","Outro material","categoria","Insumos","unidadeMedida","kg","estoqueMinimo",1,"custoUnitarioMedio",1));
+        create("/unidades",Map.of("projetoObraId",second.getId(),"codigoUnidade","B-1","areaPrivativaM2",50,"valorTabela",100));
+        mvc.perform(get("/api/v1/workspace/opcoes/equipes").param("contratoServicoId",flow.get("contract").toString()).header("Authorization",token(admin)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1)).andExpect(jsonPath("$[0].id").value(flow.get("team")))
+            .andExpect(jsonPath("$[0].projetoObraId").value(flow.get("project"))).andExpect(jsonPath("$[0].empreendimento").value("Obra da empresa A"));
+        mvc.perform(get("/api/v1/workspace/opcoes/estoque").param("ordemServicoId",flow.get("order").toString()).header("Authorization",token(admin)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1)).andExpect(jsonPath("$[0].id").value(flow.get("item")));
+        mvc.perform(get("/api/v1/workspace/opcoes/unidades").param("projetoObraId",flow.get("project").toString()).header("Authorization",token(admin)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+        mvc.perform(get("/api/v1/workspace/opcoes/ordens").header("Authorization",token(admin)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$[0].empreendimento").value("Obra da empresa A"));
+        mvc.perform(get("/api/v1/workspace/opcoes/equipes").param("contratoServicoId",flow.get("contract").toString()).header("Authorization",token(outsider)))
+            .andExpect(status().isNotFound());
+        mvc.perform(get("/api/v1/workspace/opcoes/estoque").param("ordemServicoId",flow.get("order").toString()).header("Authorization",token(outsider)))
+            .andExpect(status().isNotFound());
+        mvc.perform(get("/api/v1/workspace/opcoes/unidades").param("projetoObraId",second.getId().toString()).header("Authorization",token(outsider)))
+            .andExpect(status().isNotFound());
+        mvc.perform(get("/api/v1/workspace/opcoes/equipes").param("contratoServicoId",flow.get("contract").toString()).param("projetoObraId",second.getId().toString()).header("Authorization",token(admin)))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test void hrJobOptionsFollowTheDepartmentAndRejectOtherCompanyFilters() throws Exception {
+        Long first=rh("estrutura",Map.of("tipo","DEPARTAMENTO","nome","Departamento A","ativo",true)).get("id").asLong();
+        Long second=rh("estrutura",Map.of("tipo","DEPARTAMENTO","nome","Departamento B","ativo",true)).get("id").asLong();
+        Long job=rh("estrutura",Map.of("tipo","CARGO","nome","Cargo A","departamentoId",first,"ativo",true)).get("id").asLong();
+        rh("estrutura",Map.of("tipo","CARGO","nome","Cargo B","departamentoId",second,"ativo",true));
+        mvc.perform(get("/api/v1/workspace/rh/opcoes/cargos").param("departamentoId",first.toString()).header("Authorization",token(admin)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1)).andExpect(jsonPath("$[0].id").value(job));
+        var foreign=user(outsider.getEmpresaId(),"foreignhr-filter@test.invalid","RH");
+        mvc.perform(get("/api/v1/workspace/rh/opcoes/cargos").param("departamentoId",first.toString()).header("Authorization",token(foreign)))
+            .andExpect(status().isNotFound());
+        var flow=workflow();
+        mvc.perform(get("/api/v1/workspace/rh/opcoes/equipes").param("projetoObraId",flow.get("project").toString()).header("Authorization",token(admin)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$[0].id").value(flow.get("team")));
+        mvc.perform(get("/api/v1/workspace/rh/opcoes/equipes").param("projetoObraId",flow.get("project").toString()).header("Authorization",token(foreign)))
+            .andExpect(status().isNotFound());
+    }
+
+    private org.springframework.mock.web.MockMultipartFile photoFixture() throws Exception {
+        var image=new java.awt.image.BufferedImage(2,2,java.awt.image.BufferedImage.TYPE_INT_RGB);
+        var bytes=new java.io.ByteArrayOutputStream();javax.imageio.ImageIO.write(image,"png",bytes);image.flush();
+        return new org.springframework.mock.web.MockMultipartFile("arquivo","foto.png","image/png",bytes.toByteArray());
+    }
+    @Test void severeQualityRequiresPhotoAndPrivateEvidenceVerifiesHash() throws Exception {
+        var body=Map.of("projetoObraId",ownProject(),"responsavelId",engineer.getId(),"titulo","Ocorrência grave","normaRegulamentadora","Referência","grauSeveridade","ALTA");
+        mvc.perform(post("/api/v1/workspace/qualidade").header("Authorization",token(admin)).contentType("application/json").content(json.writeValueAsString(body))).andExpect(status().isBadRequest());
+        var metadata=new org.springframework.mock.web.MockMultipartFile("dados","dados.json","application/json",json.writeValueAsBytes(body));
+        var result=mvc.perform(multipart("/api/v1/workspace/qualidade").file(metadata).file(photoFixture()).header("Authorization",token(admin))).andExpect(status().isCreated()).andReturn();
+        Long id=json.readTree(result.getResponse().getContentAsString()).get("id").asLong();
+        var list=mvc.perform(get("/api/v1/workspace/qualidade/"+id+"/evidencias").header("Authorization",token(engineer))).andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].arquivoKey").doesNotExist()).andExpect(jsonPath("$.length()").value(1)).andReturn();
+        Long fileId=json.readTree(list.getResponse().getContentAsString()).get(0).get("id").asLong();
+        String path="/api/v1/workspace/qualidade/"+id+"/evidencias/"+fileId+"/arquivo";
+        mvc.perform(get(path).header("Authorization",token(engineer))).andExpect(status().isOk()).andExpect(content().contentType("image/png"));
+        mvc.perform(get(path).header("Authorization",token(outsider))).andExpect(status().isNotFound());
+        var staff=user(admin.getEmpresaId(),"evidence-staff@test.invalid","COLABORADOR");
+        mvc.perform(get(path).header("Authorization",token(staff))).andExpect(status().isForbidden());
+        var evidence=em.find(EvidenciaQualidadeEntity.class,fileId);String original=evidence.getArquivoKey(),tampered=documentStorage.put("alterado".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        try {evidence.setArquivoKey(tampered);em.flush();mvc.perform(get(path).header("Authorization",token(admin))).andExpect(status().isConflict());}
+        finally {evidence.setArquivoKey(original);documentStorage.delete(tampered);}
+        mvc.perform(patch("/api/v1/workspace/qualidade/"+id+"/status").header("Authorization",token(admin)).contentType("application/json").content("{\"status\":\"RESOLVIDO\"}")).andExpect(status().isOk());
+        mvc.perform(multipart("/api/v1/workspace/qualidade/"+id+"/evidencias").file(photoFixture()).header("Authorization",token(admin))).andExpect(status().isConflict());
+    }
+    @Test void qualityRejectsForgedImageContentAndLegacySevereClosureWithoutEvidence() throws Exception {
+        var metadata=new org.springframework.mock.web.MockMultipartFile("dados","dados.json","application/json",json.writeValueAsBytes(Map.of("projetoObraId",ownProject(),"responsavelId",engineer.getId(),"titulo","Foto maliciosa","normaRegulamentadora","Referência","grauSeveridade","CRITICA")));
+        var fake=new org.springframework.mock.web.MockMultipartFile("arquivo","foto.png","image/png","<svg onload='alert(1)'/>".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        mvc.perform(multipart("/api/v1/workspace/qualidade").file(metadata).file(fake).header("Authorization",token(admin))).andExpect(status().isBadRequest());
+        var occurrence=OcorrenciaQualidadeEntity.builder().projetoObraId(ownProject()).responsavelId(engineer.getId()).titulo("Legado grave").normaRegulamentadora("Referência").grauSeveridade("ALTA").statusPlanoAcao("PENDENTE").build();em.persist(occurrence);
+        mvc.perform(patch("/api/v1/workspace/qualidade/"+occurrence.getId()+"/status").header("Authorization",token(admin)).contentType("application/json").content("{\"status\":\"RESOLVIDO\"}")).andExpect(status().isConflict());
+    }
+    private Map<String,Long> warrantyFixture(Long project) throws Exception {
+        Long unit=create("/unidades",Map.of("projetoObraId",project,"codigoUnidade","GAR-001","areaPrivativaM2",50,"valorTabela",1000)).get("id").asLong();
+        var client=user(admin.getEmpresaId(),"warranty-client@test.invalid","CLIENTE");
+        create("/acessos",Map.of("usuarioId",client.getId(),"projetoObraId",project,"unidadeImobiliariaId",unit));
+        return Map.of("unit",unit,"client",client.getId());
+    }
+    @Test void warrantyClassifiesCoverageSchedulesInspectionAndConvertsExactlyOnce() throws Exception {
+        var flow=workflow();var fixture=warrantyFixture(flow.get("project"));
+        create("/coberturas",Map.of("unidadeId",fixture.get("unit"),"categoria","INFILTRACAO","dataInicio",LocalDate.now(),"dataFim",LocalDate.now().plusDays(30),"descricao","Condição administrativa cadastrada","ativo",true));
+        Long id=create("/garantias",Map.of("unidadeImobiliariaId",fixture.get("unit"),"usuarioClienteId",fixture.get("client"),"descricaoDefeito","Infiltração na parede da unidade","categoriaDefeito","infiltracao")).get("id").asLong();
+        org.junit.jupiter.api.Assertions.assertEquals("DENTRO_PRAZO",em.find(GarantiaPosVendaEntity.class,id).getSituacaoCobertura());
+        String path="/api/v1/workspace/garantias/"+id;
+        var order=Map.of("contratoServicoId",flow.get("contract"),"equipeTrabalhoId",flow.get("team"),"prioridade","MEDIA");
+        mvc.perform(post(path+"/ordem").header("Authorization",token(admin)).contentType("application/json").content(json.writeValueAsString(order))).andExpect(status().isConflict());
+        mvc.perform(post(path+"/avaliacao").header("Authorization",token(engineer)).contentType("application/json").content("{\"decisao\":\"COBERTA\",\"motivo\":\"Defeito confirmado na avaliação técnica\"}")).andExpect(status().isOk());
+        mvc.perform(post(path+"/vistoria").header("Authorization",token(admin)).contentType("application/json").content(json.writeValueAsString(Map.of("responsavelId",engineer.getId(),"data",java.time.OffsetDateTime.now().plusDays(1))))).andExpect(status().isOk());
+        for(int i=0;i<2;i++) mvc.perform(post(path+"/ordem").header("Authorization",token(admin)).contentType("application/json").content(json.writeValueAsString(order))).andExpect(status().isOk());
+        Long linked=em.find(GarantiaPosVendaEntity.class,id).getOrdemServicoId();
+        org.junit.jupiter.api.Assertions.assertEquals(2L,em.createQuery("select count(o) from SolicitacaoServicoEntity o where o.contratoServicoId=:c",Long.class).setParameter("c",flow.get("contract")).getSingleResult());
+        mvc.perform(patch(path+"/status").header("Authorization",token(admin)).contentType("application/json").content("{\"status\":\"CONCLUIDO\"}")).andExpect(status().isConflict());
+        for(String state:new String[]{"EM_ANDAMENTO","CONCLUIDO"}) mvc.perform(patch("/api/v1/workspace/ordens/"+linked+"/status").header("Authorization",token(admin)).contentType("application/json").content(json.writeValueAsString(Map.of("status",state)))).andExpect(status().isOk());
+        mvc.perform(patch(path+"/status").header("Authorization",token(admin)).contentType("application/json").content("{\"status\":\"CONCLUIDO\"}")).andExpect(status().isOk());
+        mvc.perform(post(path+"/vistoria").header("Authorization",token(outsider)).contentType("application/json").content(json.writeValueAsString(Map.of("responsavelId",outsider.getId(),"data",java.time.OffsetDateTime.now().plusDays(1))))).andExpect(status().isNotFound());
+    }
+    @Test void warrantyRejectsUnlinkedClientsAndNotificationsArePrivate() throws Exception {
+        var fixture=warrantyFixture(ownProject());var client=em.find(UsuarioEntity.class,fixture.get("client"));
+        mvc.perform(post("/api/v1/workspace/garantias").header("Authorization",token(admin)).contentType("application/json").content(json.writeValueAsString(Map.of("unidadeImobiliariaId",fixture.get("unit"),"usuarioClienteId",engineer.getId(),"descricaoDefeito","Descrição de teste","categoriaDefeito","Teste")))).andExpect(status().isBadRequest());
+        Long id=create("/garantias",Map.of("unidadeImobiliariaId",fixture.get("unit"),"usuarioClienteId",client.getId(),"descricaoDefeito","Descrição de teste","categoriaDefeito","Teste")).get("id").asLong();
+        mvc.perform(post("/api/v1/workspace/garantias/"+id+"/avaliacao").header("Authorization",token(engineer)).contentType("application/json").content("{\"decisao\":\"NAO_COBERTA\",\"motivo\":\"Avaliação negativa com justificativa registrada\"}")).andExpect(status().isOk());
+        var notes=mvc.perform(get("/api/v1/workspace/notificacoes").header("Authorization",token(client))).andExpect(status().isOk()).andExpect(jsonPath("$.total").value(1)).andReturn();
+        Long notification=json.readTree(notes.getResponse().getContentAsString()).get("items").get(0).get("id").asLong();
+        mvc.perform(post("/api/v1/workspace/notificacoes/"+notification+"/ler").header("Authorization",token(engineer))).andExpect(status().isNotFound());
+        mvc.perform(post("/api/v1/workspace/notificacoes/"+notification+"/ler").header("Authorization",token(client))).andExpect(status().isNoContent());
+        mvc.perform(get("/api/v1/workspace/notificacoes").header("Authorization",token(outsider))).andExpect(jsonPath("$.total").value(0));
+    }
+    @Test void userRegistrationIgnoresIdentityFieldsAndRejectsOversizedNames() throws Exception {
+        var body=new java.util.HashMap<String,Object>(Map.of("nome","Conta sem privilégios","email","mass-assignment@test.invalid","senhaHash","SenhaDeTeste@12345","perfil","COLABORADOR",
+            "id",admin.getId(),"empresaId",outsider.getEmpresaId(),"googleSubject","forged","versaoCredencial",999));
+        var created=mvc.perform(post("/api/v1/auth/cadastrar").header("Authorization",token(admin)).contentType("application/json").content(json.writeValueAsString(body)))
+            .andExpect(status().isCreated()).andExpect(jsonPath("$.empresaId").value(admin.getEmpresaId())).andExpect(jsonPath("$.versaoCredencial").value(0)).andExpect(jsonPath("$.googleSubject").doesNotExist()).andReturn();
+        org.junit.jupiter.api.Assertions.assertNotEquals(admin.getId(),json.readTree(created.getResponse().getContentAsString()).get("id").asLong());
+        body.put("nome","x".repeat(101));body.put("email","too-long@test.invalid");
+        mvc.perform(post("/api/v1/auth/cadastrar").header("Authorization",token(admin)).contentType("application/json").content(json.writeValueAsString(body))).andExpect(status().isBadRequest());
+    }
+    @Test void generalDocumentDownloadDetectsTampering() throws Exception {
+        var bytes="%PDF-fixture".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        var file=new org.springframework.mock.web.MockMultipartFile("arquivo","teste.pdf","application/pdf",bytes);
+        var response=mvc.perform(multipart("/api/v1/workspace/documentos").file(file).param("projetoObraId",ownProject().toString()).param("titulo","Teste de integridade").param("tipoDocumento","PDF").header("Authorization",token(admin))).andExpect(status().isCreated()).andReturn();
+        Long id=json.readTree(response.getResponse().getContentAsString()).get("id").asLong();var document=em.find(DocumentoProjetoEntity.class,id);
+        String old=document.getUrlArmazenamento(),tampered=documentStorage.put("corrompido".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        try {document.setUrlArmazenamento(tampered);em.flush();mvc.perform(get("/api/v1/workspace/documentos/"+id+"/arquivo").header("Authorization",token(admin))).andExpect(status().isConflict());}
+        finally {document.setUrlArmazenamento(old);documentStorage.delete(tampered);}
+    }
+
+    @Test void orderOpeningChecksContractDatesAndDerivesPriorityDeadline() throws Exception {
+        var ids=workflow();var body=Map.of("contratoServicoId",ids.get("contract"),"equipeTrabalhoId",ids.get("team"),"descricao","Atendimento urgente","prioridade","URGENTE");
+        var created=create("/ordens",body);
+        var opened=java.time.OffsetDateTime.parse(created.get("dataAbertura").asText());
+        var deadline=java.time.OffsetDateTime.parse(created.get("dataLimiteSla").asText());
+        org.junit.jupiter.api.Assertions.assertEquals(12,java.time.Duration.between(opened,deadline).toHours());
+        var contract=em.find(ContratoServicoEntity.class,ids.get("contract"));
+        contract.setDataInicio(LocalDate.now().minusDays(5));contract.setDataTermino(LocalDate.now().minusDays(1));em.flush();
+        mvc.perform(post("/api/v1/workspace/ordens").header("Authorization",token(admin)).contentType("application/json").content(json.writeValueAsString(body))).andExpect(status().isConflict());
+        contract.setDataTermino(LocalDate.now().plusDays(5));contract.setDataInicio(LocalDate.now().plusDays(1));em.flush();
+        mvc.perform(post("/api/v1/workspace/ordens").header("Authorization",token(admin)).contentType("application/json").content(json.writeValueAsString(body))).andExpect(status().isConflict());
+        contract.setDataInicio(LocalDate.now());contract.setAtivo(false);em.flush();
+        mvc.perform(post("/api/v1/workspace/ordens").header("Authorization",token(admin)).contentType("application/json").content(json.writeValueAsString(body))).andExpect(status().isConflict());
+    }
+
+    @Test void lateClosureRequiresMaterialsJustificationAndAnotherApprover() throws Exception {
+        var ids=workflow();var order=em.find(SolicitacaoServicoEntity.class,ids.get("order"));
+        order.setStatusOs("EM_ANDAMENTO");order.setDataLimiteSla(java.time.OffsetDateTime.now().minusHours(1));order.setExigeMaterial(true);em.flush();
+        String path="/api/v1/workspace/ordens/"+order.getId();
+        mvc.perform(patch(path+"/status").header("Authorization",token(admin)).contentType("application/json").content("{\"status\":\"CONCLUIDO\"}")).andExpect(status().isConflict());
+        mvc.perform(post(path+"/justificativa").header("Authorization",token(admin)).contentType("application/json").content("{\"justificativa\":\"Atraso por acesso indisponível ao local.\"}")).andExpect(status().isOk());
+        mvc.perform(post(path+"/aprovar-encerramento").header("Authorization",token(admin))).andExpect(status().isConflict());
+        mvc.perform(post(path+"/aprovar-encerramento").header("Authorization",token(engineer))).andExpect(status().isConflict());
+        create("/movimentacoes",Map.of("itemEstoqueId",ids.get("item"),"tipoMovimentacao","CONSUMO_OS","quantidade",1,"ordemServicoId",order.getId(),"chaveOperacao",java.util.UUID.randomUUID().toString()));
+        mvc.perform(post(path+"/aprovar-encerramento").header("Authorization",token(outsider))).andExpect(status().isNotFound());
+        var otherEngineer=user(admin.getEmpresaId(),"other-closure@test.invalid","ENGENHEIRO");
+        mvc.perform(post(path+"/aprovar-encerramento").header("Authorization",token(otherEngineer))).andExpect(status().isForbidden());
+        mvc.perform(post(path+"/aprovar-encerramento").header("Authorization",token(engineer)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.statusOs").value("CONCLUIDO")).andExpect(jsonPath("$.aprovadorEncerramentoId").value(engineer.getId()));
+        mvc.perform(post(path+"/aprovar-encerramento").header("Authorization",token(engineer))).andExpect(status().isConflict());
+    }
+
+    private org.springframework.test.web.servlet.ResultActions purchaseAction(Long id,String action,Object body,UsuarioEntity user) throws Exception {
+        return mvc.perform(post("/api/v1/workspace/compras/"+id+"/"+action).header("Authorization",token(user)).contentType("application/json").content(json.writeValueAsString(body)));
+    }
+
+    @Test void purchaseRequiresTwoApproversAndReceivesExactlyOnceAtWeightedCost() throws Exception {
+        var ids=workflow();var financial=user(admin.getEmpresaId(),"finance-purchase@test.invalid","FINANCEIRO");
+        var warehouse=user(admin.getEmpresaId(),"warehouse-purchase@test.invalid","ALMOXARIFE");
+        Long supplier=em.find(ContratoServicoEntity.class,ids.get("contract")).getFornecedorB2bId();
+        Long id=create("/compras",Map.of("itemEstoqueId",ids.get("item"),"quantidade",10,"justificativa","Reposição para concluir os serviços")).get("id").asLong();
+        Long quote=create("/compras/"+id+"/propostas",Map.of("fornecedorB2bId",supplier,"valorProposta",65,"prazoEntregaDias",3)).get("id").asLong();
+        mvc.perform(get("/api/v1/workspace/opcoes/propostas-"+id).header("Authorization",token(admin))).andExpect(status().isOk()).andExpect(jsonPath("$[0].id").value(quote));
+        purchaseAction(id,"pedido",Map.of(),admin).andExpect(status().isConflict());
+        purchaseAction(id,"selecionar",Map.of("cotacaoId",quote),admin).andExpect(status().isOk());
+        purchaseAction(id,"aprovar",Map.of("alcada","GESTAO"),financial).andExpect(status().isForbidden());
+        purchaseAction(id,"aprovar",Map.of("alcada","GESTAO"),admin).andExpect(status().isOk());
+        purchaseAction(id,"aprovar",Map.of("alcada","FINANCEIRO"),admin).andExpect(status().isConflict());
+        purchaseAction(id,"receber",Map.of(),warehouse).andExpect(status().isConflict());
+        purchaseAction(id,"aprovar",Map.of("alcada","FINANCEIRO"),financial).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("APROVADO"));
+        purchaseAction(id,"pedido",Map.of(),admin).andExpect(status().isOk()).andExpect(jsonPath("$.numeroPedido").isNotEmpty());
+        purchaseAction(id,"receber",Map.of(),financial).andExpect(status().isForbidden());
+        purchaseAction(id,"receber",Map.of(),warehouse).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("RECEBIDO"));
+        purchaseAction(id,"receber",Map.of(),warehouse).andExpect(status().isOk());
+        var item=em.find(ItemEstoqueEntity.class,ids.get("item"));
+        org.junit.jupiter.api.Assertions.assertEquals(0,new BigDecimal("20").compareTo(item.getQuantidadeAtual()));
+        org.junit.jupiter.api.Assertions.assertEquals(0,new BigDecimal("5.00").compareTo(item.getCustoUnitarioMedio()));
+        org.junit.jupiter.api.Assertions.assertEquals(2L,em.createQuery("select count(m) from MovimentacaoEstoqueEntity m where m.itemEstoqueId=:id",Long.class).setParameter("id",item.getId()).getSingleResult());
+        purchaseAction(id,"cancelar",Map.of(),admin).andExpect(status().isConflict());
+    }
+
+    @Test void purchaseRejectsCrossTenantActionsAndFreezesSelectedOffers() throws Exception {
+        var ids=workflow();Long supplier=em.find(ContratoServicoEntity.class,ids.get("contract")).getFornecedorB2bId();
+        Long id=create("/compras",Map.of("itemEstoqueId",ids.get("item"),"quantidade",2,"justificativa","Compra para reparos na obra")).get("id").asLong();
+        Long quote=create("/compras/"+id+"/propostas",Map.of("fornecedorB2bId",supplier,"valorProposta",10,"prazoEntregaDias",0)).get("id").asLong();
+        var externalAdmin=user(outsider.getEmpresaId(),"purchase-outside@test.invalid","SUPER_ADMIN");
+        purchaseAction(id,"selecionar",Map.of("cotacaoId",quote),externalAdmin).andExpect(status().isNotFound());
+        mvc.perform(get("/api/v1/workspace/registros/compras").header("Authorization",token(externalAdmin))).andExpect(jsonPath("$.total").value(0));
+        mvc.perform(get("/api/v1/workspace/opcoes/propostas-"+id).header("Authorization",token(externalAdmin))).andExpect(jsonPath("$.length()").value(0));
+        purchaseAction(id,"selecionar",Map.of("cotacaoId",quote),admin).andExpect(status().isOk());
+        purchaseAction(id,"propostas",Map.of("fornecedorB2bId",supplier,"valorProposta",1,"prazoEntregaDias",0),admin).andExpect(status().isConflict());
+        purchaseAction(id,"cancelar",Map.of(),admin).andExpect(status().isOk());
+        purchaseAction(id,"aprovar",Map.of("alcada","GESTAO"),admin).andExpect(status().isConflict());
+    }
 
     @Test void planReferenceBelongsToTheRevisionAndIsPrivateToTheWork() throws Exception {
         var model = create("/modelador/modelos", Map.of("projetoObraId", ownProject(), "nome", "Modelo com referência"));
@@ -287,37 +582,22 @@ class WorkspaceSecurityIntegrationTest {
         var l=new LicencaEmpresaEntity();l.setEmpresaId(admin.getEmpresaId());l.setLimiteProjetos(1);l.setLimiteModelos(1);em.persist(l);em.flush();
         String auth=token(admin);
         mvc.perform(post("/api/v1/workspace/projetos").header("Authorization",auth).contentType("application/json")
-            .content(json.writeValueAsString(Map.of("nome","Outra obra","engenheiroResponsavelId",engineer.getId(),"areaTotalM2",10,"vgvEstimado",10,"dataInicio","2026-01-01","dataPrevisaoFim","2026-12-01")))).andExpect(status().isConflict());
+            .content(json.writeValueAsString(Map.of("nome","Outra obra","engenheiroResponsavelId",engineer.getId(),"areaTotalM2",10,"vgvEstimado",10,"dataInicio",LocalDate.now(),"dataPrevisaoFim",LocalDate.now().plusDays(30))))).andExpect(status().isConflict());
         Long project=em.createQuery("select p.id from ProjetoObraEntity p where p.empresaId=:t",Long.class).setParameter("t",admin.getEmpresaId()).getSingleResult();
         String body=json.writeValueAsString(Map.of("projetoObraId",project,"nome","Modelo limite"));
         mvc.perform(post("/api/v1/workspace/modelador/modelos").header("Authorization",auth).contentType("application/json").content(body)).andExpect(status().isCreated());
         mvc.perform(post("/api/v1/workspace/modelador/modelos").header("Authorization",auth).contentType("application/json").content(body)).andExpect(status().isConflict());
     }
 
-    @Test void mfaRequiresSecondFactorRevokesSessionsAndRecoveryCodesCannotBeReused() throws Exception {
-        String old=token(admin);
-        var preparation=mvc.perform(post("/api/v1/workspace/mfa/preparar").header("Authorization",old).contentType("application/json")
-            .content("{\"senha\":\"SenhaDeTeste@12345\"}")).andExpect(status().isOk()).andReturn();
-        String secret=json.readTree(preparation.getResponse().getContentAsString()).get("segredo").asText();
-        String code=br.com.obra360.application.service.MfaService.totp(br.com.obra360.application.service.MfaService.decode32(secret),java.time.Instant.now().getEpochSecond()/30);
-        var activated=mvc.perform(post("/api/v1/workspace/mfa/ativar").header("Authorization",old).contentType("application/json")
-            .content(json.writeValueAsString(Map.of("senha","SenhaDeTeste@12345","codigo",code)))).andExpect(status().isOk()).andReturn();
-        String recovery=json.readTree(activated.getResponse().getContentAsString()).get("codigosRecuperacao").get(0).asText();
-        mvc.perform(get("/api/v1/workspace/sessao").header("Authorization",old)).andExpect(status().isUnauthorized());
-        var login=Map.of("email",admin.getEmail(),"senha","SenhaDeTeste@12345");
-        mvc.perform(post("/api/v1/auth/login").contentType("application/json").content(json.writeValueAsString(login)))
-            .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("MFA_REQUIRED"))
-            .andExpect(jsonPath("$.token").doesNotExist());
-        mvc.perform(post("/api/v1/auth/login").contentType("application/json").content(
-            json.writeValueAsString(Map.of("email",admin.getEmail(),"senha","errada"))))
-            .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").doesNotExist());
-        String body=json.writeValueAsString(Map.of("email",admin.getEmail(),"senha","SenhaDeTeste@12345","codigo",recovery));
-        mvc.perform(post("/api/v1/auth/login").contentType("application/json").content(body)).andExpect(status().isOk());
-        mvc.perform(post("/api/v1/auth/login").contentType("application/json").content(body))
-            .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("MFA_INVALID"));
-        var stored=em.find(MfaEntity.class,admin.getId());
-        org.junit.jupiter.api.Assertions.assertFalse(stored.getSegredoCifrado().contains(secret));
-        org.junit.jupiter.api.Assertions.assertFalse(stored.getCodigosHash().contains(recovery));
+    @Test void passwordLoginWorksWithoutSecondFactorAndRemovedEndpointsAreUnavailable() throws Exception {
+        em.createNativeQuery("insert into usuario_mfa (usuario_id,segredo_cifrado,ativo,expira_em) values (:id,:secret,true,:expires)")
+            .setParameter("id",admin.getId()).setParameter("secret","legacy-secret-not-consumed")
+            .setParameter("expires",java.time.OffsetDateTime.now().plusDays(1)).executeUpdate();
+        mvc.perform(post("/api/v1/auth/login").contentType("application/json").content(json.writeValueAsString(Map.of("email",admin.getEmail(),"senha","SenhaDeTeste@12345"))))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.token").isNotEmpty());
+        mvc.perform(get("/api/v1/workspace/mfa").header("Authorization",token(admin))).andExpect(status().isNotFound());
+        mvc.perform(post("/api/v1/workspace/mfa/preparar").header("Authorization",token(admin)).contentType("application/json").content("{}"))
+            .andExpect(status().isNotFound());
     }
 
     @Test void individualSessionRevocationCannotAffectAnotherUser() throws Exception {
@@ -456,12 +736,14 @@ class WorkspaceSecurityIntegrationTest {
         Long stage=create("/cronograma",Map.of("projetoObraId",projectId,"nomeEtapa","Etapa teste","ordemExecucao",1,"dataInicioPrevista",LocalDate.now().toString(),"dataFimPrevista",LocalDate.now().plusDays(1).toString())).get("id").asLong();
         mvc.perform(patch("/api/v1/workspace/cronograma/"+stage+"/progresso").header("Authorization",token(admin)).contentType("application/json").content("{\"percentualExecutado\":50}")).andExpect(status().isOk()).andExpect(jsonPath("$.percentualExecutado").value(50));
         mvc.perform(patch("/api/v1/workspace/cronograma/"+stage+"/progresso").header("Authorization",token(admin)).contentType("application/json").content("{\"percentualExecutado\":101}")).andExpect(status().isBadRequest());
-        Long quality=create("/qualidade",Map.of("projetoObraId",projectId,"responsavelId",engineer.getId(),"titulo","Ocorrência teste","normaRegulamentadora","Referência teste","grauSeveridade","ALTA")).get("id").asLong();
+        Long quality=create("/qualidade",Map.of("projetoObraId",projectId,"responsavelId",engineer.getId(),"titulo","Ocorrência teste","normaRegulamentadora","Referência teste","grauSeveridade","BAIXA")).get("id").asLong();
         mvc.perform(patch("/api/v1/workspace/qualidade/"+quality+"/status").header("Authorization",token(admin)).contentType("application/json").content("{\"status\":\"RESOLVIDO\"}")).andExpect(status().isOk());
         Long unit=create("/unidades",Map.of("projetoObraId",projectId,"codigoUnidade","UN-TEST","areaPrivativaM2",50,"valorTabela",1000)).get("id").asLong();
         mvc.perform(patch("/api/v1/workspace/unidades/"+unit+"/status").header("Authorization",token(admin)).contentType("application/json").content("{\"status\":\"RESERVADO\",\"situacaoEsperada\":\"DISPONIVEL\"}")).andExpect(status().isOk());
         mvc.perform(patch("/api/v1/workspace/unidades/"+unit+"/status").header("Authorization",token(admin)).contentType("application/json").content("{\"status\":\"VENDIDO\",\"situacaoEsperada\":\"DISPONIVEL\"}")).andExpect(status().isConflict());
-        create("/garantias",Map.of("unidadeImobiliariaId",unit,"usuarioClienteId",engineer.getId(),"categoriaDefeito","Teste","descricaoDefeito","Descrição de teste"));
+        var client=user(admin.getEmpresaId(),"warranty-basic@test.invalid","CLIENTE");
+        create("/acessos",Map.of("usuarioId",client.getId(),"projetoObraId",projectId,"unidadeImobiliariaId",unit));
+        create("/garantias",Map.of("unidadeImobiliariaId",unit,"usuarioClienteId",client.getId(),"categoriaDefeito","Teste","descricaoDefeito","Descrição de teste"));
     }
 
     @Test void invalidCredentialsNeverAuthenticate() throws Exception {
@@ -505,7 +787,7 @@ class WorkspaceSecurityIntegrationTest {
         mvc.perform(get("/api/v1/projetos").header("Authorization",token(admin))).andExpect(status().isForbidden());
     }
     @Test void projectCreationValidatesOwnershipAndPersistsAudit() throws Exception {
-        var payload = new java.util.HashMap<String,Object>(Map.of("nome","Nova obra real","engenheiroResponsavelId",outsider.getId(),"vgvEstimado",100,"areaTotalM2",50,"dataInicio","2026-01-01","dataPrevisaoFim","2026-12-31"));
+        var payload = new java.util.HashMap<String,Object>(Map.of("nome","Nova obra real","engenheiroResponsavelId",outsider.getId(),"vgvEstimado",100,"areaTotalM2",50,"dataInicio",LocalDate.now(),"dataPrevisaoFim",LocalDate.now().plusDays(30)));
         mvc.perform(post("/api/v1/workspace/projetos").header("Authorization",token(admin)).contentType("application/json").content(json.writeValueAsString(payload)))
             .andExpect(status().isBadRequest());
         payload.put("engenheiroResponsavelId",engineer.getId());
@@ -546,12 +828,94 @@ class WorkspaceSecurityIntegrationTest {
         return json.readTree(mvc.perform(post("/api/v1/workspace/rh/"+resource).header("Authorization",token(admin)).contentType("application/json").content(json.writeValueAsString(body))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
     }
     private Map<String,Object> hrEmployeeBody(Long department,Long job) {
-        return new java.util.HashMap<>(Map.of("matricula","RH-001","nome","Pessoa de teste","cpf","52998224725","admissao",LocalDate.now().minusYears(1).toString(),"vinculo","CLT","departamentoId",department,"cargoId",job,"salarioBase",3000,"jornadaSemanalMinutos",2640));
+        return new java.util.HashMap<>(Map.of("matricula","RH-001","nome","Pessoa de teste","cpf","52998224725","email","pessoa.rh@test.invalid","admissao",LocalDate.now().minusYears(1).toString(),"vinculo","CLT","departamentoId",department,"cargoId",job,"salarioBase",3000,"jornadaSemanalMinutos",2640));
     }
     private Long hrEmployee() throws Exception {
         Long dep=rh("estrutura",Map.of("tipo","DEPARTAMENTO","nome","Departamento teste","ativo",true)).get("id").asLong();
         Long job=rh("estrutura",Map.of("tipo","CARGO","nome","Cargo teste","departamentoId",dep,"ativo",true)).get("id").asLong();
         return rh("funcionarios",hrEmployeeBody(dep,job)).get("id").asLong();
+    }
+    @Test void hrCreatesHashedLoginOnceAndRequiresFirstPasswordChange() throws Exception {
+        Long dep=rh("estrutura",Map.of("tipo","DEPARTAMENTO","nome","Operação","ativo",true)).get("id").asLong();
+        Long job=rh("estrutura",Map.of("tipo","CARGO","nome","Pedreiro","departamentoId",dep,"ativo",true)).get("id").asLong();
+        var body=hrEmployeeBody(dep,job);var response=rh("funcionarios",body);
+        String initial=response.get("acessoInicial").get("senha").asText();Long userId=response.get("usuarioId").asLong();
+        var user=em.find(UsuarioEntity.class,userId);String hash=user.getSenhaHash();
+        org.junit.jupiter.api.Assertions.assertTrue(encoder.matches(initial,hash));
+        org.junit.jupiter.api.Assertions.assertNotEquals(initial,hash);
+        org.junit.jupiter.api.Assertions.assertEquals("COLABORADOR",user.getPerfil());
+        org.junit.jupiter.api.Assertions.assertTrue(user.isExigeTrocaSenha());
+        String loginBody=json.writeValueAsString(Map.of("email",user.getEmail(),"senha",initial,"perfil","COLABORADOR"));
+        var login=mvc.perform(post("/api/v1/auth/login").contentType("application/json").content(loginBody)).andExpect(status().isOk()).andReturn();
+        String auth="Bearer "+json.readTree(login.getResponse().getContentAsString()).get("token").asText();
+        mvc.perform(get("/api/v1/workspace/sessao").header("Authorization",auth)).andExpect(status().isOk()).andExpect(jsonPath("$.exigeTrocaSenha").value(true));
+        mvc.perform(get("/api/v1/workspace/colaborador").header("Authorization",auth)).andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("PASSWORD_CHANGE_REQUIRED"));
+        mvc.perform(put("/api/v1/workspace/minha-senha").header("Authorization",auth).contentType("application/json").content(json.writeValueAsString(Map.of("senhaAtual",initial,"novaSenha",initial)))).andExpect(status().isBadRequest());
+        mvc.perform(put("/api/v1/workspace/minha-senha").header("Authorization",auth).contentType("application/json").content(json.writeValueAsString(Map.of("senhaAtual",initial,"novaSenha","NovaSenhaColaborador@12345")))).andExpect(status().isNoContent());
+        mvc.perform(get("/api/v1/workspace/sessao").header("Authorization",auth)).andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/v1/auth/login").contentType("application/json").content(loginBody)).andExpect(status().isUnauthorized());
+        var fresh=mvc.perform(post("/api/v1/auth/login").contentType("application/json").content(json.writeValueAsString(Map.of("email",user.getEmail(),"senha","NovaSenhaColaborador@12345")))).andExpect(status().isOk()).andReturn();
+        String newAuth="Bearer "+json.readTree(fresh.getResponse().getContentAsString()).get("token").asText();
+        mvc.perform(get("/api/v1/workspace/colaborador").header("Authorization",newAuth)).andExpect(status().isOk()).andExpect(jsonPath("$.cargo").value("Pedreiro")).andExpect(jsonPath("$.cpf").doesNotExist());
+        mvc.perform(get("/api/v1/workspace/rh/registros/funcionarios").header("Authorization",newAuth)).andExpect(status().isForbidden());
+        mvc.perform(put("/api/v1/workspace/rh/funcionarios/"+response.get("id").asLong()+"?versao=0").header("Authorization",token(admin)).contentType("application/json").content(json.writeValueAsString(body))).andExpect(status().isOk()).andExpect(jsonPath("$.acessoInicial").doesNotExist());
+        mvc.perform(get("/api/v1/workspace/rh/registros/funcionarios/"+response.get("id").asLong()).header("Authorization",token(admin))).andExpect(jsonPath("$.acessoInicial").doesNotExist());
+        org.junit.jupiter.api.Assertions.assertFalse(em.find(UsuarioEntity.class,userId).isExigeTrocaSenha());
+    }
+    @Test void hrAccessRespectsEmailUniquenessLimitsAndExistingAccountPasswords() throws Exception {
+        Long id=hrEmployee();var employee=em.find(RhFuncionarioEntity.class,id);var body=hrEmployeeBody(employee.getDepartamentoId(),employee.getCargoId());
+        var linked=em.find(UsuarioEntity.class,employee.getUsuarioId());String hash=linked.getSenhaHash();
+        var hr=user(admin.getEmpresaId(),"access-hr@test.invalid","RH");
+        body.put("usuarioId",engineer.getId());
+        mvc.perform(put("/api/v1/workspace/rh/funcionarios/"+id+"?versao=0").header("Authorization",token(hr)).contentType("application/json").content(json.writeValueAsString(body))).andExpect(status().isForbidden());
+        body.remove("usuarioId");body.put("matricula","RH-002");body.put("cpf","11144477735");
+        mvc.perform(post("/api/v1/workspace/rh/funcionarios").header("Authorization",token(hr)).contentType("application/json").content(json.writeValueAsString(body))).andExpect(status().isConflict());
+        org.junit.jupiter.api.Assertions.assertEquals(hash,linked.getSenhaHash());
+        body.remove("email");
+        mvc.perform(post("/api/v1/workspace/rh/funcionarios").header("Authorization",token(hr)).contentType("application/json").content(json.writeValueAsString(body))).andExpect(status().isBadRequest());
+        body.put("email","another-staff@test.invalid");
+        var license=new LicencaEmpresaEntity();license.setEmpresaId(admin.getEmpresaId());license.setLimiteUsuarios(4);em.persist(license);em.flush();
+        mvc.perform(post("/api/v1/workspace/rh/funcionarios").header("Authorization",token(hr)).contentType("application/json").content(json.writeValueAsString(body))).andExpect(status().isConflict());
+        org.junit.jupiter.api.Assertions.assertEquals(1L,em.createQuery("select count(f) from RhFuncionarioEntity f where f.empresaId=:t",Long.class).setParameter("t",admin.getEmpresaId()).getSingleResult());
+    }
+    @Test void hrCanLinkExistingAccountWithoutReissuingCredentialsAndCannotEscalateRoles() throws Exception {
+        Long dep=rh("estrutura",Map.of("tipo","DEPARTAMENTO","nome","Gestão","ativo",true)).get("id").asLong();
+        Long job=rh("estrutura",Map.of("tipo","CARGO","nome","Diretor","departamentoId",dep,"ativo",true)).get("id").asLong();
+        var body=hrEmployeeBody(dep,job);body.put("usuarioId",engineer.getId());String original=engineer.getSenhaHash();
+        rh("funcionarios",body);
+        org.junit.jupiter.api.Assertions.assertEquals(original,engineer.getSenhaHash());
+        body.put("usuarioId",outsider.getId());body.put("cpf","11144477735");body.put("matricula","RH-002");
+        mvc.perform(post("/api/v1/workspace/rh/funcionarios").header("Authorization",token(admin)).contentType("application/json").content(json.writeValueAsString(body))).andExpect(status().isNotFound());
+        body.remove("usuarioId");body.put("email","director@test.invalid");body.put("perfil","SUPER_ADMIN");
+        var hr=user(admin.getEmpresaId(),"director-hr@test.invalid","RH");
+        var result=mvc.perform(post("/api/v1/workspace/rh/funcionarios").header("Authorization",token(hr)).contentType("application/json").content(json.writeValueAsString(body))).andExpect(status().isOk()).andExpect(jsonPath("$.acessoInicial.perfil").value("COLABORADOR")).andReturn();
+        org.junit.jupiter.api.Assertions.assertFalse(json.readTree(result.getResponse().getContentAsString()).has("senhaHash"));
+    }
+    @Test void terminatingEmployeeDisablesLoginAndRevokesSessions() throws Exception {
+        Long id=hrEmployee();var f=em.find(RhFuncionarioEntity.class,id);var user=em.find(UsuarioEntity.class,f.getUsuarioId());user.setExigeTrocaSenha(false);em.flush();
+        String old=token(user);
+        mvc.perform(get("/api/v1/workspace/colaborador").header("Authorization",old)).andExpect(status().isOk());
+        mvc.perform(post("/api/v1/workspace/rh/funcionarios/"+id+"/desligar").header("Authorization",token(admin)).contentType("application/json").content(json.writeValueAsString(Map.of("data",LocalDate.now().toString(),"versao",f.getVersao())))).andExpect(status().isOk());
+        mvc.perform(get("/api/v1/workspace/colaborador").header("Authorization",old)).andExpect(status().isUnauthorized());
+        org.junit.jupiter.api.Assertions.assertFalse(user.getAtivo());
+    }
+    @Test void employeePortalOnlyReturnsOwnReleasedPayrollAndAttendance() throws Exception {
+        Long id=hrEmployee();var first=em.find(RhFuncionarioEntity.class,id);
+        var body=hrEmployeeBody(first.getDepartamentoId(),first.getCargoId());body.put("matricula","RH-002");body.put("cpf","11144477735");body.put("email","second-employee@test.invalid");
+        Long second=rh("funcionarios",body).get("id").asLong();
+        var user=em.find(UsuarioEntity.class,first.getUsuarioId());user.setExigeTrocaSenha(false);em.flush();String auth=token(user);
+        rh("ponto",Map.of("funcionarioId",id,"data",LocalDate.now().toString(),"entrada","08:00","saida","17:00"));
+        rh("ponto",Map.of("funcionarioId",second,"data",LocalDate.now().toString(),"entrada","07:00","saida","16:00"));
+        Long sheet=rh("folhas",Map.of("competencia",java.time.YearMonth.now().toString())).get("id").asLong();
+        rh("lancamentos",Map.of("folhaId",sheet,"funcionarioId",id,"codigo","SALARIO","descricao","Salário informado","natureza","PROVENTO","valor",3000));
+        rh("lancamentos",Map.of("folhaId",sheet,"funcionarioId",second,"codigo","BONUS","descricao","Valor privado de outro funcionário","natureza","PROVENTO","valor",8000));
+        mvc.perform(get("/api/v1/workspace/colaborador/folhas").header("Authorization",auth)).andExpect(jsonPath("$.length()").value(0));
+        mvc.perform(get("/api/v1/workspace/colaborador/folhas/"+sheet).header("Authorization",auth)).andExpect(status().isNotFound());
+        var h=em.find(RhFolhaEntity.class,sheet);
+        mvc.perform(post("/api/v1/workspace/rh/folhas/"+sheet+"/fechar").header("Authorization",token(admin)).contentType("application/json").content(json.writeValueAsString(Map.of("versao",h.getVersao())))).andExpect(status().isOk());
+        mvc.perform(get("/api/v1/workspace/colaborador/folhas/"+sheet).header("Authorization",auth)).andExpect(status().isOk()).andExpect(jsonPath("$.liquido").value(3000)).andExpect(jsonPath("$.lancamentos.length()").value(1));
+        mvc.perform(get("/api/v1/workspace/colaborador/ponto?funcionarioId="+second).header("Authorization",auth)).andExpect(status().isOk()).andExpect(jsonPath("$.total").value(1)).andExpect(jsonPath("$.items[0].entrada").value("08:00:00"));
+        mvc.perform(get("/api/v1/workspace/colaborador").header("Authorization",token(outsider))).andExpect(status().isNotFound());
     }
     @Test void hrRestrictsSensitiveDataAndMasksCpfInLists() throws Exception {
         Long id=hrEmployee();var hr=user(admin.getEmpresaId(),"hr@test.invalid","RH");var foreignHr=user(outsider.getEmpresaId(),"foreign-hr@test.invalid","RH");

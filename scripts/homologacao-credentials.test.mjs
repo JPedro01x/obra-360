@@ -8,12 +8,12 @@ import { readCredentials, writeCredentials } from './homologacao-credentials.mjs
 
 test('private credentials reject tampering and a different encryption key', async () => {
   const root = await mkdtemp(path.join(tmpdir(), 'obra360-credentials-'));
-  const saved = process.env.MFA_ENCRYPTION_KEY;
-  delete process.env.MFA_ENCRYPTION_KEY;
+  const saved = process.env.HOMOLOGATION_ENCRYPTION_KEY;
+  delete process.env.HOMOLOGATION_ENCRYPTION_KEY;
   try {
     await mkdir(path.join(root, 'obra360-backend'));
     const env = path.join(root, 'obra360-backend', '.env');
-    await writeFile(env, `MFA_ENCRYPTION_KEY=${randomBytes(32).toString('base64')}\n`);
+    await writeFile(env, `HOMOLOGATION_ENCRYPTION_KEY=${randomBytes(32).toString('base64')}\n`);
     const credentials = {
       contas: [{ perfil: 'RH', email: 'test@test.invalid', senha: 'SenhaExclusivaTeste@12345' }],
     };
@@ -25,16 +25,23 @@ test('private credentials reject tampering and a different encryption key', asyn
     assert(!original.includes(credentials.contas[0].senha));
     assert(!original.includes(credentials.contas[0].email));
     assert.deepEqual(await readCredentials(root), credentials);
+    await writeCredentials(root, credentials, 'ACESSO-DEMONSTRACAO.local');
+    assert.deepEqual(await readCredentials(root, 'ACESSO-DEMONSTRACAO.local'), credentials);
+    const demoEnvelope=await readFile(path.join(root,'ACESSO-DEMONSTRACAO.local'),'utf8');
+    await writeFile(target,demoEnvelope);
+    await assert.rejects(() => readCredentials(root), /integridade/);
+    await writeFile(target,original);
+    await assert.rejects(() => writeCredentials(root,credentials,'../ACESSO-OUTRO.local'), /Nome de arquivo/);
     const modified = JSON.parse(original);
     modified.tag = Buffer.alloc(16).toString('base64');
     await writeFile(target, JSON.stringify(modified));
     await assert.rejects(() => readCredentials(root), /integridade/);
     await writeFile(target, original);
-    await writeFile(env, `MFA_ENCRYPTION_KEY=${randomBytes(32).toString('base64')}\n`);
+    await writeFile(env, `HOMOLOGATION_ENCRYPTION_KEY=${randomBytes(32).toString('base64')}\n`);
     await assert.rejects(() => readCredentials(root), /chave privada/);
   } finally {
-    if (saved === undefined) delete process.env.MFA_ENCRYPTION_KEY;
-    else process.env.MFA_ENCRYPTION_KEY = saved;
+    if (saved === undefined) delete process.env.HOMOLOGATION_ENCRYPTION_KEY;
+    else process.env.HOMOLOGATION_ENCRYPTION_KEY = saved;
     assert.equal(path.dirname(path.resolve(root)), path.resolve(tmpdir()));
     assert(path.basename(root).startsWith('obra360-credentials-'));
     await rm(root, { recursive: true, force: true });

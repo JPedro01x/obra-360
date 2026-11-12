@@ -1,12 +1,12 @@
 # Recursos humanos
 
-O módulo operacional fica em **Recursos humanos**, no menu lateral. Somente **SUPER_ADMIN** e **RH** podem acessar seus endpoints e telas. O administrador cria contas com perfil RH em **Usuários**. Funcionário e conta de acesso são cadastros distintos: o vínculo entre eles é opcional e não concede permissões automaticamente.
+O módulo operacional fica em **Recursos humanos**, no menu lateral. Somente **SUPER_ADMIN** e **RH** podem acessar seus endpoints e telas. O administrador cria contas com perfil RH em **Usuários**. Novos funcionários recebem uma conta COLABORADOR vinculada, com senha inicial aleatória e troca obrigatória no primeiro acesso. O cargo não concede permissões de gestão. Consulte [Acesso do funcionário](RH-ACESSO-FUNCIONARIO.md).
 
 ## Fluxo inicial
 
 1. Em **Departamentos e cargos**, cadastre departamentos e depois cargos vinculados. Os nomes são únicos por empresa e tipo. Estruturas em uso não podem ser desativadas; um cargo não pode ser transferido para outro departamento.
-2. Em **Funcionários**, informe matrícula, CPF válido, admissão, vínculo, departamento, cargo, remuneração e jornada semanal em minutos. Contatos, nascimento, conta de acesso, obra e equipe são opcionais. A equipe precisa pertencer à obra selecionada. Uma jornada de 44 horas corresponde a 2.640 minutos; o campo apenas registra a jornada informada, sem avaliar sua adequação contratual.
-3. Registre jornadas, ausências, benefícios, treinamentos e demais operações usando o funcionário cadastrado. Os seletores permitem buscar pelo nome e mostram até 200 resultados por consulta. As listas têm filtros e paginação.
+2. Em **Funcionários**, informe matrícula, CPF válido, admissão, vínculo, departamento, cargo, remuneração e jornada semanal em minutos. O e-mail individual é obrigatório no novo cadastro e será o login. Telefone, nascimento, obra e equipe são opcionais. É possível vincular explicitamente uma conta existente, conforme as permissões. A equipe precisa pertencer à obra selecionada. Uma jornada de 44 horas corresponde a 2.640 minutos; o campo apenas registra a jornada informada, sem avaliar sua adequação contratual.
+3. Registre jornadas, ausências, benefícios, treinamentos e demais operações usando o funcionário cadastrado. Os seletores permitem buscar pelo nome e mostram até 200 resultados por consulta. As listas têm filtros e paginação. Nos formulários, cargos dependem do departamento e equipes dependem da obra; alterar a seleção principal limpa o vínculo dependente.
 
 Matrícula, CPF e conta vinculada possuem unicidade por empresa. O CPF fica mascarado nas listas, e o formulário de edição, autorizado a RH, recebe o valor completo. CPF e admissão ficam bloqueados após o cadastro. Alterações simultâneas são recusadas pela versão do registro, evitando sobrescrever uma edição mais recente.
 
@@ -25,7 +25,7 @@ Matrícula, CPF e conta vinculada possuem unicidade por empresa. O CPF fica masc
 | Recrutamento  | Abrir/editar/pausar/encerrar vagas e acompanhar candidatos por etapa; editar e excluir candidatos                          |
 | Indicadores   | Funcionários ativos, ausências pendentes, registros vencidos ou a vencer até 30 dias e vagas abertas                       |
 
-O desligamento preserva o histórico e bloqueia novas solicitações de ausência para o funcionário. Ele não desativa automaticamente a conta de acesso vinculada: a administração deve revisar essa conta em **Usuários**. Não há exclusão física de funcionários, ponto aprovado ou folha fechada. Candidatos e lançamentos de folha aberta podem ser excluídos após confirmação. O log registra a operação, usuário e identificador, sem copiar CPF, dados médicos ou conteúdo completo dos cadastros.
+O desligamento preserva o histórico e bloqueia novas solicitações de ausência para o funcionário. A conta vinculada é desativada, suas sessões são invalidadas e o histórico é preservado. Não há exclusão física de funcionários, ponto aprovado ou folha fechada. Candidatos e lançamentos de folha aberta podem ser excluídos após confirmação. O log registra a operação, usuário e identificador, sem copiar CPF, dados médicos ou conteúdo completo dos cadastros.
 
 ## Regras da folha e jornada
 
@@ -37,7 +37,7 @@ Ponto aceita uma jornada por dia e funcionário, dentro do vínculo, sem datas f
 
 ## Escopo e limites
 
-Esta é uma área administrativa de RH integrada ao banco. Não é um motor de folha fiscal, registrador eletrônico de ponto certificado ou serviço de medicina ocupacional. Não calcula INSS, IRRF, FGTS, adicionais, banco de horas, férias adquiridas, 13º, rescisões nem realiza envio ao eSocial. Não há avaliação automática de exigências por função/NR. Integração com folha especializada, relógio de ponto e autoatendimento do funcionário exigem uma etapa própria.
+Esta é uma área administrativa de RH integrada ao banco. Não é um motor de folha fiscal, registrador eletrônico de ponto certificado ou serviço de medicina ocupacional. Não calcula INSS, IRRF, FGTS, adicionais, banco de horas, férias adquiridas, 13º, rescisões nem realiza envio ao eSocial. Não há avaliação automática de exigências por função/NR. O autoatendimento permite consulta do próprio cadastro, ponto, ausências, benefícios e demonstrativos. Integração com folha especializada e relógio de ponto exige uma etapa própria.
 
 Não cadastre diagnósticos, laudos médicos ou documentos sensíveis nos módulos gerais de documentos, que possuem permissões operacionais mais amplas. O RH registra apenas o tipo de exame, datas e responsável, sem prontuário clínico.
 
@@ -51,11 +51,11 @@ Testes de API cobrem acesso por perfil/empresa, CPF mascarado e inválido, vers�
 
 Em **Recursos humanos → Documentos privados**, selecione o funcionário e envie PDF, PNG ou JPEG de até 20 MB. A extensão e a assinatura inicial do conteúdo precisam ser compatíveis. As categorias incluem admissão, contrato, aditivo, comprovante, certificado e desligamento. É possível informar validade.
 
-**Nova versão privada** preserva o arquivo anterior, o título, a categoria e o funcionário, com numeração sequencial por grupo. Use a versão mais recente para continuar a sequência. Arquivos ficam em um namespace separado dos documentos de obra: `data/documentos/rh` no armazenamento local, ou `obra360/rh/` no S3. Referências internas não são entregues na API. Os nomes recebidos não determinam o caminho.
+**Nova versão privada** preserva o arquivo anterior, o título, a categoria e o funcionário, com numeração sequencial por grupo. Use a versão mais recente para continuar a sequência. Arquivos ficam em um namespace separado dos documentos de obra: `data/documentos/rh` no armazenamento local. Referências internas não são entregues na API. Os nomes recebidos não determinam o caminho.
 
 Downloads exigem SUPER_ADMIN ou RH da mesma empresa, são entregues como anexos com cache desabilitado e conferem tamanho/SHA-256 antes da entrega. Consultas, downloads, envios e arquivamentos são registrados na auditoria. Arquivar é reversível e preserva arquivo e versões; não constitui exclusão definitiva nem anonimização. A opção **Incluir documentos arquivados** permite reativar e consultar essas versões.
 
-O backup local inclui a subpasta RH porque copia o diretório de dados completo. Objetos S3 continuam exigindo backup próprio, bucket privado e bloqueio de acesso público. Não há antivírus, assinatura digital ou criptografia própria desses arquivos; acesso ao sistema operacional/bucket deve ser restrito. A verificação do cabeçalho não comprova que um documento é seguro ou autêntico. O módulo não é prontuário médico e não deve receber laudos clínicos.
+O backup local inclui a subpasta RH porque copia o diretório de dados completo. Não há antivírus, assinatura digital ou criptografia própria desses arquivos; acesso ao sistema operacional deve ser restrito. A verificação do cabeçalho não comprova que um documento é seguro ou autêntico. O módulo não é prontuário médico e não deve receber laudos clínicos.
 
 ## Histórico funcional
 

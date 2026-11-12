@@ -35,7 +35,11 @@ import { ModelPublication } from './ModelPublication';
 import { ModelComparison } from './ModelComparison';
 import { ModelCloudDraft } from './ModelCloudDraft';
 import { ModelReference } from './ModelReference';
-import { loadSavedPlanReference, type OpenPlanReference, type SavedPlanReference } from '../services/planReference';
+import {
+  loadSavedPlanReference,
+  type OpenPlanReference,
+  type SavedPlanReference,
+} from '../services/planReference';
 import './model-editor.css';
 
 type ModelSummary = Omit<SavedModel, 'documento'>;
@@ -90,10 +94,12 @@ export function ModelEditor({
   role,
   draftScope,
   onDirtyChange,
+  initialTarget,
 }: {
   role: string;
   draftScope: string;
   onDirtyChange: (dirty: boolean) => void;
+  initialTarget?: { project: string; model: number } | null;
 }) {
   const canEdit = editableRoles.includes(role);
   const [projects, setProjects] = useState<{ id: number; nome: string }[]>([]),
@@ -133,9 +139,13 @@ export function ModelEditor({
   const [referenceChanged, setReferenceChanged] = useState(false);
   const [referenceLoading, setReferenceLoading] = useState(false);
   const [referenceSource, setReferenceSource] = useState<{
-    modelId: number; revision: number; metadata: SavedPlanReference;
+    modelId: number;
+    revision: number;
+    metadata: SavedPlanReference;
   } | null>(null);
-  const [calibration, setCalibration] = useState<{ meters: number; first?: PlanPoint } | null>(null);
+  const [calibration, setCalibration] = useState<{ meters: number; first?: PlanPoint } | null>(
+    null,
+  );
   const [creating, setCreating] = useState(false),
     [modelName, setModelName] = useState(''),
     [filter, setFilter] = useState('');
@@ -151,11 +161,14 @@ export function ModelEditor({
   const [recoverable, setRecoverable] = useState<LocalDraft | null>(null);
   const [draftStored, setDraftStored] = useState(false);
   const writtenDraft = useRef<{ key: string; raw: string } | null>(null);
-  const draftKey = (id: number) => `obra360:model-draft:${JSON.stringify([API_BASE_URL, draftScope, id])}`;
+  const draftKey = (id: number) =>
+    `obra360:model-draft:${JSON.stringify([API_BASE_URL, draftScope, id])}`;
   const storageKey = saved ? draftKey(saved.id) : null;
   const writable = canEdit && !saved?.arquivado && !busy && !recoverable;
   useLayoutEffect(() => {
-    return () => { importGeneration.current++; };
+    return () => {
+      importGeneration.current++;
+    };
   }, [saved, draft, writable]);
   useLayoutEffect(() => {
     if (!storageKey || !saved || !canEdit || saved.arquivado || recoverable) return;
@@ -288,11 +301,13 @@ export function ModelEditor({
       });
     return () => c.abort();
   }, [saved, revisionPage]);
-  const discard = () => !dirty || window.confirm(
-    draftStored
-      ? 'Há um rascunho guardado neste navegador. Deseja continuar?'
-      : 'Há alterações sem rascunho salvo. Deseja descartá-las?',
-  );
+  const discard = () =>
+    !dirty ||
+    window.confirm(
+      draftStored
+        ? 'Há um rascunho guardado neste navegador. Deseja continuar?'
+        : 'Há alterações sem rascunho salvo. Deseja descartá-las?',
+    );
   function accept(model: SavedModel, reset = true) {
     setComparisonSource(null);
     cloudDraftToken.current = null;
@@ -301,9 +316,11 @@ export function ModelEditor({
     setReference(null);
     setReferenceChanged(false);
     setReferenceLoading(!!model.referencia);
-    setReferenceSource(model.referencia
-      ? { modelId: model.id, revision: model.revisao, metadata: model.referencia }
-      : null);
+    setReferenceSource(
+      model.referencia
+        ? { modelId: model.id, revision: model.revisao, metadata: model.referencia }
+        : null,
+    );
     setCalibration(null);
     if (saved?.id !== model.id) {
       setTimeline(false);
@@ -389,8 +406,12 @@ export function ModelEditor({
       return;
     }
     setReference({
-      ...floorReference, calibrated: true, width: width * factor, height: height * factor,
-      x: first.x + (x - first.x) * factor, z: first.z + (z - first.z) * factor,
+      ...floorReference,
+      calibrated: true,
+      width: width * factor,
+      height: height * factor,
+      x: first.x + (x - first.x) * factor,
+      z: first.z + (z - first.z) * factor,
     });
     setReferenceChanged(true);
     setCalibration(null);
@@ -488,18 +509,28 @@ export function ModelEditor({
     setBusy(true);
     setError('');
     try {
-      const nextReference = reference && draft.documento.pavimentos.some((f) => f.id === reference.floorId)
-        ? reference : null;
-      const revision = { ...draft, versao: saved.versao, motivo: reason.trim(),
+      const nextReference =
+        reference && draft.documento.pavimentos.some((f) => f.id === reference.floorId)
+          ? reference
+          : null;
+      const revision = {
+        ...draft,
+        versao: saved.versao,
+        motivo: reason.trim(),
         rascunhoToken: cloudDraftToken.current,
         ...(referenceChanged && !nextReference ? { removerReferencia: true } : {}),
       };
       let body: string | FormData = JSON.stringify(revision);
       if (referenceChanged && nextReference) {
         const form = new FormData();
-        const metadata = { pavimentoId: nextReference.floorId, pagina: nextReference.page,
-          x: nextReference.x, z: nextReference.z, largura: nextReference.width,
-          altura: nextReference.height, calibrada: nextReference.calibrated,
+        const metadata = {
+          pavimentoId: nextReference.floorId,
+          pagina: nextReference.page,
+          x: nextReference.x,
+          z: nextReference.z,
+          largura: nextReference.width,
+          altura: nextReference.height,
+          calibrada: nextReference.calibrated,
         };
         form.set('revisao', new Blob([JSON.stringify(revision)], { type: 'application/json' }));
         form.set('referencia', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
@@ -845,7 +876,11 @@ export function ModelEditor({
     const blob = new Blob(
       [
         JSON.stringify(
-          { formato: 'obra360-modelador', versaoFormato: content.documento.schemaVersao, ...content },
+          {
+            formato: 'obra360-modelador',
+            versaoFormato: content.documento.schemaVersao,
+            ...content,
+          },
           null,
           2,
         ),
@@ -865,8 +900,8 @@ export function ModelEditor({
     if (!file || !writable || !draft) return;
     const request = ++importGeneration.current;
     const modelGeneration = generation.current;
-    const stillCurrent = () => request === importGeneration.current &&
-      modelGeneration === generation.current;
+    const stillCurrent = () =>
+      request === importGeneration.current && modelGeneration === generation.current;
     try {
       if (file.size > 2000000) throw new Error('Arquivo de projeto excede 2 MB.');
       const contents = await file.text();
@@ -893,6 +928,13 @@ export function ModelEditor({
     }
   }
   const floorElements = draft?.documento.elementos.filter((e) => e.pavimentoId === floor?.id) || [];
+  useEffect(() => {
+    if (initialTarget) {
+      setProject(initialTarget.project);
+      void load(initialTarget.model);
+    }
+  }, [initialTarget]);
+
   return (
     <div className="model-module">
       <div className="ws-title-row">
@@ -989,46 +1031,79 @@ export function ModelEditor({
       )}
       {saved && recoverable && (
         <section className="ws-service-panel" aria-label="Rascunho do navegador">
-          <p>{recoverable.version === saved.versao
-            ? 'Há um rascunho deste modelo guardado neste navegador.'
-            : 'O modelo mudou no banco desde este rascunho. Baixe o arquivo para comparar as versões.'}</p>
+          <p>
+            {recoverable.version === saved.versao
+              ? 'Há um rascunho deste modelo guardado neste navegador.'
+              : 'O modelo mudou no banco desde este rascunho. Baixe o arquivo para comparar as versões.'}
+          </p>
           <div className="model-toolbar">
             {recoverable.version === saved.versao && (
-              <button type="button" disabled={busy} onClick={() => {
-                writtenDraft.current = { key: draftKey(saved.id), raw: recoverable.raw };
-                setDraft(copyDraft(recoverable.draft));
-                setFloorId(recoverable.draft.documento.pavimentos[0].id);
-                setSelected([]);
-                setFit((value) => value + 1);
-                setRecoverable(null);
-                setNotice('Rascunho recuperado. Salve o modelo para registrar uma revisão no banco.');
-              }}>Recuperar rascunho</button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  writtenDraft.current = { key: draftKey(saved.id), raw: recoverable.raw };
+                  setDraft(copyDraft(recoverable.draft));
+                  setFloorId(recoverable.draft.documento.pavimentos[0].id);
+                  setSelected([]);
+                  setFit((value) => value + 1);
+                  setRecoverable(null);
+                  setNotice(
+                    'Rascunho recuperado. Salve o modelo para registrar uma revisão no banco.',
+                  );
+                }}
+              >
+                Recuperar rascunho
+              </button>
             )}
-            <button type="button" disabled={busy} onClick={() => exportModel(recoverable.draft)}>Baixar rascunho JSON</button>
-            <button type="button" onClick={() => setComparisonSource(recoverable.draft)}>Comparar com o banco</button>
-            <button type="button" disabled={busy} onClick={() => {
-              if (!window.confirm('Descartar o rascunho guardado neste navegador?')) return;
-              removeLocalDraft(draftKey(saved.id), recoverable.raw);
-              setRecoverable(null);
-            }}>Descartar rascunho</button>
+            <button type="button" disabled={busy} onClick={() => exportModel(recoverable.draft)}>
+              Baixar rascunho JSON
+            </button>
+            <button type="button" onClick={() => setComparisonSource(recoverable.draft)}>
+              Comparar com o banco
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                if (!window.confirm('Descartar o rascunho guardado neste navegador?')) return;
+                removeLocalDraft(draftKey(saved.id), recoverable.raw);
+                setRecoverable(null);
+              }}
+            >
+              Descartar rascunho
+            </button>
           </div>
         </section>
       )}
-      {geometryDirty && <p className="ws-help">{draftStored
-        ? 'Rascunho guardado neste navegador.'
-        : 'O navegador não conseguiu guardar o rascunho. Salve o modelo ou exporte o JSON.'}</p>}
+      {geometryDirty && (
+        <p className="ws-help">
+          {draftStored
+            ? 'Rascunho guardado neste navegador.'
+            : 'O navegador não conseguiu guardar o rascunho. Salve o modelo ou exporte o JSON.'}
+        </p>
+      )}
       {geometryDirty && !comparisonSource && (
         <button type="button" className="ws-secondary" onClick={() => setComparisonSource(draft)}>
           Comparar com o banco
         </button>
       )}
       {canEdit && saved && draft && (
-        <ModelCloudDraft key={saved.id} model={saved} draft={draft} canStore={writable && geometryDirty}
-          hasLocalChanges={dirty || !!recoverable} disabled={busy}
-          onAssociate={(token) => { cloudDraftToken.current = token; }}
-          onCompare={setComparisonSource} onDownload={exportModel}
+        <ModelCloudDraft
+          key={saved.id}
+          model={saved}
+          draft={draft}
+          canStore={writable && geometryDirty}
+          hasLocalChanges={dirty || !!recoverable}
+          disabled={busy}
+          onAssociate={(token) => {
+            cloudDraftToken.current = token;
+          }}
+          onCompare={setComparisonSource}
+          onDownload={exportModel}
           onRecover={(recovered) => {
-            if (recoverable) writtenDraft.current = { key: draftKey(saved.id), raw: recoverable.raw };
+            if (recoverable)
+              writtenDraft.current = { key: draftKey(saved.id), raw: recoverable.raw };
             setRecoverable(null);
             setDraft(copyDraft(recovered));
             setFloorId(recovered.documento.pavimentos[0].id);
@@ -1038,11 +1113,15 @@ export function ModelEditor({
             setFit((value) => value + 1);
             setComparisonSource(null);
             setNotice('Rascunho do servidor recuperado. Salve para criar a revisão oficial.');
-          }} />
+          }}
+        />
       )}
       {comparisonSource && saved && (
-        <ModelComparison modelId={saved.id} draft={comparisonSource}
-          onClose={() => setComparisonSource(null)} />
+        <ModelComparison
+          modelId={saved.id}
+          draft={comparisonSource}
+          onClose={() => setComparisonSource(null)}
+        />
       )}
       {project && (
         <div className="model-list" aria-label="Modelos cadastrados">
@@ -1158,7 +1237,12 @@ export function ModelEditor({
             ))}
             <button
               className={drawWall ? 'is-active' : ''}
-              disabled={!writable || view === '3d' || !!calibration || (!!floorReference && !floorReference.calibrated)}
+              disabled={
+                !writable ||
+                view === '3d' ||
+                !!calibration ||
+                (!!floorReference && !floorReference.calibrated)
+              }
               onClick={() => {
                 setDrawWall((v) => !v);
                 setMeasure(false);
@@ -1211,11 +1295,17 @@ export function ModelEditor({
             />
           </section>
           {referenceLoading && <p role="status">Carregando referência da revisão…</p>}
-          {referenceChanged && <p className="ws-help">Salve o modelo para registrar a alteração da referência.</p>}
+          {referenceChanged && (
+            <p className="ws-help">Salve o modelo para registrar a alteração da referência.</p>
+          )}
           {canEdit && !saved.arquivado && (
-            <ModelReference key={`${saved.id}:${saved.revisao}:${floor.id}`}
-              reference={floorReference} floorId={floor.id} calibrated={!!floorReference?.calibrated}
-              calibrating={!!calibration} disabled={!writable || referenceLoading}
+            <ModelReference
+              key={`${saved.id}:${saved.revisao}:${floor.id}`}
+              reference={floorReference}
+              floorId={floor.id}
+              calibrated={!!floorReference?.calibrated}
+              calibrating={!!calibration}
+              disabled={!writable || referenceLoading}
               onLoad={(image) => {
                 setReference(image);
                 setReferenceChanged(true);
@@ -1237,11 +1327,16 @@ export function ModelEditor({
                 setReferenceChanged(!!saved.referencia);
                 setCalibration(null);
                 setDrawWall(false);
-              }} />
+              }}
+            />
           )}
-          {calibration && <p role="status">{calibration.first
-            ? 'Marque o segundo ponto da distância na imagem.'
-            : 'Marque o primeiro ponto da distância na imagem.'}</p>}
+          {calibration && (
+            <p role="status">
+              {calibration.first
+                ? 'Marque o segundo ponto da distância na imagem.'
+                : 'Marque o primeiro ponto da distância na imagem.'}
+            </p>
+          )}
           <div className="model-view-options">
             <label>
               Pavimento
@@ -1571,18 +1666,35 @@ export function ModelEditor({
             </aside>
           </div>
           {role === 'SUPER_ADMIN' && (
-            <details key={saved.id} className="model-plan-tools" onToggle={(event) => setPublication(event.currentTarget.open)}>
+            <details
+              key={saved.id}
+              className="model-plan-tools"
+              onToggle={(event) => setPublication(event.currentTarget.open)}
+            >
               <summary>Compartilhar planta com o cliente</summary>
-              {publication && <ModelPublication key={saved.id} model={saved} disabled={busy || dirty || !!recoverable}
-                onPublished={(updated) => setSaved((current) =>
-                  current?.id === updated.id && current.versao <= updated.versao ? updated : current
-                )} />}
+              {publication && (
+                <ModelPublication
+                  key={saved.id}
+                  model={saved}
+                  disabled={busy || dirty || !!recoverable}
+                  onPublished={(updated) =>
+                    setSaved((current) =>
+                      current?.id === updated.id && current.versao <= updated.versao
+                        ? updated
+                        : current,
+                    )
+                  }
+                />
+              )}
               {dirty && <p>Salve o rascunho antes de alterar a publicação.</p>}
             </details>
           )}
-          <details className="model-revisions" onToggle={(event) => {
-            if (!event.currentTarget.open) setTimeline(false);
-          }}>
+          <details
+            className="model-revisions"
+            onToggle={(event) => {
+              if (!event.currentTarget.open) setTimeline(false);
+            }}
+          >
             <summary>Revisões salvas · {revisionTotal}</summary>
             <p>Restaurar cria uma nova revisão. O histórico anterior permanece disponível.</p>
             <button className="ws-secondary" onClick={() => setTimeline((value) => !value)}>

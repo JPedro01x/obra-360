@@ -9,6 +9,7 @@ type Invitation = {
   revogado: boolean;
 };
 const roles = [
+  'COLABORADOR',
   'ENGENHEIRO',
   'ARQUITETO',
   'RH',

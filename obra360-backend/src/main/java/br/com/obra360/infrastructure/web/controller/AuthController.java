@@ -31,7 +31,6 @@ public class AuthController {
     private final JwtService jwtService;
     private final BruteForceProtectionService bruteForce;
     private final br.com.obra360.application.service.OperacaoService operation;
-    private final br.com.obra360.application.service.MfaService mfa;
     private final br.com.obra360.application.service.LicencaService licenca;
 
     @PostMapping("/login")
@@ -45,18 +44,6 @@ public class AuthController {
                 (user.getBloqueadoAte() == null || !user.getBloqueadoAte().isAfter(java.time.OffsetDateTime.now())) &&
                 user.getSenhaHash() != null && passwordEncoder.matches(request.getSenha(), user.getSenhaHash()) &&
                 (request.getPerfil()==null || request.getPerfil().isBlank() || user.getPerfil().equals(request.getPerfil()))) {
-                String code = request.getCodigo();
-                if (!mfa.verify(user.getId(), code)) {
-                    if (code == null || code.isBlank()) {
-                        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                                .cacheControl(CacheControl.noStore())
-                                .body(Map.of("code", "MFA_REQUIRED", "detail", "Informe o código de duas etapas."));
-                    }
-                    bruteForce.registrarFalhaLogin(clientIp);
-                    return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                            .cacheControl(CacheControl.noStore())
-                            .body(Map.of("code", "MFA_INVALID", "detail", "Código inválido ou já utilizado."));
-                }
                 String token = jwtService.issue(user);
                 bruteForce.registrarSucessoLogin(clientIp);
                 return ResponseEntity.ok(LoginResponse.builder()
@@ -75,11 +62,12 @@ public class AuthController {
 
     @PostMapping("/cadastrar")
     @org.springframework.transaction.annotation.Transactional
-    public ResponseEntity<UsuarioEntity> cadastrar(@Valid @RequestBody UsuarioEntity usuario) {
+    public ResponseEntity<UsuarioEntity> cadastrar(@Valid @RequestBody CreateUserRequest request) {
+        var usuario=UsuarioEntity.builder().nome(request.nome()).email(request.email()).senhaHash(request.senhaHash()).perfil(request.perfil()).ativo(request.ativo()).build();
         if (usuario.getSenhaHash() == null || usuario.getSenhaHash().length() < 12 || usuario.getSenhaHash().getBytes(java.nio.charset.StandardCharsets.UTF_8).length>72 ||
             usuario.getNome() == null || usuario.getNome().isBlank() ||
             usuario.getEmail() == null || !usuario.getEmail().matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+") ||
-            usuario.getPerfil() == null || !java.util.Set.of("SUPER_ADMIN", "RH", "GERENTE_OBRA", "ENGENHEIRO", "MESTRE_OBRA", "ALMOXARIFE", "FINANCEIRO", "AUDITOR", "ARQUITETO", "INCORPORADOR", "CLIENTE", "FORNECEDOR", "LOCADOR_MAQUINAS", "CORRETOR", "INVESTIDOR").contains(usuario.getPerfil())) {
+            usuario.getPerfil() == null || !java.util.Set.of("SUPER_ADMIN", "RH", "GERENTE_OBRA", "ENGENHEIRO", "MESTRE_OBRA", "ALMOXARIFE", "FINANCEIRO", "AUDITOR", "ARQUITETO", "INCORPORADOR", "CLIENTE", "FORNECEDOR", "LOCADOR_MAQUINAS", "CORRETOR", "INVESTIDOR", "COLABORADOR").contains(usuario.getPerfil())) {
             return ResponseEntity.badRequest().build();
         }
         if(!Boolean.FALSE.equals(usuario.getAtivo()))licenca.user(TenantContext.getCurrentTenant(),false);
@@ -105,11 +93,15 @@ public class AuthController {
         @NotBlank
         @jakarta.validation.constraints.Size(max=200)
         private String senha;
-        @jakarta.validation.constraints.Size(max=64)
-        private String codigo;
         @jakarta.validation.constraints.Size(max=30)
         private String perfil;
     }
+
+    public record CreateUserRequest(
+        @NotBlank @jakarta.validation.constraints.Size(max=100) String nome,
+        @NotBlank @Email @jakarta.validation.constraints.Size(max=120) String email,
+        @NotBlank @jakarta.validation.constraints.Size(min=12,max=72) String senhaHash,
+        @NotBlank @jakarta.validation.constraints.Size(max=30) String perfil,Boolean ativo) {}
 
     @Data
     @Builder

@@ -51,10 +51,6 @@ export function CompanyExport() {
             maxLength={200}
           />
         </label>
-        <label>
-          Código de duas etapas (se ativado)
-          <input name="codigo" autoComplete="one-time-code" maxLength={64} />
-        </label>
         <button disabled={busy}>Baixar exportação privada</button>
       </form>
     </section>

@@ -18,7 +18,7 @@ Documentos privados de RH não foram criados nessa base. A validação de upload
 
 ## Acesso
 
-Abra `http://localhost:3000`. Os e-mails e senhas geradas estão em **ACESSO-HOMOLOGACAO.local**, agora cifrado com AES-256-GCM. A chave é derivada, com contexto próprio, da MFA_ENCRYPTION_KEY em obra360-backend/.env; ela não está dentro do arquivo de credenciais. Ambos são ignorados pelo Git e não devem ser compartilhados ou reutilizados em produção. Não existe senha padrão publicada. Nomes, e-mails e dados gerais do banco H2 não foram criptografados por esta alteração; o arquivo de banco e os backups existentes continuam exigindo proteção de acesso.
+Abra `http://localhost:3000`. Os e-mails e senhas geradas estão em **ACESSO-HOMOLOGACAO.local**, agora cifrado com AES-256-GCM. A chave é derivada, com contexto próprio, da HOMOLOGATION_ENCRYPTION_KEY em obra360-backend/.env; ela não está dentro do arquivo de credenciais. Ambos são ignorados pelo Git e não devem ser compartilhados ou reutilizados em produção. Não existe senha padrão publicada. Nomes, e-mails e dados gerais do banco H2 não foram criptografados por esta alteração; o arquivo de banco e os backups existentes continuam exigindo proteção de acesso.
 
 Liste os perfis e e-mails com `npm run acessos:homologacao`. Para consultar a senha de uma conta **no seu terminal privado**, use `npm run acessos:homologacao -- --perfil SUPER_ADMIN --mostrar-senhas`, substituindo o perfil quando necessário. Sem a opção explícita, o comando não exibe senhas. Quem possui acesso ao arquivo de credenciais e à chave privada consegue descriptografá-lo; mantenha as permissões do computador restritas.
 

@@ -1,0 +1,114 @@
+{
+  "formato": "obra360-piloto-v1",
+  "empresa": {
+    "nome": "",
+    "cnpj": ""
+  },
+  "versao": "",
+  "cenarios": [
+    {
+      "id": "cadastros",
+      "resultado": "PENDENTE",
+      "responsavel": "",
+      "aprovadoEm": null,
+      "evidencia": "",
+      "observacoes": ""
+    },
+    {
+      "id": "perfis",
+      "resultado": "PENDENTE",
+      "responsavel": "",
+      "aprovadoEm": null,
+      "evidencia": "",
+      "observacoes": ""
+    },
+    {
+      "id": "projetos",
+      "resultado": "PENDENTE",
+      "responsavel": "",
+      "aprovadoEm": null,
+      "evidencia": "",
+      "observacoes": ""
+    },
+    {
+      "id": "equipes_os",
+      "resultado": "PENDENTE",
+      "responsavel": "",
+      "aprovadoEm": null,
+      "evidencia": "",
+      "observacoes": ""
+    },
+    {
+      "id": "compras_estoque",
+      "resultado": "PENDENTE",
+      "responsavel": "",
+      "aprovadoEm": null,
+      "evidencia": "",
+      "observacoes": ""
+    },
+    {
+      "id": "documentos",
+      "resultado": "PENDENTE",
+      "responsavel": "",
+      "aprovadoEm": null,
+      "evidencia": "",
+      "observacoes": ""
+    },
+    {
+      "id": "rh_administrativo",
+      "resultado": "PENDENTE",
+      "responsavel": "",
+      "aprovadoEm": null,
+      "evidencia": "",
+      "observacoes": ""
+    },
+    {
+      "id": "plantas",
+      "resultado": "PENDENTE",
+      "responsavel": "",
+      "aprovadoEm": null,
+      "evidencia": "",
+      "observacoes": ""
+    },
+    {
+      "id": "isolamento_empresas",
+      "resultado": "PENDENTE",
+      "responsavel": "",
+      "aprovadoEm": null,
+      "evidencia": "",
+      "observacoes": ""
+    },
+    {
+      "id": "recuperacao_senha",
+      "resultado": "PENDENTE",
+      "responsavel": "",
+      "aprovadoEm": null,
+      "evidencia": "",
+      "observacoes": ""
+    },
+    {
+      "id": "backup_restauracao",
+      "resultado": "PENDENTE",
+      "responsavel": "",
+      "aprovadoEm": null,
+      "evidencia": "",
+      "observacoes": ""
+    },
+    {
+      "id": "capacidade",
+      "resultado": "PENDENTE",
+      "responsavel": "",
+      "aprovadoEm": null,
+      "evidencia": "",
+      "observacoes": ""
+    },
+    {
+      "id": "atendimento",
+      "resultado": "PENDENTE",
+      "responsavel": "",
+      "aprovadoEm": null,
+      "evidencia": "",
+      "observacoes": ""
+    }
+  ]
+}

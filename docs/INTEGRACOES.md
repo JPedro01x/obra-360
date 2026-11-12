@@ -6,7 +6,6 @@ Copie `obra360-backend/.env.example` para `.env` na mesma pasta. `npm run dev` c
 
 | Recurso | Implementação                                                       | Configuração necessária                                                                           |
 | ------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| S3      | Upload, download protegido e exclusão pelo SDK AWS                  | `DOCUMENT_STORAGE=s3`, `AWS_REGION`, `S3_BUCKET`, credenciais pelo provedor padrão AWS            |
 | Google  | Assinatura, emissor, audiência, validade e nonce; vínculo explícito | Cliente OAuth Web, origem autorizada e `GOOGLE_CLIENT_ID`                                         |
 | IA      | OpenAI Responses API, consentimento e limite de uso                 | `AI_ENABLED=true`, `OPENAI_API_KEY`, `AI_MODEL` disponível na conta                               |
 | E-mail  | Recuperação SMTP com token de uso único válido por 15 minutos       | `EMAIL_ENABLED=true`, `SMTP_HOST/PORT/USERNAME/PASSWORD`, `EMAIL_FROM`, `APP_PUBLIC_URL`          |
@@ -14,7 +13,7 @@ Copie `obra360-backend/.env.example` para `.env` na mesma pasta. `npm run dev` c
 | IFC     | Leitura e quantitativos declarados, no navegador                    | Arquivo IFC válido; nenhuma conta externa                                                         |
 | Portais | Vínculos por empresa, usuário, obra e unidade/fornecedor            | Administrador cadastrar usuário externo e conceder **Acessos externos**                           |
 
-S3 usa credenciais apenas no servidor. Objetos recebem identificadores aleatórios. Arquivos locais anteriores continuam acessíveis. O backup local não inclui objetos remotos; configure retenção e backup do bucket separadamente.
+Os documentos são armazenados exclusivamente no disco do servidor, no diretório `OBRA360_STORAGE_DIRECTORY` (padrão `data/documentos`). Não há integração com armazenamento em nuvem. Inclua esse diretório nos backups.
 
 Para Google, entre com senha e vincule a conta Google autenticada com o mesmo e-mail verificado. Depois, use o botão Google para entrar. Não há cadastro automático nem vínculo silencioso por e-mail.
 
@@ -30,8 +29,8 @@ Clientes precisam de vínculo à unidade; fornecedores/locadores, ao fornecedor 
 
 ## Verificações
 
-Testes locais verificam HTTP Responses, assinatura Google com JWKS de teste, PUT/GET/DELETE S3 e XML SEFAZ com bloqueio de entidades externas. Não comprovam acesso aos provedores reais. A jornada integrada usa SMTP de captura no loopback, somente com destinatários `@test.invalid`.
+Testes locais verificam HTTP Responses, assinatura Google com JWKS de teste, gravação/leitura/exclusão local e XML SEFAZ com bloqueio de entidades externas. Não comprovam acesso aos provedores reais. A jornada integrada usa SMTP de captura no loopback, somente com destinatários `@test.invalid`.
 
-`npm run test:postgres` executa 49 cenários e migrações V1–V19 em PostgreSQL temporário isolado, com porta livre escolhida automaticamente. Não transfere nem altera a base operacional H2. Publicação exige validar o ambiente de destino, HTTPS, segredos, backups e os serviços efetivamente ativados.
+`npm run test:postgres` executa os cenários operacionais e as migrações disponíveis em PostgreSQL temporário isolado, com porta livre escolhida automaticamente. Não transfere nem altera a base operacional H2. Publicação exige validar o ambiente de destino, HTTPS, segredos, backups e os serviços efetivamente ativados.
 
-Referências: [Google](https://developers.google.com/identity/gsi/web/guides/verify-google-id-token), [OpenAI](https://developers.openai.com/api/docs/guides/text), [web-ifc](https://github.com/ThatOpen/engine_web-ifc), [SEFAZ SVRS](https://dfe-portal.svrs.rs.gov.br/NFE/Servicos), [AWS SDK](https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/examples-s3-presign.html).
+Referências: [Google](https://developers.google.com/identity/gsi/web/guides/verify-google-id-token), [OpenAI](https://developers.openai.com/api/docs/guides/text), [web-ifc](https://github.com/ThatOpen/engine_web-ifc), [SEFAZ SVRS](https://dfe-portal.svrs.rs.gov.br/NFE/Servicos).

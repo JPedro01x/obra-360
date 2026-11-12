@@ -38,6 +38,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     if (tenant != null && !tenant.equals(user.getEmpresaId().toString())) {
                         response.sendError(403); return;
                     }
+                    if(user.isExigeTrocaSenha() && !java.util.Set.of("/api/v1/workspace/sessao","/api/v1/workspace/minha-senha","/api/v1/workspace/minhas-sessoes/sair").contains(request.getRequestURI())) {
+                        response.setStatus(403);response.setContentType("application/json");response.setCharacterEncoding("UTF-8");response.setHeader("Cache-Control","no-store");
+                        response.getWriter().write("{\"code\":\"PASSWORD_CHANGE_REQUIRED\",\"detail\":\"Troque a senha inicial para continuar.\"}");return;
+                    }
                 } catch (io.jsonwebtoken.JwtException | IllegalArgumentException ex) {
                     response.sendError(401); return;
                 }

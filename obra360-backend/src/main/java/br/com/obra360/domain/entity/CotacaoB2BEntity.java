@@ -26,6 +26,9 @@ public class CotacaoB2BEntity {
     @Column(name = "fornecedor_b2b_id", nullable = false)
     private Long fornecedorB2bId;
 
+    @Column(name = "requisicao_compra_id")
+    private Long requisicaoCompraId;
+
     @Column(name = "codigo_cotacao", nullable = false, unique = true, length = 30)
     private String codigoCotacao;
 

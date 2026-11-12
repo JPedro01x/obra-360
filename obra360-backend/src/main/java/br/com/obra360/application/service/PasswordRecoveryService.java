@@ -42,6 +42,7 @@ public class PasswordRecoveryService {
         var user=em.find(UsuarioEntity.class,token.getUsuarioId(),LockModeType.PESSIMISTIC_WRITE);em.refresh(token,LockModeType.PESSIMISTIC_WRITE);
         if(token.isUsado()||token.getExpiraEm().isBefore(OffsetDateTime.now())||!Boolean.TRUE.equals(user.getAtivo()))throw invalid();
         user.setSenhaHash(encoder.encode(password));user.setVersaoCredencial(user.getVersaoCredencial()+1);user.setBloqueadoAte(null);user.setTentativasLoginFalhas(0);
+        user.setExigeTrocaSenha(false);
         em.createQuery("update PasswordResetEntity r set r.usado=true where r.usuarioId=:u").setParameter("u",user.getId()).executeUpdate();
         em.persist(LogAuditoriaEntity.builder().empresaId(user.getEmpresaId()).usuarioId(user.getId()).acao("RECUPERAR_SENHA").entidadeAfetada("usuario").entidadeId(user.getId()).build());
     }

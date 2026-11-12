@@ -81,7 +81,7 @@ public class ModeloReferenciaService {
         if (reference == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         byte[] bytes;
         try { bytes = storage.read(reference.getArquivoKey()); }
-        catch (NoSuchFileException | software.amazon.awssdk.services.s3.model.NoSuchKeyException failure) {
+        catch (NoSuchFileException failure) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Arquivo de referência indisponível.");
         }
         if (!reference.getSha256().equals(hash(bytes)))

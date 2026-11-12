@@ -49,6 +49,19 @@ public class SolicitacaoServicoEntity {
     @Column(name = "data_encerramento")
     private OffsetDateTime dataEncerramento;
 
+    @Column(name = "exige_material", nullable = false)
+    @org.hibernate.annotations.ColumnDefault("false")
+    private boolean exigeMaterial;
+
+    @Column(name = "justificativa_atraso", length = 2000)
+    private String justificativaAtraso;
+
+    @Column(name = "solicitante_encerramento_id")
+    private Long solicitanteEncerramentoId;
+
+    @Column(name = "aprovador_encerramento_id")
+    private Long aprovadorEncerramentoId;
+
     @PrePersist
     public void prePersist() {
         if (dataAbertura == null) {

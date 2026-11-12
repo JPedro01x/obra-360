@@ -14,6 +14,7 @@
     "test:preproduction": "node scripts/preproduction-lab.mjs",
     "configurar:seguranca-local": "node scripts/configure-local-security.mjs",
     "test:postgres": "node scripts/test-postgres.mjs",
+    "test:system": "node scripts/validate-system.mjs",
     "backup": "node scripts/backup.mjs create",
     "backup:restore": "node scripts/backup.mjs restore",
     "backup:production": "node scripts/backup-production.mjs",
@@ -29,7 +30,15 @@
     "test:demo": "playwright test --config playwright.demo.config.ts",
     "preview": "vite preview",
     "dados:homologacao": "node scripts/homologar.mjs --criar-base-homologacao",
-    "validar:homologacao": "node scripts/validar-homologacao.mjs"
+    "validar:homologacao": "node scripts/validar-homologacao.mjs",
+    "validar:piloto": "node scripts/pilot-acceptance.mjs",
+    "dados:demonstracao": "node scripts/demo-company.mjs",
+    "acessos:demonstracao": "node scripts/acessos-demonstracao.mjs",
+    "diagnostico:local": "node scripts/operations-local.mjs",
+    "monitorar:local": "node scripts/operations-local.mjs --watch",
+    "validar:local": "node scripts/check-local.mjs",
+    "backup:verificar": "node scripts/backup.mjs verify",
+    "parar:local": "node scripts/stop-local.mjs"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.4",

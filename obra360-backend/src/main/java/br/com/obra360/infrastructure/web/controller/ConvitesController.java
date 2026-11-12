@@ -20,7 +20,7 @@ import java.util.*;
 public class ConvitesController {
     private final EntityManager em;private final PasswordEncoder encoder;private final OperacaoService operation;
     private final LicencaService licenca;
-    private static final Set<String> ROLES=Set.of("SUPER_ADMIN","RH","GERENTE_OBRA","ENGENHEIRO","ARQUITETO","MESTRE_OBRA","ALMOXARIFE","FINANCEIRO","AUDITOR","INCORPORADOR","CLIENTE","FORNECEDOR","CORRETOR","LOCADOR_MAQUINAS","INVESTIDOR");
+    private static final Set<String> ROLES=Set.of("SUPER_ADMIN","RH","GERENTE_OBRA","ENGENHEIRO","ARQUITETO","MESTRE_OBRA","ALMOXARIFE","FINANCEIRO","AUDITOR","INCORPORADOR","CLIENTE","FORNECEDOR","CORRETOR","LOCADOR_MAQUINAS","INVESTIDOR","COLABORADOR");
     @GetMapping("/workspace/convites") @PreAuthorize("hasRole('SUPER_ADMIN')") @Transactional(readOnly=true)
     public List<Map<String,Object>> list(){return em.createQuery("select c from ConviteEntity c where c.empresaId=:t order by c.criadoEm desc",ConviteEntity.class).setParameter("t",TenantContext.getCurrentTenant()).setMaxResults(100).getResultList().stream().map(c->Map.<String,Object>of("id",c.getId(),"email",c.getEmail(),"perfil",c.getPerfil(),"expiraEm",c.getExpiraEm(),"usado",c.isUsado(),"revogado",c.isRevogado())).toList();}
     @PostMapping("/workspace/convites") @PreAuthorize("hasRole('SUPER_ADMIN')")

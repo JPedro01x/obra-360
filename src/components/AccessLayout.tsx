@@ -28,6 +28,7 @@ export const accessProfiles = [
   { id: 'RH', title: 'Recursos Humanos', level: 2, area: 'Gestão de Pessoas' },
   { id: 'MESTRE_OBRA', title: 'Mestre de Obras', level: 3, area: 'Operações de Canteiro' },
   { id: 'ALMOXARIFE', title: 'Almoxarife Chefe', level: 3, area: 'Logística de Materiais' },
+  { id: 'COLABORADOR', title: 'Colaborador', level: 3, area: 'Meu cadastro e demonstrativos' },
   { id: 'AUDITOR', title: 'Auditor', level: 4, area: 'Transparência & Auditoria' },
   { id: 'FORNECEDOR', title: 'Fornecedor B2B de Materiais', level: 5, area: 'Fornecedores B2B' },
   {

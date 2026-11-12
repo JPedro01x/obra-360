@@ -1,0 +1,109 @@
+.ws-detail-dialog.ws-form-dialog {
+  width: 1120px;
+}
+.ws-detail-panel {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.ws-detail-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 18px;
+  margin: 24px 0;
+}
+.ws-detail-fields dt {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.ws-detail-fields dd {
+  margin: 5px 0 0;
+  overflow-wrap: anywhere;
+}
+.ws-detail-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 12px;
+}
+.ws-detail-metrics article {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.ws-detail-metrics h3 {
+  font-size: 0.9rem;
+  margin: 0 0 12px;
+}
+.ws-detail-metrics strong {
+  font-size: 1.4rem;
+  overflow-wrap: anywhere;
+}
+.ws-detail-metrics p {
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+.ws-detail-metrics progress {
+  width: 100%;
+  accent-color: var(--accent, #ff7a0a);
+}
+.ws-detail-section {
+  margin-top: 28px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+  min-width: 0;
+}
+.ws-detail-section h3 {
+  font-size: 1rem;
+}
+.ws-detail-section h3 span {
+  color: var(--muted);
+  font-weight: 400;
+}
+.ws-detail-table {
+  overflow-x: auto;
+  max-width: 100%;
+}
+.ws-detail-table table {
+  min-width: 580px;
+  width: 100%;
+}
+.ws-detail-table td {
+  max-width: 360px;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.ws-detail-tools,
+.ws-detail-pages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin: 14px 0;
+}
+.ws-record-link {
+  color: inherit;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 5px 0;
+  font: inherit;
+  font-weight: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.ws-record-link:hover {
+  color: var(--accent, #ff7a0a);
+}
+@media (max-width: 600px) {
+  .ws-detail-panel.ws-modal {
+    padding: 18px;
+  }
+  .ws-detail-panel header {
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .ws-detail-panel h2 {
+    font-size: 1.2rem;
+  }
+}

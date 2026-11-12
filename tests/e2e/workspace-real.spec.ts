@@ -31,6 +31,518 @@ async function authenticated(page: import('@playwright/test').Page) {
   await page.route('**/api/v1/workspace/sessao', (route) => route.fulfill({ json: session }));
 }
 
+for (const [resource, menu, action, record] of [
+  ['projetos', 'Empreendimentos', 'Excluir obra', { id: 91, nome: 'Obra sem vínculos' }],
+  ['equipes', 'Equipes', 'Excluir equipe', { id: 91, nomeEquipe: 'Equipe sem vínculos' }],
+  [
+    'fornecedores',
+    'Fornecedores',
+    'Excluir fornecedor',
+    { id: 91, razaoSocial: 'Fornecedor sem vínculos' },
+  ],
+] as const) {
+  test(`${action} requires the name and sends an explicit DELETE`, async ({ page }) => {
+    await authenticated(page);
+    let removed = false;
+    await page.route('**/api/v1/workspace/registros/**', (route) =>
+      route.fulfill({
+        json: {
+          items:
+            route.request().url().includes(`/registros/${resource}?`) && !removed ? [record] : [],
+          total: removed ? 0 : 1,
+          page: 0,
+          size: 25,
+        },
+      }),
+    );
+    await page.route(`**/api/v1/workspace/${resource}/91`, (route) => {
+      expect(route.request().method()).toBe('DELETE');
+      expect(route.request().postDataJSON()).toEqual({ confirmacao: Object.values(record)[1] });
+      removed = true;
+      return route.fulfill({ status: 204 });
+    });
+    await page.goto('/');
+    await page.getByRole('button', { name: menu, exact: true }).click();
+    await page.getByRole('button', { name: action, exact: true }).click();
+    await page.getByLabel('Nome do cadastro para confirmar', { exact: true }).fill('Nome errado');
+    await page.getByRole('button', { name: 'Confirmar exclusão', exact: true }).click();
+    expect(removed).toBe(false);
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await page
+      .getByLabel('Nome do cadastro para confirmar', { exact: true })
+      .fill(String(Object.values(record)[1]));
+    await page.getByRole('button', { name: 'Confirmar exclusão', exact: true }).click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    expect(removed).toBe(true);
+  });
+}
+
+test('linked project deletion keeps the dialog and displays the server reason', async ({
+  page,
+}) => {
+  await authenticated(page);
+  await page.route('**/api/v1/workspace/registros/**', (route) =>
+    route.fulfill({
+      json: { items: [{ id: 92, nome: 'Obra vinculada' }], total: 1, page: 0, size: 25 },
+    }),
+  );
+  await page.route('**/api/v1/workspace/projetos/92', (route) =>
+    route.fulfill({ status: 409, json: { detail: 'A obra possui equipes vinculadas.' } }),
+  );
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Empreendimentos', exact: true }).click();
+  await page.getByRole('button', { name: 'Excluir obra', exact: true }).click();
+  await page.getByLabel('Nome do cadastro para confirmar', { exact: true }).fill('Obra vinculada');
+  await page.getByRole('button', { name: 'Confirmar exclusão', exact: true }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByText('A obra possui equipes vinculadas.', { exact: true })).toBeVisible();
+});
+
+test('engineer cannot see project deletion', async ({ page }) => {
+  await authenticated(page);
+  await page.route('**/api/v1/workspace/sessao', (route) =>
+    route.fulfill({ json: { ...session, perfil: 'ENGENHEIRO' } }),
+  );
+  await page.route('**/api/v1/workspace/registros/**', (route) =>
+    route.fulfill({
+      json: { items: [{ id: 93, nome: 'Obra protegida' }], total: 1, page: 0, size: 25 },
+    }),
+  );
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Empreendimentos', exact: true }).click();
+  await expect(page.getByText('Obra protegida', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Excluir obra', exact: true })).toHaveCount(0);
+});
+
+for (const width of [375, 1280]) {
+  test(`project details show links and paginate without overflowing at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 850 });
+    await authenticated(page);
+    await page.route('**/api/v1/workspace/registros/**', (route) =>
+      route.fulfill({
+        json: { items: [{ id: 1, nome: 'Obra detalhada' }], total: 1, page: 0, size: 25 },
+      }),
+    );
+    const projectDetails = {
+      registro: { id: 1, nome: 'Obra detalhada', areaTotalM2: 200, vgvEstimado: 500000 },
+      indicadores: [
+        {
+          label: 'Engenheiro responsável',
+          value: 'Engenheira Ana',
+          type: 'text',
+          note: 'Responsável cadastrado na obra.',
+        },
+        {
+          label: 'Evolução do cronograma',
+          value: 45,
+          type: 'percent',
+          note: 'Média simples das etapas cadastradas.',
+        },
+      ],
+      secoes: [
+        {
+          key: 'equipes',
+          title: 'Equipes e encarregados',
+          resource: 'equipes',
+          columns: [
+            { label: 'ID', type: 'text' },
+            { label: 'Equipe', type: 'text' },
+            { label: 'Encarregado', type: 'text' },
+          ],
+          rows: [[10, 'Equipe estrutura', 'Encarregado Paulo']],
+          total: 11,
+          page: 0,
+        },
+      ],
+    };
+    await page.route('**/api/v1/workspace/detalhes/**', (route) => {
+      if (route.request().url().includes('/equipes/10'))
+        return route.fulfill({
+          json: {
+            registro: { id: 10, nomeEquipe: 'Equipe estrutura' },
+            indicadores: [],
+            secoes: [
+              {
+                key: 'membros',
+                title: 'Membros alocados (RH)',
+                resource: '',
+                columns: [
+                  { label: 'ID', type: 'text' },
+                  { label: 'Nome', type: 'text' },
+                ],
+                rows: [[21, 'Funcionário Bruno']],
+                total: 1,
+                page: 0,
+              },
+            ],
+          },
+        });
+      if (route.request().url().includes('page=1'))
+        return route.fulfill({
+          json: {
+            ...projectDetails,
+            secoes: [
+              {
+                ...projectDetails.secoes[0],
+                rows: [[11, 'Equipe acabamento', 'Encarregada Maria']],
+                page: 1,
+              },
+            ],
+          },
+        });
+      return route.fulfill({ json: projectDetails });
+    });
+    await page.goto('/');
+    if (width < 600) await page.getByRole('button', { name: /menu/i }).first().click();
+    await page.getByRole('button', { name: 'Empreendimentos', exact: true }).click();
+    await page.getByRole('button', { name: 'Obra detalhada', exact: true }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByText('Engenheira Ana', { exact: true })).toBeVisible();
+    await expect(
+      dialog.getByRole('progressbar', { name: 'Evolução do cronograma' }),
+    ).toHaveAttribute('value', '45');
+    await expect(dialog.getByText('Encarregado Paulo', { exact: true })).toBeVisible();
+    await dialog.getByRole('button', { name: 'Ver detalhes', exact: true }).click();
+    await expect(dialog.getByText('Funcionário Bruno', { exact: true })).toBeVisible();
+    await dialog.getByRole('button', { name: 'Voltar ao cadastro anterior' }).click();
+    await dialog.getByRole('button', { name: 'Próxima', exact: true }).click();
+    await expect(dialog.getByText('Equipe acabamento', { exact: true })).toBeVisible();
+    expect(
+      await dialog.evaluate((element) => element.getBoundingClientRect().right <= innerWidth),
+    ).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await page.screenshot({ path: `scratch/details-${width}.png` });
+    await dialog.getByRole('button', { name: 'Fechar detalhes' }).click();
+    await expect(dialog).toHaveCount(0);
+  });
+}
+
+test('quality form sends JSON metadata and the selected photo together', async ({ page }) => {
+  await authenticated(page);
+  await page.route('**/api/v1/workspace/registros/**', (route) =>
+    route.fulfill({ json: { items: [], total: 0, page: 0, size: 25 } }),
+  );
+  await page.route('**/api/v1/workspace/opcoes/**', (route) =>
+    route.fulfill({ json: [{ id: 1, nome: 'Registro teste' }] }),
+  );
+  let uploaded = false;
+  await page.route('**/api/v1/workspace/qualidade', (route) => {
+    expect(route.request().headers()['content-type']).toContain('multipart/form-data');
+    const body = route.request().postDataBuffer()!.toString('utf8');
+    expect(body).toContain('name="dados"');
+    expect(body).toContain('"grauSeveridade":"ALTA"');
+    expect(body).toContain('foto.png');
+    uploaded = true;
+    return route.fulfill({ status: 201, json: { id: 1 } });
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Qualidade e segurança', exact: true }).click();
+  await page.getByRole('button', { name: 'Nova ocorrência', exact: true }).click();
+  await page.getByLabel('Empreendimento', { exact: true }).selectOption('1');
+  await page.getByLabel('Responsável', { exact: true }).selectOption('1');
+  await page.getByLabel('Título da ocorrência').fill('Ocorrência com foto');
+  await page.getByLabel('Norma ou referência').fill('Referência de teste');
+  await page.getByLabel('Severidade', { exact: true }).selectOption('ALTA');
+  await page
+    .getByLabel(/Foto PNG\/JPEG/)
+    .setInputFiles({ name: 'foto.png', mimeType: 'image/png', buffer: Buffer.from('fixture') });
+  await page.getByRole('button', { name: 'Salvar', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  expect(uploaded).toBe(true);
+});
+
+test('notifications render untrusted text safely and record reading', async ({ page }) => {
+  await authenticated(page);
+  await page.route('**/api/v1/workspace/registros/**', (route) =>
+    route.fulfill({ json: { items: [], total: 0, page: 0, size: 25 } }),
+  );
+  let read = false;
+  await page.route('**/api/v1/workspace/notificacoes**', (route) => {
+    if (route.request().method() === 'POST') {
+      read = true;
+      return route.fulfill({ status: 204 });
+    }
+    return route.fulfill({
+      json: {
+        items: [
+          {
+            id: 7,
+            mensagem: '<img src=x onerror=alert(1)>',
+            criadoEm: '2026-11-11T12:00:00Z',
+            lidoEm: read ? '2026-11-11T13:00:00Z' : null,
+          },
+        ],
+        total: 1,
+        naoLidas: read ? 0 : 1,
+      },
+    });
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Notificações', exact: true }).click();
+  await expect(page.getByText('<img src=x onerror=alert(1)>', { exact: true })).toBeVisible();
+  await expect(page.locator('img[src="x"]')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Marcar como lida' }).click();
+  await expect(page.getByText('0 não lidas', { exact: true })).toBeVisible();
+  expect(read).toBe(true);
+});
+
+test('HR shows the generated access only after registration and clears it on close', async ({
+  page,
+}) => {
+  await authenticated(page);
+  await page.route('**/api/v1/workspace/sessao', (route) =>
+    route.fulfill({ json: { ...session, perfil: 'RH' } }),
+  );
+  let created = false;
+  const secret = 'Aa1!SenhaInicialSomenteTeste';
+  await page.route('**/api/v1/workspace/rh/**', (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith('/funcionarios') && route.request().method() === 'POST') {
+      expect(route.request().postDataJSON().email).toBe('staff@test.invalid');
+      expect(route.request().postDataJSON()).not.toHaveProperty('senha');
+      created = true;
+      return route.fulfill({
+        json: {
+          id: 7,
+          usuarioId: 8,
+          acessoInicial: {
+            usuarioId: 8,
+            email: 'staff@test.invalid',
+            senha: secret,
+            perfil: 'COLABORADOR',
+          },
+        },
+      });
+    }
+    return route.fulfill({
+      json: path.includes('/opcoes/')
+        ? [{ id: 1, nome: 'Registro teste' }]
+        : path.endsWith('/resumo')
+          ? {}
+          : { items: [], total: 0 },
+    });
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Cadastrar funcionário', exact: true }).click();
+  await page.getByLabel('Matrícula', { exact: true }).fill('RH-TEST');
+  await page.getByLabel('Nome completo', { exact: true }).fill('Pessoa de teste');
+  await page.getByLabel('CPF (somente dígitos)', { exact: true }).fill('52998224725');
+  await page.getByLabel('E-mail', { exact: true }).fill('staff@test.invalid');
+  await page.getByLabel('Data de admissão', { exact: true }).fill('2026-01-01');
+  await page.getByLabel('Departamento', { exact: true }).selectOption('1');
+  await page.getByLabel('Cargo', { exact: true }).selectOption('1');
+  await page.getByLabel('Salário base / valor contratual (R$)', { exact: true }).fill('2500');
+  await page.getByRole('button', { name: 'Salvar RH', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Acesso do funcionário criado', exact: true }),
+  ).toBeVisible();
+  expect(created).toBe(true);
+  await expect(page.getByLabel('Senha inicial', { exact: true })).toHaveAttribute(
+    'type',
+    'password',
+  );
+  await page.getByRole('button', { name: 'Visualizar senha inicial', exact: true }).click();
+  await expect(page.getByLabel('Senha inicial', { exact: true })).toHaveValue(secret);
+  expect(
+    await page.evaluate(() => JSON.stringify({ ...localStorage, ...sessionStorage })),
+  ).not.toContain(secret);
+  await page.getByRole('button', { name: 'Concluir e fechar', exact: true }).click();
+  await expect(page.getByLabel('Senha inicial', { exact: true })).toHaveCount(0);
+});
+
+test('initial password requires a personal password before showing the workspace', async ({
+  page,
+}) => {
+  await authenticated(page);
+  await page.route('**/api/v1/workspace/sessao', (route) =>
+    route.fulfill({ json: { ...session, perfil: 'COLABORADOR', exigeTrocaSenha: true } }),
+  );
+  await page.route('**/api/v1/workspace/minha-senha', (route) => {
+    expect(route.request().postDataJSON()).toEqual({
+      senhaAtual: 'SenhaInicialTeste@12345',
+      novaSenha: 'SenhaPessoalTeste@12345',
+    });
+    return route.fulfill({ status: 204 });
+  });
+  await page.goto('/');
+  await expect(
+    page.getByRole('heading', { name: 'Troque a senha inicial', exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Módulos da empresa' })).toHaveCount(0);
+  await page.getByLabel('Senha atual', { exact: true }).fill('SenhaInicialTeste@12345');
+  await page
+    .getByLabel('Nova senha (mínimo de 12 caracteres)', { exact: true })
+    .fill('SenhaPessoalTeste@12345');
+  await page.getByRole('button', { name: 'Salvar', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Acessar Plataforma', exact: true }),
+  ).toBeVisible();
+  expect(await page.evaluate(() => sessionStorage.getItem('obra360_access_token'))).toBeNull();
+});
+
+test('employee portal has personal records and mobile navigation without management modules', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 740 });
+  await authenticated(page);
+  await page.route('**/api/v1/workspace/sessao', (route) =>
+    route.fulfill({ json: { ...session, perfil: 'COLABORADOR' } }),
+  );
+  await page.route('**/api/v1/workspace/colaborador**', (route) => {
+    const path = new URL(route.request().url()).pathname;
+    return route.fulfill({
+      json: path.endsWith('/folhas/99')
+        ? {
+            competencia: '2026-10',
+            situacao: 'FECHADA',
+            proventos: 3000,
+            descontos: 100,
+            liquido: 2900,
+            lancamentos: [
+              {
+                codigo: 'SALARIO',
+                descricao: 'Salário informado',
+                natureza: 'PROVENTO',
+                valor: 3000,
+              },
+            ],
+          }
+        : path.endsWith('/folhas')
+          ? [{ id: 99, competencia: '2026-10', situacao: 'FECHADA' }]
+          : path.endsWith('/ponto')
+            ? {
+                items: [
+                  {
+                    id: 1,
+                    data: '2026-10-01',
+                    entrada: '08:00',
+                    saida: '17:00',
+                    minutosTrabalhados: 480,
+                    situacao: 'APROVADO',
+                  },
+                ],
+                total: 1,
+              }
+            : {
+                nome: 'Colaborador de teste',
+                matricula: 'RH-001',
+                situacao: 'ATIVO',
+                admissao: '2026-01-01',
+                departamento: 'Operação',
+                cargo: 'Técnico',
+                jornadaSemanalMinutos: 2640,
+              },
+    });
+  });
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Meu cadastro', exact: true })).toBeVisible();
+  await expect(page.getByLabel('Meus dados funcionais')).toContainText('RH-001');
+  await page.getByLabel('Competência do demonstrativo', { exact: true }).selectOption('99');
+  await expect(page.getByText('Líquido informado: R$ 2.900,00')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Recursos humanos', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Menu', exact: true }).click();
+  await expect(
+    page.getByRole('navigation').getByRole('button', { name: 'Meu cadastro', exact: true }),
+  ).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+});
+
+test('work order form sends automatic SLA and material requirement', async ({ page }) => {
+  await authenticated(page);
+  await page.route('**/api/v1/workspace/registros/**', (route) =>
+    route.fulfill({ json: { items: [], total: 0, page: 0, size: 25 } }),
+  );
+  await page.route('**/api/v1/workspace/opcoes/**', (route) =>
+    route.fulfill({ json: [{ id: 1, nome: 'Registro de teste' }] }),
+  );
+  let saved = false;
+  await page.route('**/api/v1/workspace/ordens', async (route) => {
+    expect(route.request().postDataJSON()).toMatchObject({
+      contratoServicoId: '1',
+      equipeTrabalhoId: '1',
+      prioridade: 'URGENTE',
+      exigeMaterial: true,
+    });
+    expect(route.request().postDataJSON()).not.toHaveProperty('dataLimiteSla');
+    saved = true;
+    await route.fulfill({ status: 201, json: { id: 1 } });
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Ordens de serviço', exact: true }).click();
+  await page.getByRole('button', { name: 'Nova ordem de serviço', exact: true }).click();
+  await page.getByLabel('Contrato', { exact: true }).selectOption('1');
+  await page.getByLabel('Equipe', { exact: true }).selectOption('1');
+  await page
+    .getByLabel('Descrição do serviço', { exact: true })
+    .fill('Executar atendimento prioritário');
+  await page.getByLabel('Prioridade', { exact: true }).selectOption('URGENTE');
+  await page.getByLabel('Exigir consumo de material para concluir').selectOption('true');
+  await page.getByRole('button', { name: 'Salvar', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  expect(saved).toBe(true);
+});
+
+test('purchase comparison submits selected quote and exposes approval actions', async ({
+  page,
+}) => {
+  await authenticated(page);
+  let state = 'COTACAO';
+  await page.route('**/api/v1/workspace/registros/**', (route) =>
+    route.fulfill({
+      json: {
+        items: new URL(route.request().url()).pathname.endsWith('/compras')
+          ? [
+              {
+                id: 88,
+                itemEstoqueId: 1,
+                quantidade: 10,
+                justificativa: 'Compra para manutenção',
+                status: state,
+              },
+            ]
+          : [],
+        total: 1,
+        page: 0,
+        size: 25,
+      },
+    }),
+  );
+  await page.route('**/api/v1/workspace/opcoes/propostas-88*', (route) =>
+    route.fulfill({
+      json: [
+        { id: 19, nome: 'Fornecedor A — R$ 50.00 — 3 dias' },
+        { id: 20, nome: 'Fornecedor B — R$ 60.00 — 1 dias' },
+      ],
+    }),
+  );
+  await page.route('**/api/v1/workspace/compras/88/selecionar', async (route) => {
+    expect(route.request().postDataJSON()).toEqual({ cotacaoId: '19' });
+    state = 'APROVACAO';
+    await route.fulfill({ json: { id: 88, status: state } });
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Requisições e pedidos', exact: true }).click();
+  await page.getByRole('button', { name: 'Comparar e selecionar proposta', exact: true }).click();
+  const options = page.getByLabel('Propostas por valor total, fornecedor e prazo', { exact: true });
+  await expect(options.getByRole('option')).toHaveCount(3);
+  await options.selectOption('19');
+  await page.getByRole('button', { name: 'Salvar', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(
+    page.getByRole('button', { name: 'Aprovar pela gestão', exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Aprovar pelo financeiro', exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Emitir pedido de compra', exact: true }),
+  ).toHaveCount(0);
+});
+
 test('the AI assistant requires authorization for each question', async ({ page }) => {
   await authenticated(page);
   await page.route('**/api/v1/workspace/integracoes', (route) =>
@@ -393,32 +905,23 @@ test('rejected credentials display an error without logging in', async ({ page }
   await expect(page.getByLabel('Código de duas etapas')).toHaveCount(0);
   await expect(page.getByRole('navigation')).toHaveCount(0);
 });
-test('login can reveal the password and only shows the code after an MFA challenge', async ({ page }) => {
-  await page.route('**/api/v1/auth/login', (route) =>
-    route.fulfill({
-      status: 401,
-      json: { code: route.request().postDataJSON().codigo ? 'MFA_INVALID' : 'MFA_REQUIRED' },
-    }),
-  );
+test('login reveals the password and has no second-factor controls', async ({ page }) => {
+  await page.route('**/api/v1/auth/login', (route) => {
+    expect(route.request().postDataJSON()).not.toHaveProperty('codigo');
+    return route.fulfill({ status: 401, json: { detail: 'Credenciais inválidas.' } });
+  });
   await page.goto('/');
   const password = page.getByLabel('Senha', { exact: true });
-  const code = page.getByLabel('Código de duas etapas', { exact: true });
   await page.getByLabel('E-mail corporativo').fill('usuario@test.invalid');
   await password.fill('SenhaDeTeste@12345');
-  await expect(code).toHaveCount(0);
+  await expect(page.getByLabel('Código de duas etapas')).toHaveCount(0);
   await page.getByRole('button', { name: 'Mostrar senha' }).click();
   await expect(password).toHaveAttribute('type', 'text');
-  await expect(password).toHaveValue('SenhaDeTeste@12345');
   await page.getByRole('button', { name: 'Ocultar senha' }).click();
   await expect(password).toHaveAttribute('type', 'password');
-  const login = page.getByRole('button', { name: 'Entrar na plataforma' });
-  await login.click();
-  await expect(code).toBeVisible();
-  await code.fill('123456');
-  await login.click();
-  await expect(page.getByRole('alert')).toContainText('Código inválido');
-  await password.fill('OutraSenha@12345');
-  await expect(code).toHaveCount(0);
+  await page.getByRole('button', { name: 'Entrar na plataforma' }).click();
+  await expect(page.getByRole('alert')).toContainText('E-mail ou senha inválidos');
+  await expect(page.getByLabel('Código de duas etapas')).toHaveCount(0);
 });
 test('database errors are visible and never replaced with fictional works', async ({ page }) => {
   await authenticated(page);
@@ -491,11 +994,29 @@ test('project form saves through API and reports validation errors', async ({ pa
   await page.getByLabel('Engenheiro responsável').selectOption('7');
   await page.getByLabel('Área total (m²)').fill('100');
   await page.getByLabel('VGV estimado (R$)').fill('10000');
-  await page.getByLabel('Data de início').fill('2026-12-01');
-  await page.getByLabel('Entrega prevista').fill('2026-01-01');
+  const calendarDate = (offset: number) => {
+    const date = new Date();
+    date.setDate(date.getDate() + offset);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  };
+  await expect(page.getByLabel('Data de início')).toHaveAttribute('min', calendarDate(0));
+  await page.getByLabel('Data de início').fill(calendarDate(-1));
+  expect(
+    await page
+      .getByLabel('Data de início')
+      .evaluate((input: HTMLInputElement) => input.validity.rangeUnderflow),
+  ).toBe(true);
+  await page.getByLabel('Data de início').fill(calendarDate(2));
+  await expect(page.getByLabel('Entrega prevista')).toHaveAttribute('min', calendarDate(2));
+  await page.getByLabel('Entrega prevista').fill(calendarDate(1));
   await page.getByRole('button', { name: 'Cadastrar empreendimento', exact: true }).click();
-  await expect(page.getByRole('alert')).toContainText('posterior ao início');
-  await page.getByLabel('Entrega prevista').fill('2027-01-01');
+  expect(
+    await page
+      .getByLabel('Entrega prevista')
+      .evaluate((input: HTMLInputElement) => input.validity.rangeUnderflow),
+  ).toBe(true);
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.getByLabel('Entrega prevista').fill(calendarDate(5));
   await page.getByRole('button', { name: 'Cadastrar empreendimento', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(
@@ -720,6 +1241,57 @@ const modelFixture = {
     elementos: [],
   },
 };
+test('a plant opens directly from its project details in the model editor', async ({ page }) => {
+  await authenticated(page);
+  await page.route('**/api/v1/workspace/registros/**', (route) =>
+    route.fulfill({
+      json: { items: [{ id: 1, nome: 'Obra com planta' }], total: 1, page: 0, size: 25 },
+    }),
+  );
+  await page.route('**/api/v1/workspace/opcoes/**', (route) =>
+    route.fulfill({ json: [{ id: 1, nome: 'Obra com planta' }] }),
+  );
+  await page.route('**/api/v1/workspace/detalhes/**', (route) =>
+    route.fulfill({
+      json: {
+        registro: { id: 1, nome: 'Obra com planta' },
+        indicadores: [],
+        secoes: [
+          {
+            key: 'plantas',
+            title: 'Plantas e modelos 2D/3D',
+            resource: '',
+            columns: [
+              { label: 'ID', type: 'text' },
+              { label: 'Modelo', type: 'text' },
+            ],
+            rows: [[1, 'Modelo de teste']],
+            total: 1,
+            page: 0,
+          },
+        ],
+      },
+    }),
+  );
+  await page.route('**/api/v1/workspace/modelador/**', (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith('/rascunho')) return route.fulfill({ status: 204 });
+    return route.fulfill({
+      json: path.endsWith('/modelos/1')
+        ? modelFixture
+        : path.endsWith('/revisoes')
+          ? { items: [], total: 0 }
+          : { items: [modelFixture], total: 1 },
+    });
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Empreendimentos', exact: true }).click();
+  await page.getByRole('button', { name: 'Obra com planta', exact: true }).click();
+  await page.getByRole('button', { name: 'Abrir planta', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByLabel('Obra do modelo', { exact: true })).toHaveValue('1');
+  await expect(page.getByLabel('Nome do modelo', { exact: true })).toHaveValue('Modelo de teste');
+});
 async function mockModelEditor(
   page: import('@playwright/test').Page,
   role = 'SUPER_ADMIN',
@@ -763,7 +1335,9 @@ async function openModelFixture(page: import('@playwright/test').Page) {
   await page.getByRole('button', { name: /Modelo de teste/ }).click();
   await expect(page.getByLabel('Nome do modelo', { exact: true })).toHaveValue('Modelo de teste');
 }
-test('model draft survives reload and is cleared only after the official save', async ({ page }) => {
+test('model draft survives reload and is cleared only after the official save', async ({
+  page,
+}) => {
   await mockModelEditor(page);
   await page.getByRole('button', { name: 'Adicionar parede', exact: true }).click();
   await expect(page.getByText('Rascunho guardado neste navegador.', { exact: true })).toBeVisible();
@@ -781,10 +1355,16 @@ test('model draft survives reload and is cleared only after the official save', 
   });
   await page.getByRole('button', { name: 'Salvar modelo', exact: true }).click();
   await expect(page.getByText('Salvo · revisão 2', { exact: true })).toBeVisible();
-  expect(await page.evaluate(() => Object.keys(localStorage).filter((key) => key.startsWith('obra360:model-draft:')))).toEqual([]);
+  expect(
+    await page.evaluate(() =>
+      Object.keys(localStorage).filter((key) => key.startsWith('obra360:model-draft:')),
+    ),
+  ).toEqual([]);
 });
 
-test('a draft from an older model version can be exported without replacing the newer version', async ({ page }) => {
+test('a draft from an older model version can be exported without replacing the newer version', async ({
+  page,
+}) => {
   await mockModelEditor(page);
   await page.getByRole('button', { name: 'Adicionar parede', exact: true }).click();
   await page.getByRole('button', { name: 'Adicionar parede', exact: true }).click();
@@ -794,18 +1374,28 @@ test('a draft from an older model version can be exported without replacing the 
     return JSON.parse(localStorage.getItem(key)!).draft.documento.elementos;
   });
   await page.route('**/api/v1/workspace/modelador/modelos/1', (route) =>
-    route.fulfill({ json: { ...modelFixture, versao: 1, revisao: 2, documento: {
-      ...modelFixture.documento, elementos: [
-        { ...changedWall, nome: 'Parede antes da edição' },
-        { ...addedWall, id: 'parede-removida', nome: 'Parede removida' },
-      ],
-    } } }),
+    route.fulfill({
+      json: {
+        ...modelFixture,
+        versao: 1,
+        revisao: 2,
+        documento: {
+          ...modelFixture.documento,
+          elementos: [
+            { ...changedWall, nome: 'Parede antes da edição' },
+            { ...addedWall, id: 'parede-removida', nome: 'Parede removida' },
+          ],
+        },
+      },
+    }),
   );
   page.once('dialog', (dialog) => dialog.accept());
   await page.reload();
   await openModelFixture(page);
   await expect(page.getByText(/O modelo mudou no banco/)).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Recuperar rascunho', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Recuperar rascunho', exact: true })).toHaveCount(
+    0,
+  );
   await page.getByRole('button', { name: 'Comparar com o banco', exact: true }).click();
   const comparison = page.getByRole('region', { name: 'Comparação de plantas' });
   const server = comparison.getByRole('region', { name: 'Planta do banco' });
@@ -835,11 +1425,22 @@ test('a delayed JSON import cannot land in a different model', async ({ page }) 
       });
     };
   });
-  await mockModelEditor(page, 'SUPER_ADMIN', modelFixture, { ...modelFixture, id: 2, nome: 'Segundo modelo' });
+  await mockModelEditor(page, 'SUPER_ADMIN', modelFixture, {
+    ...modelFixture,
+    id: 2,
+    nome: 'Segundo modelo',
+  });
   await page.getByLabel('Arquivo de projeto JSON').setInputFiles({
-    name: 'importacao-lenta.json', mimeType: 'application/json',
-    buffer: Buffer.from(JSON.stringify({ formato: 'obra360-modelador', versaoFormato: 1,
-      nome: 'Importação para o primeiro modelo', documento: modelFixture.documento })),
+    name: 'importacao-lenta.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(
+      JSON.stringify({
+        formato: 'obra360-modelador',
+        versaoFormato: 1,
+        nome: 'Importação para o primeiro modelo',
+        documento: modelFixture.documento,
+      }),
+    ),
   });
   await page.waitForFunction(() => !!(window as any).releaseModelImport);
   await page.getByRole('button', { name: /Segundo modelo/ }).click();
@@ -931,12 +1532,18 @@ function referencePdf() {
   return Buffer.from(pdf);
 }
 
-test('PDF and image references calibrate a real measurement and produce a 3D wall', async ({ page }) => {
+test('PDF and image references calibrate a real measurement and produce a 3D wall', async ({
+  page,
+}) => {
   await mockModelEditor(page);
   await page.getByText('Usar planta PDF ou imagem como referência', { exact: true }).click();
   const input = page.getByLabel('Arquivo da planta', { exact: true });
   const plan = page.getByRole('img', { name: 'Planta 2D editável em metros', exact: true });
-  await input.setInputFiles({ name: 'planta.pdf', mimeType: 'application/pdf', buffer: referencePdf() });
+  await input.setInputFiles({
+    name: 'planta.pdf',
+    mimeType: 'application/pdf',
+    buffer: referencePdf(),
+  });
   await expect(plan.locator('image')).toHaveCount(1, { timeout: 15000 });
   await page.getByLabel('Distância real (m)', { exact: true }).fill('6');
   await page.getByRole('button', { name: 'Calibrar escala', exact: true }).click();
@@ -946,8 +1553,10 @@ test('PDF and image references calibrate a real measurement and produce a 3D wal
       const image = node as SVGImageElement;
       const box = image.getBBox();
       return [0.25, 0.75].map((fraction) => {
-        const point = new DOMPoint(box.x + box.width * fraction, box.y + box.height / 2)
-          .matrixTransform(image.getScreenCTM()!);
+        const point = new DOMPoint(
+          box.x + box.width * fraction,
+          box.y + box.height / 2,
+        ).matrixTransform(image.getScreenCTM()!);
         return { x: point.x, y: point.y };
       });
     });
@@ -971,18 +1580,31 @@ test('PDF and image references calibrate a real measurement and produce a 3D wal
     canvas.getContext('2d')!.fillRect(20, 49, 160, 2);
     return canvas.toDataURL().split(',')[1];
   });
-  await input.setInputFiles({ name: 'planta.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') });
+  await input.setInputFiles({
+    name: 'planta.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(png, 'base64'),
+  });
   await expect(plan.locator('image')).toHaveCount(1);
   await expect(page.locator('.model-element-list').getByRole('button')).toHaveCount(1);
   await page.setViewportSize({ width: 320, height: 740 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
 });
 
-test('timelapse plays saved revisions without replacing an unsaved model draft', async ({ page }) => {
+test('timelapse plays saved revisions without replacing an unsaved model draft', async ({
+  page,
+}) => {
   await mockModelEditor(page, 'SUPER_ADMIN', { ...modelFixture, revisao: 2 });
   await page.route(/\/revisoes\/[12]$/, (route) => {
     const numero = Number(route.request().url().split('/').at(-1));
-    return route.fulfill({ json: { ...modelFixture, numero, motivo: 'Quadro salvo', criadoEm: modelFixture.atualizadoEm } });
+    return route.fulfill({
+      json: {
+        ...modelFixture,
+        numero,
+        motivo: 'Quadro salvo',
+        criadoEm: modelFixture.atualizadoEm,
+      },
+    });
   });
   await page.getByRole('button', { name: 'Adicionar parede', exact: true }).click();
   await page.getByText(/Revisões salvas/).click();
@@ -1013,7 +1635,14 @@ test('wall geometry subtracts the real area of doors and windows', () => {
     paredeId: null,
     deslocamento: 0,
   };
-  const door: ModelElement = { ...wall, id: 'd', tipo: 'PORTA', paredeId: 'w', largura: 0.9, altura: 2.1 };
+  const door: ModelElement = {
+    ...wall,
+    id: 'd',
+    tipo: 'PORTA',
+    paredeId: 'w',
+    largura: 0.9,
+    altura: 2.1,
+  };
   const window: ModelElement = {
     ...wall,
     id: 'j',
@@ -1024,8 +1653,10 @@ test('wall geometry subtracts the real area of doors and windows', () => {
     base: 1.2,
     deslocamento: 1.8,
   };
-  const area = wallCells(wall, [wall, door, window])
-    .reduce((sum, cell) => sum + cell.width * cell.height, 0);
+  const area = wallCells(wall, [wall, door, window]).reduce(
+    (sum, cell) => sum + cell.width * cell.height,
+    0,
+  );
   expect(area).toBeCloseTo(5 * 2.8 - 0.9 * 2.1 - 1, 6);
 });
 
@@ -1250,4 +1881,147 @@ test('homologation details are available in data quality without a dashboard ban
   await expect(
     page.getByText('Não comprova identidade cadastral ou aceite humano.', { exact: true }),
   ).toBeVisible();
+});
+
+test('account and integrations offer local files without MFA or cloud storage', async ({
+  page,
+}) => {
+  await authenticated(page);
+  await page.route('**/api/v1/workspace/registros/**', (route) =>
+    route.fulfill({ json: { items: [], total: 0, page: 0, size: 25 } }),
+  );
+  for (const resource of ['minhas-sessoes', 'atendimento', 'convites'])
+    await page.route(`**/api/v1/workspace/${resource}`, (route) => route.fulfill({ json: [] }));
+  await page.route('**/api/v1/workspace/licenca', (route) =>
+    route.fulfill({
+      json: {
+        plano: 'PILOTO',
+        usuariosAtivos: 1,
+        convitesPendentes: 0,
+        projetos: 0,
+        modelos: 0,
+        limiteUsuarios: 50,
+        limiteProjetos: 50,
+        limiteModelos: 500,
+      },
+    }),
+  );
+  await page.route('**/api/v1/workspace/integracoes', (route) =>
+    route.fulfill({ json: { armazenamento: 'local', iaConfigurada: false } }),
+  );
+  const removedRequests: string[] = [];
+  page.on('request', (request) => {
+    if (request.url().includes('/workspace/mfa')) removedRequests.push(request.url());
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Conta e atendimento', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Conta e atendimento', exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Autenticação em duas etapas' })).toHaveCount(0);
+  await expect(page.getByLabel('Código de duas etapas (se ativado)')).toHaveCount(0);
+  await expect(page.getByLabel('Confirme sua senha')).toBeVisible();
+  expect(removedRequests).toEqual([]);
+  await page.getByRole('button', { name: 'Integrações', exact: true }).click();
+  await expect(page.getByText('Armazenamento local', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Amazon S3' })).toHaveCount(0);
+});
+
+test('work order teams follow the contract and reset when its project changes', async ({
+  page,
+}) => {
+  await authenticated(page);
+  await page.route('**/api/v1/workspace/registros/**', (route) =>
+    route.fulfill({ json: { items: [], total: 0, page: 0, size: 25 } }),
+  );
+  await page.route('**/api/v1/workspace/opcoes/contratos**', (route) =>
+    route.fulfill({
+      json: [
+        { id: 11, nome: 'Contrato A', empreendimento: 'Obra A' },
+        { id: 22, nome: 'Contrato B', empreendimento: 'Obra B' },
+      ],
+    }),
+  );
+  const requested: string[] = [];
+  await page.route('**/api/v1/workspace/opcoes/equipes**', (route) => {
+    const contract = new URL(route.request().url()).searchParams.get('contratoServicoId');
+    requested.push(contract || '');
+    return route.fulfill({
+      json:
+        contract === '11'
+          ? [{ id: 101, nome: 'Equipe A', empreendimento: 'Obra A' }]
+          : [{ id: 202, nome: 'Equipe B', empreendimento: 'Obra B' }],
+    });
+  });
+  let saved = false;
+  await page.route('**/api/v1/workspace/ordens', (route) => {
+    expect(route.request().postDataJSON()).toMatchObject({
+      contratoServicoId: '22',
+      equipeTrabalhoId: '202',
+    });
+    saved = true;
+    return route.fulfill({ status: 201, json: { id: 1 } });
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Ordens de serviço', exact: true }).click();
+  await page.getByRole('button', { name: 'Nova ordem de serviço', exact: true }).click();
+  const contract = page.getByLabel('Contrato', { exact: true });
+  const team = page.getByLabel('Equipe', { exact: true });
+  await expect(team).toBeDisabled();
+  expect(requested).toEqual([]);
+  await contract.selectOption('11');
+  await team.selectOption('101');
+  await expect(team.locator('option:checked')).toContainText('Obra A');
+  await contract.selectOption('22');
+  await expect(team).toHaveValue('');
+  await team.selectOption('202');
+  await expect(team.locator('option[value="101"]')).toHaveCount(0);
+  await expect(team.locator('option:checked')).toContainText('Obra B');
+  await page.getByLabel('Descrição do serviço').fill('Serviço na segunda obra');
+  await page.getByRole('button', { name: 'Salvar', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  expect(saved).toBe(true);
+  expect(requested).toEqual(['11', '22']);
+});
+
+test('HR clears the job when the department changes', async ({ page }) => {
+  await authenticated(page);
+  await page.route('**/api/v1/workspace/sessao', (route) =>
+    route.fulfill({ json: { ...session, perfil: 'RH' } }),
+  );
+  await page.route('**/api/v1/workspace/rh/**', (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname.endsWith('/opcoes/departamentos'))
+      return route.fulfill({
+        json: [
+          { id: 1, nome: 'Departamento A' },
+          { id: 2, nome: 'Departamento B' },
+        ],
+      });
+    if (url.pathname.endsWith('/opcoes/cargos'))
+      return route.fulfill({
+        json:
+          url.searchParams.get('departamentoId') === '1'
+            ? [{ id: 10, nome: 'Cargo A' }]
+            : [{ id: 20, nome: 'Cargo B' }],
+      });
+    return route.fulfill({
+      json: url.pathname.includes('/opcoes/')
+        ? []
+        : url.pathname.endsWith('/resumo')
+          ? {}
+          : { items: [], total: 0 },
+    });
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Cadastrar funcionário', exact: true }).click();
+  const department = page.getByLabel('Departamento', { exact: true });
+  const job = page.getByLabel('Cargo', { exact: true });
+  await expect(job).toBeDisabled();
+  await department.selectOption('1');
+  await job.selectOption('10');
+  await department.selectOption('2');
+  await expect(job).toHaveValue('');
+  await job.selectOption('20');
+  await expect(job.locator('option[value="10"]')).toHaveCount(0);
 });

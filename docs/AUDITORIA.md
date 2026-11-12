@@ -1,8 +1,10 @@
 # Revisão técnica — Obra360
 
+Registro histórico. O escopo atual usa armazenamento local e não inclui autenticação em duas etapas. Consulte [ENTREGA-PILOTO.md](ENTREGA-PILOTO.md) para as melhorias e validações mais recentes.
+
 Data: 6 de novembro de 2026.
 
-Resultado atual da revisão visual e funcional: 66 testes Java, 49 cenários em PostgreSQL, 23 testes de interface, quinze jornadas por perfil, matriz com 315 verificações de API e jornada completa de operação aprovados. Foi corrigido o erro interno por conflito de nome de modelo após importação. O escopo, as evidências e as integrações que ainda precisam de configuração estão em [VALIDACAO-FUNCIONAL.md](VALIDACAO-FUNCIONAL.md). Os números de etapas anteriores abaixo são registros históricos.
+Resultado desta etapa da revisão visual e funcional: 66 testes Java, 49 cenários em PostgreSQL, 23 testes de interface, quinze jornadas por perfil, matriz com 315 verificações de API e jornada completa de operação aprovados. Foi corrigido o erro interno por conflito de nome de modelo após importação. O escopo, as evidências e as integrações que ainda precisam de configuração estão em [VALIDACAO-FUNCIONAL.md](VALIDACAO-FUNCIONAL.md). Os números de etapas anteriores abaixo são registros históricos.
 
 ## Atualização de preparação comercial
 

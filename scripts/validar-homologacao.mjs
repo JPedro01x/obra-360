@@ -42,7 +42,7 @@ try {
       .waitFor();
     await page.getByRole('button', { name: 'Conta e atendimento', exact: true }).click();
     await page.getByRole('heading', { name: 'Sessões ativas', exact: true }).waitFor();
-    await page.getByRole('button', { name: 'Configurar autenticador', exact: true }).waitFor();
+    assert.equal(await page.getByRole('button', { name: 'Configurar autenticador', exact: true }).count(), 0);
     await page.getByRole('heading', { name: 'Plano e utilização', exact: true }).waitFor();
     await page.screenshot({
       path: path.join(root, 'scratch', 'conta-atendimento-local.png'),

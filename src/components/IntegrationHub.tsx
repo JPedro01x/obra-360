@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { requestApi } from '../services/http';
 import type { IfcReadResult } from '../services/RealIfcParser';
 interface Status {
-  s3Configurado: boolean;
   armazenamento: string;
   iaConfigurada: boolean;
   emailConfigurado: boolean;
@@ -84,11 +83,7 @@ export function IntegrationHub({ role }: { role: string }) {
       )}
       <div className="ws-service-grid">
         {[
-          ['Documentos', status?.armazenamento === 's3' ? 'S3 selecionado' : 'Armazenamento local'],
-          [
-            'Amazon S3',
-            status?.s3Configurado ? 'Bucket e região configurados' : 'Configuração necessária',
-          ],
+          ['Documentos', 'Armazenamento local'],
           [
             'Google',
             status?.googleConfigurado ? 'Client ID configurado' : 'Configuração necessária',

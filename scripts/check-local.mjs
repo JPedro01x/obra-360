@@ -17,7 +17,7 @@ try {
   await page.goto(base);
   await page
     .getByRole('heading', {
-      name: setup.necessaria ? 'Configure sua empresa' : 'Acesse sua empresa',
+      name: setup.necessaria ? 'Configure sua empresa' : 'Acessar Plataforma',
     })
     .waitFor();
   await page.screenshot({ path: 'test-results/local-desktop.png', fullPage: true });

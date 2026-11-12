@@ -86,7 +86,8 @@ html[data-obra-theme='dark'] body {
 .appearance-public + .access-page {
   padding-top: 76px;
 }
-:root[data-obra-theme='light'] .ws-sidebar {
+:root[data-obra-theme='light'] .ws-sidebar,
+:root[data-obra-theme='dark'] .ws-sidebar {
   --surface: #162237;
   --surface-muted: #1d2c44;
   --surface-hover: #263955;
@@ -95,6 +96,9 @@ html[data-obra-theme='dark'] body {
   --muted: #bccae0;
   --line: #a6b8d2;
   color-scheme: dark;
+}
+:root[data-obra-theme='dark'] .ws-sidebar {
+  --surface: #111c2e;
 }
 :root[data-obra-theme='light'] .access-level {
   background: #fff0e4;

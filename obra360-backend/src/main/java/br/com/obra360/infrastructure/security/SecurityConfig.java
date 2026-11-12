@@ -46,7 +46,7 @@ public class SecurityConfig {
             .headers(headers -> headers
                 .frameOptions(frame -> frame.deny()) // Proteção contra Clickjacking
                 .xssProtection(xss -> xss.disable()) // Desabilita XSS legado para usar CSP moderno
-                .contentSecurityPolicy(csp -> csp.policyDirectives("default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://accounts.google.com; frame-src https://accounts.google.com; connect-src 'self' https://accounts.google.com; style-src 'self' 'unsafe-inline' https://accounts.google.com; img-src 'self' data:; font-src 'self' data:"))
+                .contentSecurityPolicy(csp -> csp.policyDirectives("default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://accounts.google.com; frame-src https://accounts.google.com; connect-src 'self' https://accounts.google.com; style-src 'self' 'unsafe-inline' https://accounts.google.com; img-src 'self' data:; font-src 'self' data:"))
             )
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(

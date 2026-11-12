@@ -21,6 +21,7 @@ import java.util.*;
 public class ExternalPortalController {
     private final EntityManager em;private final OperacaoService operation;
     private final ModeloDocumentoService modelDocuments;
+    private final br.com.obra360.application.service.GarantiaWorkflowService warrantyWorkflow;
     private static final Set<String> ROLES=Set.of("CLIENTE","CORRETOR","INVESTIDOR","FORNECEDOR","LOCADOR_MAQUINAS");
     @PostMapping("/api/v1/workspace/acessos") @Transactional @PreAuthorize("hasRole('SUPER_ADMIN')") @ResponseStatus(HttpStatus.CREATED)
     public AcessoExternoEntity grant(@Valid @RequestBody Grant r,Authentication auth){
@@ -28,7 +29,7 @@ public class ExternalPortalController {
         if("CLIENTE".equals(user.getPerfil())&&r.unidadeImobiliariaId()==null)throw bad("Vincule a unidade do cliente.");
         if(Set.of("FORNECEDOR","LOCADOR_MAQUINAS").contains(user.getPerfil())&&r.fornecedorB2bId()==null)throw bad("Vincule o fornecedor da conta.");
         if(r.unidadeImobiliariaId()!=null){var unit=em.find(UnidadeImobiliariaEntity.class,r.unidadeImobiliariaId());if(unit==null||!r.projetoObraId().equals(unit.getProjetoObraId()))throw bad("Unidade deve pertencer à obra selecionada.");}
-        if(r.fornecedorB2bId()!=null){var supplier=em.find(FornecedorB2BEntity.class,r.fornecedorB2bId());if(supplier==null||!user.getEmpresaId().equals(supplier.getEmpresaId()))throw bad("Fornecedor não encontrado nesta empresa.");}
+        if(r.fornecedorB2bId()!=null){var supplier=em.find(FornecedorB2BEntity.class,r.fornecedorB2bId(),jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);if(supplier==null||!user.getEmpresaId().equals(supplier.getEmpresaId()))throw bad("Fornecedor não encontrado nesta empresa.");}
         var existing=em.createQuery("select a from AcessoExternoEntity a where a.usuarioId=:u and a.projetoObraId=:p and a.perfil=:role",AcessoExternoEntity.class).setParameter("u",user.getId()).setParameter("p",r.projetoObraId()).setParameter("role",user.getPerfil()).getResultList();
         for(var access:existing)if(Objects.equals(access.getUnidadeImobiliariaId(),r.unidadeImobiliariaId())&&Objects.equals(access.getFornecedorB2bId(),r.fornecedorB2bId()))return access;
         var access=AcessoExternoEntity.builder().empresaId(user.getEmpresaId()).usuarioId(user.getId()).perfil(user.getPerfil()).projetoObraId(r.projetoObraId()).unidadeImobiliariaId(r.unidadeImobiliariaId()).fornecedorB2bId(r.fornecedorB2bId()).build();em.persist(access);operation.audit("CONCEDER_ACESSO","acesso_externo",access.getId(),Long.valueOf(auth.getName()));return access;
@@ -92,7 +93,7 @@ public class ExternalPortalController {
         return Map.of("perfil",user.getPerfil(),"acessos",accesses,"projetos",projects,"unidades",units,"contratos",contracts,"cotacoes",quotes,"chamados",tickets);
     }
     @PostMapping("/api/v1/portal/chamados") @Transactional @PreAuthorize("hasRole('CLIENTE')") @ResponseStatus(HttpStatus.CREATED)
-    public GarantiaPosVendaEntity ticket(@Valid @RequestBody Ticket r,Authentication a){var user=user(a);if(accesses(user).stream().noneMatch(access->r.unidadeId().equals(access.getUnidadeImobiliariaId())))throw missing();var ticket=GarantiaPosVendaEntity.builder().unidadeImobiliariaId(r.unidadeId()).usuarioClienteId(user.getId()).codigoChamado("AT-"+UUID.randomUUID().toString().replace("-","").substring(0,24)).descricaoDefeito(r.descricao()).categoriaDefeito(r.categoria()).statusChamado("ABERTO").build();em.persist(ticket);operation.audit("ABRIR_CHAMADO_PORTAL","garantia_pos_venda",ticket.getId(),user.getId());return ticket;}
+    public GarantiaPosVendaEntity ticket(@Valid @RequestBody Ticket r,Authentication a){var user=user(a);clientUnit(r.unidadeId(),user);return warrantyWorkflow.create(r.unidadeId(),user.getId(),r.descricao(),r.categoria(),user.getId());}
     @PostMapping("/api/v1/portal/unidades/{id}/reservar") @Transactional @PreAuthorize("hasRole('CORRETOR')")
     public void reserve(@PathVariable Long id,Authentication a){var user=user(a);var unit=em.find(UnidadeImobiliariaEntity.class,id,LockModeType.PESSIMISTIC_WRITE);if(unit==null||accesses(user).stream().noneMatch(access->unit.getProjetoObraId().equals(access.getProjetoObraId())))throw missing();if(!"DISPONIVEL".equals(unit.getStatusVenda()))throw new ResponseStatusException(HttpStatus.CONFLICT,"Unidade não está mais disponível.");unit.setStatusVenda("RESERVADO");unit.setReservaUsuarioId(user.getId());operation.audit("RESERVAR_UNIDADE","unidade_imobiliaria",id,user.getId());}
     @PostMapping("/api/v1/portal/propostas") @Transactional @PreAuthorize("hasAnyRole('FORNECEDOR','LOCADOR_MAQUINAS')") @ResponseStatus(HttpStatus.CREATED)

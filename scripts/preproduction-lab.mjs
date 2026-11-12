@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
-import { createHash, createHmac, randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { once } from 'node:events';
 import { cp, mkdir, mkdtemp, open, readFile, writeFile } from 'node:fs/promises';
 import { request } from 'node:https';
@@ -33,7 +33,6 @@ async function freePort() {
 const postgresPort = await freePort();
 const password = randomBytes(24).toString('hex');
 const jwt = randomBytes(48).toString('hex');
-const mfa = randomBytes(32).toString('base64');
 const keyPassword = randomBytes(24).toString('hex');
 const keystore = path.join(lab, 'laboratorio.p12');
 const pem = path.join(lab, 'laboratorio.pem');
@@ -96,7 +95,7 @@ function api(route, { method = 'GET', headers = {}, payload, token, status = 200
       response.on('error', reject);
       response.on('end', () => {
         if (response.statusCode !== status) {
-          reject(new Error(`${method} ${route}: HTTP ${response.statusCode}, esperado ${status}`));
+          reject(Object.assign(new Error(`${method} ${route}: HTTP ${response.statusCode}, esperado ${status}`), { status: response.statusCode, retryAfter: Number(response.headers['retry-after']) || 2 }));
           return;
         }
         const body = Buffer.concat(chunks);
@@ -126,9 +125,9 @@ async function startApp(directory, phase, credentials, operator = false) {
       SPRING_DATASOURCE_USERNAME: 'obra360_lab', SPRING_DATASOURCE_PASSWORD: password,
       SERVER_ADDRESS: '127.0.0.1', SERVER_PORT: String(port), SERVER_SSL_ENABLED: 'true',
       SERVER_SSL_KEY_STORE: pathToFileURL(keystore).href, SERVER_SSL_KEY_STORE_PASSWORD: keyPassword,
-      SERVER_SSL_KEY_STORE_TYPE: 'PKCS12', JWT_SECRET: credentials.jwt, MFA_ENCRYPTION_KEY: credentials.mfa,
+      SERVER_SSL_KEY_STORE_TYPE: 'PKCS12', JWT_SECRET: credentials.jwt,
       OBRA360_SETUP_ENABLED: 'false', OBRA360_STORAGE_DIRECTORY: path.join(directory, 'documentos'),
-      APP_PUBLIC_URL: `https://127.0.0.1:${port}`, DOCUMENT_STORAGE: 'local',
+      APP_PUBLIC_URL: `https://127.0.0.1:${port}`,
       EMAIL_ENABLED: 'false', GOOGLE_ENABLED: 'false',
       ...(operator ? {
         OP_ACTION: 'criar-empresa', OP_COMPANY_NAME: 'Laboratório Obra360',
@@ -170,19 +169,8 @@ async function stop() {
   }
 }
 
-function totp(secret, counter) {
-  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-  const bits = [...secret].map((char) => alphabet.indexOf(char).toString(2).padStart(5, '0')).join('');
-  const key = Buffer.from(bits.match(/[01]{8}/g).map((byte) => parseInt(byte, 2)));
-  const value = Buffer.alloc(8);
-  value.writeBigInt64BE(BigInt(counter));
-  const digest = createHmac('sha1', key).update(value).digest();
-  return String((digest.readUInt32BE(digest[19] & 15) & 0x7fffffff) % 1e6).padStart(6, '0');
-}
-
 const login = (payload, status) => api('/api/v1/auth/login', { method: 'POST', payload, status });
 const hash = (data) => createHash('sha256').update(data).digest('hex');
-const authMfa = '/api/v1/workspace/mfa';
 const bytes = Buffer.from('Documento sintético do laboratório Obra360.\n');
 const planBytes = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aZ2kAAAAASUVORK5CYII=', 'base64');
 async function multipartPayload(form) {
@@ -192,10 +180,10 @@ async function multipartPayload(form) {
 const started = performance.now();
 console.log(`Laboratório isolado em ${lab}`);
 try {
-  await writeFile(path.join(fresh, 'chaves-laboratorio.json'), JSON.stringify({ jwt, mfa }), { mode: 0o600 });
+  await writeFile(path.join(fresh, 'chaves-laboratorio.json'), JSON.stringify({ jwt }), { mode: 0o600 });
   await startDb(fresh, true);
-  await startApp(fresh, 'provisionamento', { jwt, mfa }, true);
-  await startApp(fresh, 'app-original', { jwt, mfa });
+  await startApp(fresh, 'provisionamento', { jwt }, true);
+  await startApp(fresh, 'app-original', { jwt });
   console.log('Aplicação iniciada em HTTPS com PostgreSQL e empresa provisionada pelo operador.');
   assert.equal((await api('/api/v1/instalacao')).necessaria, false);
   const html = (await api('/')).toString();
@@ -210,7 +198,8 @@ try {
     perfil: 'ENGENHEIRO', ativo: true }, 201);
   const obra = await post('/api/v1/workspace/projetos', { nome: 'Obra do laboratório',
     engenheiroResponsavelId: engineer.id, vgvEstimado: 100000, areaTotalM2: 95,
-    dataInicio: '2026-01-01', dataPrevisaoFim: '2027-01-01' }, 201);
+    dataInicio: new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date()),
+    dataPrevisaoFim: new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date(Date.now()+365*86400000)) }, 201);
   const form = new FormData();
   form.set('projetoObraId', String(obra.id));
   form.set('titulo', 'Documento de verificação');
@@ -232,10 +221,6 @@ try {
   const savedPlan = await api(`${modelRoute}/${model.id}`, { method: 'PUT', token, ...await multipartPayload(plan) });
   const planRevision = `${modelRoute}/${model.id}/revisoes/${savedPlan.revisao}`;
   assert.equal(hash(await api(planRevision + '/referencia', { token })), hash(planBytes));
-  const { segredo } = await post(authMfa + '/preparar', { senha });
-  const counter = Math.floor(Date.now() / 30_000);
-  await post(authMfa + '/ativar', { senha, codigo: totp(segredo, counter) });
-  await api(documentRoute, { token, status: 401 });
   await stop();
 
   const recoveryStarted = performance.now();
@@ -244,23 +229,28 @@ try {
   await startDb(restored, false);
   const restoredKeys = JSON.parse(await readFile(path.join(restored, 'chaves-laboratorio.json'), 'utf8'));
   await startApp(restored, 'app-restaurado', restoredKeys);
-  assert.equal((await login(admin, 401)).code, 'MFA_REQUIRED');
-  const nextCounter = Math.max(counter + 1, Math.floor(Date.now() / 30_000));
-  const restoredLogin = await login({ ...admin, codigo: totp(segredo, nextCounter) });
+  const restoredLogin = await login(admin);
   assert.equal(hash(await api(documentRoute, { token: restoredLogin.token })), hash(bytes));
   const restoredPlan = await api(planRevision, { token: restoredLogin.token });
   assert.equal(restoredPlan.referencia.largura, 6);
   assert.equal(restoredPlan.referencia.calibrada, true);
   assert.equal(hash(await api(planRevision + '/referencia', { token: restoredLogin.token })), hash(planBytes));
-  assert.equal((await api(authMfa, { token: restoredLogin.token })).ativo, true);
   const recoveryMs = Math.round(performance.now() - recoveryStarted);
-  console.log('Restauração verificada com MFA, SHA-256 dos arquivos e escala da referência.');
+  console.log('Restauração verificada com login, SHA-256 dos arquivos e escala da referência.');
 
+  let retries503 = 0;
   const samples = (await Promise.all(Array.from({ length: 8 }, async () => {
     const worker = [];
     for (let index = 0; index < 8; index += 1) {
       const begin = performance.now();
-      assert.equal(hash(await api(documentRoute, { token: restoredLogin.token })), hash(bytes));
+      for (let attempt=0; ; attempt++) {
+        try { assert.equal(hash(await api(documentRoute, { token: restoredLogin.token })), hash(bytes)); break; }
+        catch(error) {
+          if(error.status !== 503 || attempt >= 3) throw error;
+          retries503++;
+          await sleep(Math.min(10, Math.max(1,error.retryAfter))*1000);
+        }
+      }
       worker.push(performance.now() - begin);
     }
     return worker;
@@ -276,10 +266,10 @@ try {
   }
   const report = { ambiente: 'laboratório HTTPS em loopback com dados sintéticos', migrations,
     verificacoes: ['frontend compilado', 'TLS com certificado confiado', 'provisionamento offline', 'rota privada',
-      'persistência PostgreSQL', 'revogação de token ao ativar MFA', 'restauração física',
-      'MFA após restauração', 'SHA-256 dos arquivos após restauração', 'escala da referência restaurada'],
+      'persistência PostgreSQL', 'restauração física',
+      'login após restauração', 'SHA-256 dos arquivos após restauração', 'escala da referência restaurada'],
     recoveryMs, totalMs: Math.round(performance.now() - started),
-    carga: { requisicoes: samples.length, concorrencia: 8, falhas: 0,
+    carga: { downloadsConcluidos: samples.length, tentativasHttp: samples.length + retries503, concorrenciaClientes: 8, limiteTransferenciasDoServidor: 4, retentativas503: retries503, falhasFinais: 0,
       p50Ms: Math.round(samples[Math.ceil(samples.length * 0.50) - 1]),
       p95Ms: Math.round(samples[Math.ceil(samples.length * 0.95) - 1]) } };
   await writeFile(path.join(lab, 'relatorio.json'), JSON.stringify(report, null, 2) + '\n');

@@ -58,7 +58,9 @@ public class DocumentoOperacionalController {
         operation.project(doc.getProjetoObraId());
         String key=doc.getUrlArmazenamento();
         if(key==null || !key.matches("(s3:)?[0-9a-fA-F-]{36}")) throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Arquivo indisponível.");
-        byte[] bytes;try{bytes=storage.read(key);}catch(java.nio.file.NoSuchFileException|software.amazon.awssdk.services.s3.model.NoSuchKeyException ex){throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Arquivo indisponível.");}
+        byte[] bytes;try{bytes=storage.read(key);}catch(java.nio.file.NoSuchFileException ex){throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Arquivo indisponível.");}
+        String actual=HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+        if(!actual.equalsIgnoreCase(doc.getHashArquivoSha256())) throw new ResponseStatusException(HttpStatus.CONFLICT,"Integridade do documento divergente. Solicite a revisão do arquivo.");
         return ResponseEntity.ok().contentType(MediaType.APPLICATION_OCTET_STREAM).cacheControl(CacheControl.noStore())
             .header(HttpHeaders.CONTENT_DISPOSITION,ContentDisposition.attachment().filename(doc.getNomeArquivo(),StandardCharsets.UTF_8).build().toString())
             .body(new org.springframework.core.io.ByteArrayResource(bytes));

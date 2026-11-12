@@ -25,6 +25,8 @@ import java.util.*;
 public class WorkspaceController {
     private final EntityManager em;
     private final br.com.obra360.application.service.LicencaService licenca;
+    private final br.com.obra360.application.service.PlanningDates dates;
+    private final br.com.obra360.application.service.DetalhesCadastroService details;
     private static final String PROJECT_SCOPE = "e.projetoObraId in (select p.id from ProjetoObraEntity p where p.empresaId = :tenant)";
     private static final Map<String, String> QUERIES = Map.ofEntries(
         Map.entry("acessos", "from AcessoExternoEntity e where e.empresaId = :tenant"),
@@ -41,6 +43,8 @@ public class WorkspaceController {
         Map.entry("unidades", "from UnidadeImobiliariaEntity e where " + PROJECT_SCOPE),
         Map.entry("contratos", "from ContratoServicoEntity e where e.empresaId = :tenant and " + PROJECT_SCOPE),
         Map.entry("cotacoes", "from CotacaoB2BEntity e where e.empresaId = :tenant"),
+        Map.entry("compras", "from RequisicaoCompraEntity e where e.empresaId = :tenant"),
+        Map.entry("coberturas", "from CoberturaGarantiaEntity e where e.empresaId = :tenant"),
         Map.entry("auditoria", "from LogAuditoriaEntity e where e.empresaId = :tenant"),
         Map.entry("ordens", "from SolicitacaoServicoEntity e where e.contratoServicoId in (select c.id from ContratoServicoEntity c where c.empresaId = :tenant)"),
         Map.entry("garantias", "from GarantiaPosVendaEntity e where e.unidadeImobiliariaId in (select u.id from UnidadeImobiliariaEntity u where u.projetoObraId in (select p.id from ProjetoObraEntity p where p.empresaId = :tenant))")
@@ -52,11 +56,13 @@ public class WorkspaceController {
         UsuarioEntity user = em.find(UsuarioEntity.class, Long.valueOf(auth.getName()));
         EmpresaEntity company = em.find(EmpresaEntity.class, TenantContext.getCurrentTenant());
         if (company == null) throw new ResponseStatusException(HttpStatus.CONFLICT, "Empresa do usuário não encontrada.");
-        return Map.of("nome", user.getNome(), "email", user.getEmail(), "perfil", user.getPerfil(), "empresa", company);
+        return Map.of("nome", user.getNome(), "email", user.getEmail(), "perfil", user.getPerfil(), "empresa", company,"exigeTrocaSenha",user.isExigeTrocaSenha());
     }
 
     private void checkResource(String resource, Authentication auth) {
         if (!QUERIES.containsKey(resource)) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        if (resource.equals("compras") && auth.getAuthorities().stream().noneMatch(a -> Set.of("ROLE_SUPER_ADMIN","ROLE_GERENTE_OBRA","ROLE_FINANCEIRO","ROLE_INCORPORADOR","ROLE_AUDITOR","ROLE_ALMOXARIFE").contains(a.getAuthority())))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         if (Set.of("usuarios","acessos").contains(resource) && auth.getAuthorities().stream().noneMatch(a -> a.getAuthority().equals("ROLE_SUPER_ADMIN"))) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         }
@@ -67,7 +73,17 @@ public class WorkspaceController {
     }
 
     @GetMapping("/opcoes/{resource}")
-    public List<Map<String,Object>> options(@PathVariable String resource,@RequestParam(defaultValue="") String q) {
+    public List<Map<String,Object>> options(@PathVariable String resource,@RequestParam(defaultValue="") String q,
+        @RequestParam(required=false) Long projetoObraId,@RequestParam(required=false) Long contratoServicoId,
+        @RequestParam(required=false) Long ordemServicoId,Authentication auth) {
+        if(resource.matches("propostas-[0-9]{1,18}")) {
+            checkResource("cotacoes",auth);
+            if(q.length()>100) throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+            var rows=em.createQuery("select c.id,f.razaoSocial,c.valorProposta,c.prazoEntregaDias from CotacaoB2BEntity c, FornecedorB2BEntity f where c.fornecedorB2bId=f.id and c.empresaId=:tenant and c.requisicaoCompraId=:id and lower(f.razaoSocial) like :q order by c.valorProposta",Object[].class)
+                .setParameter("tenant",TenantContext.getCurrentTenant()).setParameter("id",Long.valueOf(resource.substring("propostas-".length())))
+                .setParameter("q","%"+q.toLowerCase(Locale.ROOT)+"%").setMaxResults(100).getResultList();
+            return rows.stream().map(r->Map.<String,Object>of("id",r[0],"nome",r[1]+" — R$ "+r[2]+" — "+r[3]+" dias")).toList();
+        }
         Map<String,String[]> definitions=Map.of(
             "projetos",new String[]{"ProjetoObraEntity","nome","e.empresaId=:tenant"},
             "equipes",new String[]{"EquipeTrabalhoEntity","nomeEquipe",PROJECT_SCOPE},
@@ -81,9 +97,45 @@ public class WorkspaceController {
             "ordens",new String[]{"SolicitacaoServicoEntity","codigoProtocolo","e.contratoServicoId in (select c.id from ContratoServicoEntity c where c.empresaId=:tenant) and e.statusOs in ('ABERTO','EM_ANDAMENTO')"});
         String[] d=definitions.get(resource);
         if(d==null || q.length()>100) throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
-        var rows=em.createQuery("select e.id,e."+d[1]+" from "+d[0]+" e where "+d[2]+" and lower(e."+d[1]+") like :q order by e."+d[1],Object[].class)
-            .setParameter("tenant",TenantContext.getCurrentTenant()).setParameter("q","%"+q.toLowerCase(Locale.ROOT)+"%").setMaxResults(100).getResultList();
-        return rows.stream().map(r->Map.<String,Object>of("id",r[0],"nome",r[1])).toList();
+        Long tenant=TenantContext.getCurrentTenant();
+        Long projectFilter=projetoObraId;
+        if(contratoServicoId!=null) {
+            if(!resource.equals("equipes") || contratoServicoId<1)throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+            var contract=em.find(ContratoServicoEntity.class,contratoServicoId);
+            if(contract==null || !tenant.equals(contract.getEmpresaId()))throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+            if(projectFilter!=null && !projectFilter.equals(contract.getProjetoObraId()))throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+            projectFilter=contract.getProjetoObraId();
+        }
+        if(ordemServicoId!=null) {
+            if(!resource.equals("estoque") || ordemServicoId<1)throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+            var order=em.find(SolicitacaoServicoEntity.class,ordemServicoId);
+            var contract=order==null?null:em.find(ContratoServicoEntity.class,order.getContratoServicoId());
+            if(contract==null || !tenant.equals(contract.getEmpresaId()))throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+            if(projectFilter!=null && !projectFilter.equals(contract.getProjetoObraId()))throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+            projectFilter=contract.getProjetoObraId();
+        }
+        boolean projectLinked=Set.of("equipes","estoque","contratos","unidades","ordens").contains(resource);
+        if(projectFilter!=null) {
+            if(!projectLinked || projectFilter<1)throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+            var project=em.find(ProjetoObraEntity.class,projectFilter);
+            if(project==null || !tenant.equals(project.getEmpresaId()))throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        }
+        String joins="";
+        if(projectLinked) joins=resource.equals("ordens")
+            ? " join ContratoServicoEntity c on c.id=e.contratoServicoId join ProjetoObraEntity p on p.id=c.projetoObraId"
+            : " join ProjetoObraEntity p on p.id=e.projetoObraId";
+        String columns=projectLinked?",p.id,p.nome":"";
+        String extra=projectLinked?" and p.empresaId=:tenant":"";
+        if(projectFilter!=null)extra+=" and p.id=:project";
+        var query=em.createQuery("select e.id,e."+d[1]+columns+" from "+d[0]+" e"+joins+" where "+d[2]+extra+
+            " and lower(e."+d[1]+") like :q order by e."+d[1],Object[].class)
+            .setParameter("tenant",tenant).setParameter("q","%"+q.toLowerCase(Locale.ROOT)+"%").setMaxResults(100);
+        if(projectFilter!=null)query.setParameter("project",projectFilter);
+        return query.getResultList().stream().map(r->{
+            var option=new LinkedHashMap<String,Object>();option.put("id",r[0]);option.put("nome",r[1]);
+            if(projectLinked){option.put("projetoObraId",r[2]);option.put("empreendimento",r[3]);}
+            return (Map<String,Object>)option;
+        }).toList();
     }
 
     @GetMapping("/resumo")
@@ -94,6 +146,22 @@ public class WorkspaceController {
         Long low=em.createQuery("select count(e) "+QUERIES.get("estoque")+" and e.quantidadeAtual<e.estoqueMinimo",Long.class).setParameter("tenant",tenant).getSingleResult();
         var cost=em.createQuery("select coalesce(sum(e.custoTotalInsumo),0) "+QUERIES.get("consumos"),BigDecimal.class).setParameter("tenant",tenant).getSingleResult();
         return Map.of("ordensAbertas",orders,"ordensAtrasadas",late,"materiaisAbaixoMinimo",low,"custoConsumido",cost);
+    }
+
+    @GetMapping("/detalhes/{resource}/{id}")
+    public Map<String,Object> details(@PathVariable String resource,@PathVariable Long id,
+        @RequestParam(defaultValue="") String secao,@RequestParam(defaultValue="0") int page,Authentication auth) {
+        checkResource(resource,auth);
+        if(id<1 || page<0 || page>100000 || secao.length()>40)throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+        var rows=em.createQuery("select e "+QUERIES.get(resource)+" and e.id=:id")
+            .setParameter("tenant",TenantContext.getCurrentTenant()).setParameter("id",id).getResultList();
+        if(rows.isEmpty())throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Cadastro não encontrado nesta empresa.");
+        java.util.function.Predicate<String> readable=related->{
+            try {checkResource(related,auth);return true;}
+            catch(ResponseStatusException ex){if(ex.getStatusCode().value()==403)return false;throw ex;}
+        };
+        boolean models=auth.getAuthorities().stream().anyMatch(a->Set.of("ROLE_SUPER_ADMIN","ROLE_GERENTE_OBRA","ROLE_ENGENHEIRO","ROLE_ARQUITETO","ROLE_MESTRE_OBRA","ROLE_AUDITOR","ROLE_INCORPORADOR").contains(a.getAuthority()));
+        return details.details(resource,rows.get(0),secao,page,readable,models);
     }
 
     @GetMapping("/registros/{resource}")
@@ -115,7 +183,7 @@ public class WorkspaceController {
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','GERENTE_OBRA','INCORPORADOR')")
     public ProjetoObraEntity createProject(@Valid @RequestBody ProjectRequest request, Authentication auth) {
         licenca.project(TenantContext.getCurrentTenant());
-        if (request.dataPrevisaoFim().isBefore(request.dataInicio())) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Prazo anterior ao início.");
+        dates.newPeriod(request.dataInicio(),request.dataPrevisaoFim());
         var engineer = em.find(UsuarioEntity.class, request.engenheiroResponsavelId());
         if (engineer == null || !Objects.equals(engineer.getEmpresaId(), TenantContext.getCurrentTenant()) ||
             !Boolean.TRUE.equals(engineer.getAtivo()) || !Set.of("ENGENHEIRO", "GERENTE_OBRA").contains(engineer.getPerfil())) {
@@ -143,6 +211,7 @@ public class WorkspaceController {
     public ProjetoObraEntity updateProject(@PathVariable Long id,@Valid @RequestBody ProjectRequest r,Authentication a) {
         var p=em.find(ProjetoObraEntity.class,id,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
         if(p==null || !TenantContext.getCurrentTenant().equals(p.getEmpresaId())) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        dates.changedPeriod(r.dataInicio(),r.dataPrevisaoFim(),p.getDataInicio(),p.getDataPrevisaoFim());
         var engineer=em.find(UsuarioEntity.class,r.engenheiroResponsavelId());
         if(engineer==null || !p.getEmpresaId().equals(engineer.getEmpresaId()) || !Boolean.TRUE.equals(engineer.getAtivo()) || !Set.of("ENGENHEIRO","GERENTE_OBRA").contains(engineer.getPerfil()) || r.dataPrevisaoFim().isBefore(r.dataInicio())) throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
         p.setNome(r.nome().trim());p.setEngenheiroResponsavelId(r.engenheiroResponsavelId());p.setVgvEstimado(r.vgvEstimado());p.setAreaTotalM2(r.areaTotalM2());p.setDataInicio(r.dataInicio());p.setDataPrevisaoFim(r.dataPrevisaoFim());

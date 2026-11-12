@@ -43,6 +43,14 @@ public class GarantiaPosVendaEntity {
     @Column(name = "data_atendimento")
     private OffsetDateTime dataAtendimento;
 
+    @Column(name="cobertura_id") private Long coberturaId;
+    @Column(name="situacao_cobertura",length=30) private String situacaoCobertura;
+    @Column(name="motivo_avaliacao",length=2000) private String motivoAvaliacao;
+    @Column(name="avaliador_id") private Long avaliadorId;
+    @Column(name="vistoria_em") private OffsetDateTime vistoriaEm;
+    @Column(name="responsavel_vistoria_id") private Long responsavelVistoriaId;
+    @Column(name="ordem_servico_id") private Long ordemServicoId;
+
     @PrePersist
     public void prePersist() {
         if (dataAbertura == null) {

@@ -14,7 +14,7 @@ try {
 const lines = [];
 for (const [name, value] of [
   ['JWT_SECRET', randomBytes(48).toString('base64')],
-  ['MFA_ENCRYPTION_KEY', randomBytes(32).toString('base64')],
+  ['HOMOLOGATION_ENCRYPTION_KEY', env.MFA_ENCRYPTION_KEY || randomBytes(32).toString('base64')],
 ]) {
   if (!process.env[name] && !env[name]) {
     if (new RegExp(`^${name}=`, 'm').test(existing))

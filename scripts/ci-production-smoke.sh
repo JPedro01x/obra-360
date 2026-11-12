@@ -18,7 +18,6 @@ touch "$OBRA360_COMPOSE_ENV"
 export APP_DOMAIN=localhost
 export POSTGRES_PASSWORD=$(openssl rand -hex 24)
 export JWT_SECRET=$(openssl rand -hex 48)
-export MFA_ENCRYPTION_KEY=$(openssl rand -base64 32)
 export EMAIL_ENABLED=false
 
 compose=(docker compose --env-file "$OBRA360_COMPOSE_ENV" -f deploy/compose.production.yml)

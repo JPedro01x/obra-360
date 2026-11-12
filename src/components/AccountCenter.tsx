@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { requestApi } from '../services/http';
-import { MfaSettings } from './MfaSettings';
 import { UserInvitations } from './UserInvitations';
 import { LicenseUsage } from './LicenseUsage';
 import { CompanyExport } from './CompanyExport';
@@ -48,7 +47,6 @@ export function AccountCenter({ admin }: { admin: boolean }) {
     <div className="ws-service-panel ws-account-center">
       <h1>Conta e atendimento</h1>
       {message && <p role="status">{message}</p>}
-      <MfaSettings />
       {admin && <UserInvitations />}
       {admin && <LicenseUsage />}
       {admin && <CompanyExport />}

@@ -44,8 +44,20 @@ public class OperacaoController {
     }
     @PostMapping("/ordens") @ResponseStatus(HttpStatus.CREATED)
     public SolicitacaoServicoEntity order(@Valid @RequestBody OrderRequest r,Authentication a) {
-        return service.createOrder(r.contratoServicoId(),r.equipeTrabalhoId(),r.descricao(),r.prioridade(),r.dataLimiteSla(),actor(a));
+        return service.createOrder(r.contratoServicoId(),r.equipeTrabalhoId(),r.descricao(),r.prioridade(),r.dataLimiteSla(),r.exigeMaterial(),actor(a));
     }
+    @PatchMapping("/contratos/{id}/ativo")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','GERENTE_OBRA','FINANCEIRO','INCORPORADOR')")
+    public ContratoServicoEntity contractState(@PathVariable Long id,@Valid @RequestBody ContractState r,Authentication a) {
+        return service.contractState(id,r.ativo(),actor(a));
+    }
+    @PostMapping("/ordens/{id}/justificativa")
+    public SolicitacaoServicoEntity justify(@PathVariable Long id,@Valid @RequestBody ClosureRequest r,Authentication a) {
+        return service.requestLateClosure(id,r.justificativa(),actor(a));
+    }
+    @PostMapping("/ordens/{id}/aprovar-encerramento")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ENGENHEIRO','GERENTE_OBRA')")
+    public SolicitacaoServicoEntity approve(@PathVariable Long id,Authentication a) {return service.approveLateClosure(id,actor(a));}
     @PatchMapping("/ordens/{id}/status")
     public SolicitacaoServicoEntity status(@PathVariable Long id,@Valid @RequestBody StatusRequest r,Authentication a) {
         return service.changeOrder(id,r.status(),actor(a));
@@ -69,7 +81,9 @@ public class OperacaoController {
         @NotNull @DecimalMin("0") @DecimalMax("100") @Digits(integer=3,fraction=2) BigDecimal retencaoTecnicaPct,
         @Min(1) @Max(87600) int tempoLimiteSlaHoras,@NotNull LocalDate dataInicio,@NotNull LocalDate dataTermino) {}
     public record OrderRequest(@NotNull @Positive Long contratoServicoId,@NotNull @Positive Long equipeTrabalhoId,
-        @NotBlank @Size(max=10000) String descricao,@NotBlank @Pattern(regexp="BAIXA|MEDIA|ALTA|URGENTE") String prioridade,@NotNull @Future OffsetDateTime dataLimiteSla) {}
+        @NotBlank @Size(max=10000) String descricao,@NotBlank @Pattern(regexp="BAIXA|MEDIA|ALTA|URGENTE") String prioridade,@Future OffsetDateTime dataLimiteSla,boolean exigeMaterial) {}
+    public record ContractState(@NotNull Boolean ativo) {}
+    public record ClosureRequest(@NotBlank @Size(min=10,max=2000) String justificativa) {}
     public record StatusRequest(@NotBlank @Pattern(regexp="EM_ANDAMENTO|CONCLUIDO|CANCELADO") String status) {}
     public record MovementRequest(@NotNull @Positive Long itemEstoqueId,@NotBlank @Pattern(regexp="ENTRADA|SAIDA|CONSUMO_OS") String tipoMovimentacao,
         @NotNull @DecimalMin(value="0",inclusive=false) @Digits(integer=8,fraction=4) BigDecimal quantidade,@Positive Long ordemServicoId,

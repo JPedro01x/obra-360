@@ -67,7 +67,6 @@ const testEnvironment = {
 };
 Object.assign(testEnvironment, {
   EMAIL_ENABLED: 'true',
-  MFA_ENCRYPTION_KEY: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
   SMTP_HOST: '127.0.0.1',
   SMTP_PORT: '1025',
   SMTP_USERNAME: '',
@@ -76,7 +75,7 @@ Object.assign(testEnvironment, {
   SMTP_SSL: 'false',
   EMAIL_FROM: 'no-reply@test.invalid',
   APP_PUBLIC_URL: 'http://127.0.0.1:4175',
-  DOCUMENT_STORAGE: 'local',
+
   AI_ENABLED: 'false',
   GOOGLE_CLIENT_ID: '',
   SEFAZ_ENABLED: 'false',

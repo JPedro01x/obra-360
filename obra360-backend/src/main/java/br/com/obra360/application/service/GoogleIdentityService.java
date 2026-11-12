@@ -17,7 +17,7 @@ import java.security.MessageDigest;
 import java.util.*;
 @Service @RequiredArgsConstructor
 public class GoogleIdentityService {
-    private final IntegrationConfig config;private final EntityManager em;private final JwtService tokens;private final MfaService mfa;private volatile JwtDecoder decoder;
+    private final IntegrationConfig config;private final EntityManager em;private final JwtService tokens;private volatile JwtDecoder decoder;
     public boolean available(){return config.has("GOOGLE_CLIENT_ID");}
     private synchronized JwtDecoder decoder(){
         if(decoder==null){var factory=new SimpleClientHttpRequestFactory();factory.setConnectTimeout(5000);factory.setReadTimeout(5000);
@@ -36,7 +36,6 @@ public class GoogleIdentityService {
         Jwt identity=verify(credential,nonce);var found=em.createQuery("select u from UsuarioEntity u where u.googleSubject=:s",UsuarioEntity.class).setParameter("s",identity.getSubject()).getResultList();
         if(found.isEmpty())throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Entre com sua senha e vincule a conta Google antes de usar este acesso.");
         var user=found.get(0);if(!Boolean.TRUE.equals(user.getAtivo())||(user.getBloqueadoAte()!=null&&user.getBloqueadoAte().isAfter(java.time.OffsetDateTime.now())))throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
-        if(mfa.enabled(user.getId()))throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Entre com sua senha e código do autenticador para esta conta.");
         return Map.of("token",tokens.issue(user));
     }
     @Transactional public void link(Long userId,String credential,String nonce){

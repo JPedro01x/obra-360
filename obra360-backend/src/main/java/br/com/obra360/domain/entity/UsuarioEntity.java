@@ -37,6 +37,10 @@ public class UsuarioEntity {
     @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.WRITE_ONLY)
     private String senhaHash;
 
+    @Column(name="exige_troca_senha",nullable=false)
+    @org.hibernate.annotations.ColumnDefault("false")
+    private boolean exigeTrocaSenha;
+
     @Column(name = "nome", nullable = false, length = 100)
     private String nome;
 

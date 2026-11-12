@@ -1,3 +1,6 @@
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+import { validatePilot } from './pilot-acceptance.mjs';
 import { loadProjectEnv } from './load-env.mjs';
 import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -26,11 +29,6 @@ add(
   Buffer.byteLength(env.JWT_SECRET || '') >= 32 &&
     !/e2e|test|example|changeme/i.test(env.JWT_SECRET || ''),
 );
-let key;
-try {
-  key = Buffer.from(env.MFA_ENCRYPTION_KEY || '', 'base64');
-} catch {}
-add('Chave MFA privada de 32 bytes', key?.length === 32);
 add('Modo demonstrativo desativado', env.VITE_USE_MOCK === 'false');
 add('Instalação inicial desabilitada', env.OBRA360_SETUP_ENABLED === 'false');
 add('URL pública HTTPS', httpsOrigin(env.APP_PUBLIC_URL));
@@ -45,12 +43,15 @@ add(
 );
 add(
   'Armazenamento declarado',
-  env.DOCUMENT_STORAGE === 's3'
-    ? !!env.S3_BUCKET && !!env.AWS_REGION
-    : env.DOCUMENT_STORAGE === 'local' && !!env.OBRA360_STORAGE_DIRECTORY,
+  !!env.OBRA360_STORAGE_DIRECTORY,
 );
 add('Backup e restauração homologados pelo operador', env.PRODUCTION_BACKUP_VERIFIED === 'true');
-add('Aceite do piloto registrado pelo responsável', env.PRODUCTION_PILOT_ACCEPTED === 'true');
+let pilot = { aceiteDeclaradoCompleto: false };
+if (env.PRODUCTION_PILOT_REPORT) {
+  try { pilot = validatePilot(JSON.parse(await readFile(path.resolve(root, env.PRODUCTION_PILOT_REPORT), 'utf8'))); }
+  catch { /* A missing or malformed acceptance report is never treated as approved. */ }
+}
+add('Relatório de aceite do piloto preenchido com versão, responsáveis e evidências', pilot.aceiteDeclaradoCompleto);
 console.log(
   JSON.stringify(
     {

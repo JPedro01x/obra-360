@@ -69,7 +69,7 @@ jobs:
         run: npm run test:backup
 
       - name: Verify Protected Test Credentials
-        run: node --test scripts/homologacao-credentials.test.mjs
+        run: node --test scripts/homologacao-credentials.test.mjs scripts/pilot-acceptance.test.mjs scripts/operations-local.test.mjs
 
       - name: Set up Java for Integrated Browser Journey
         uses: actions/setup-java@v4

@@ -20,8 +20,6 @@ import java.time.Instant;
 @RestControllerAdvice
 @lombok.extern.slf4j.Slf4j
 public class GlobalExceptionHandler {
-    @ExceptionHandler(software.amazon.awssdk.core.exception.SdkException.class)
-    public ProblemDetail handleStorage(Exception ex){return ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE,"Armazenamento S3 indisponível. Verifique credenciais, região e bucket.");}
     @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
     public ProblemDetail handleFileLimit(Exception ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.PAYLOAD_TOO_LARGE,"O arquivo excede o limite de 20 MB.");
@@ -86,6 +84,9 @@ public class GlobalExceptionHandler {
         problemDetail.setProperty("timestamp", Instant.now());
         return problemDetail;
     }
+
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    public ProblemDetail handleMissingResource(Exception ex) {return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND,"Recurso não encontrado.");}
 
     @ExceptionHandler(Exception.class)
     public ProblemDetail handleGenericException(Exception ex) {

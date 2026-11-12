@@ -1,4 +1,4 @@
-import { cp, mkdir, readdir, readFile, writeFile, rename, stat } from 'node:fs/promises';
+import { cp, mkdir, readdir, readFile, writeFile, rename, stat, lstat } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { createConnection } from 'node:net';
 import path from 'node:path';
@@ -45,9 +45,15 @@ export async function createBackup(data, backups) {
   );
   return id;
 }
-export async function restoreBackup(data, backups, id) {
+export async function verifyBackup(backups, id) {
   if (!/^[0-9TZ.\-]+$/.test(id)) throw new Error('Identificador de backup inválido.');
   const snapshot = inside(backups, path.join(backups, id));
+  for (const directory of [snapshot, path.join(snapshot, 'data')]) {
+    const info = await lstat(directory);
+    if (!info.isDirectory() || info.isSymbolicLink()) throw new Error('Diretório de backup inválido.');
+  }
+  const metadata = await lstat(path.join(snapshot, 'manifest.json'));
+  if (!metadata.isFile() || metadata.isSymbolicLink()) throw new Error('Manifesto inválido.');
   const manifest = JSON.parse(await readFile(path.join(snapshot, 'manifest.json'), 'utf8'));
   if (manifest.format !== 1 || !manifest.files || !Object.hasOwn(manifest.files, 'obra360.mv.db'))
     throw new Error('Manifesto inválido.');
@@ -59,6 +65,11 @@ export async function restoreBackup(data, backups, id) {
     if ((await digest(filename)) !== manifest.files[file])
       throw new Error('Backup corrompido: ' + file);
   }
+  return { id, createdAt: manifest.createdAt, arquivos: actual.length };
+}
+export async function restoreBackup(data, backups, id) {
+  await verifyBackup(backups, id);
+  const snapshot = inside(backups, path.join(backups, id));
   const parent = path.dirname(path.resolve(data));
   const destination = inside(parent, data);
   const stage = inside(parent, path.join(parent, 'data-restore-' + Date.now()));
@@ -101,16 +112,18 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     const root = fileURLToPath(new URL('../', import.meta.url));
     const data = inside(root, path.join(root, 'obra360-backend', 'data'));
     const backups = inside(root, path.join(root, 'backups'));
-    if (await serverRunning())
+    if (process.argv[2] !== 'verify' && await serverRunning())
       throw new Error('Encerre a API local antes de criar ou restaurar o backup.');
-    if (process.argv[2] === 'create')
+    if (process.argv[2] === 'verify' && process.argv.length === 4)
+      console.log(JSON.stringify(await verifyBackup(backups, process.argv[3]), null, 2));
+    else if (process.argv[2] === 'create')
       console.log('Backup criado: ' + (await createBackup(data, backups)));
     else if (process.argv[2] === 'restore' && process.argv.includes('--confirm'))
       console.log(
         'Backup restaurado. Base anterior preservada em: ' +
           ((await restoreBackup(data, backups, process.argv[3])) || 'não havia base anterior'),
       );
-    else throw new Error('Use create ou restore IDENTIFICADOR --confirm.');
+    else throw new Error('Use create, verify IDENTIFICADOR ou restore IDENTIFICADOR --confirm.');
   } catch (error) {
     console.error(error.message);
     process.exitCode = 1;

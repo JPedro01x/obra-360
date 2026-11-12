@@ -2,10 +2,12 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { loadProjectEnv } from './load-env.mjs';
+import { useLocalJava21 } from './local-java.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 Object.assign(process.env, await loadProjectEnv(root));
 process.env.VITE_USE_MOCK = 'false';
+await useLocalJava21();
 const children = [];
 let stopping = false;
 function stop(code = 0) {

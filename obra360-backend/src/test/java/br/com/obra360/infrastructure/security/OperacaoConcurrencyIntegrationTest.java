@@ -18,7 +18,7 @@ import java.util.concurrent.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
-@SpringBootTest(properties={"spring.datasource.url=jdbc:h2:mem:concurrency_test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1","spring.flyway.enabled=true","spring.jpa.hibernate.ddl-auto=validate"})
+@SpringBootTest(properties={"spring.datasource.url=jdbc:h2:mem:concurrency_test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1","spring.flyway.enabled=true","spring.jpa.hibernate.ddl-auto=validate","DOCUMENT_STORAGE=local","obra360.storage.directory=${java.io.tmpdir}/obra360-concurrency-documents-${random.uuid}"})
 @ActiveProfiles("dev") @AutoConfigureMockMvc
 class OperacaoConcurrencyIntegrationTest {
     @Autowired EntityManager em;@Autowired PlatformTransactionManager manager;@Autowired MockMvc mvc;@Autowired JwtService jwt;@Autowired ObjectMapper json;
@@ -48,4 +48,36 @@ class OperacaoConcurrencyIntegrationTest {
         } finally {executor.shutdownNow();}
     }
     record Fixture(Long item,List<Long> orders,String token) {}
+
+    @Test void photoProcessingRejectsExcessConcurrencyWithoutAllocatingMoreImages() throws Exception {
+        var tx=new TransactionTemplate(manager);
+        var fixture=tx.execute(status->{
+            var company=EmpresaEntity.builder().cnpj("88888888000200").razaoSocial("Fixture fotos").nomeFantasia("Fixture fotos").build();em.persist(company);
+            var user=UsuarioEntity.builder().empresaId(company.getId()).nome("Teste fotos").email("photo-concurrency@test.invalid").perfil("SUPER_ADMIN").ativo(true).senhaHash("fixture-not-used").build();em.persist(user);
+            var project=ProjetoObraEntity.builder().empresaId(company.getId()).engenheiroResponsavelId(user.getId()).nome("Obra fotos").vgvEstimado(BigDecimal.ZERO).areaTotalM2(BigDecimal.TEN).dataInicio(LocalDate.now()).dataPrevisaoFim(LocalDate.now()).build();em.persist(project);
+            List<Long> ids=new ArrayList<>();
+            for(int i=0;i<3;i++) {var occurrence=OcorrenciaQualidadeEntity.builder().projetoObraId(project.getId()).responsavelId(user.getId()).titulo("Foto teste "+i).normaRegulamentadora("Referência").grauSeveridade("ALTA").statusPlanoAcao("PENDENTE").build();em.persist(occurrence);ids.add(occurrence.getId());}
+            return new Fixture(null,ids,"Bearer "+jwt.issue(user));
+        });
+        var image=new java.awt.image.BufferedImage(2,2,java.awt.image.BufferedImage.TYPE_INT_RGB);var bytes=new java.io.ByteArrayOutputStream();javax.imageio.ImageIO.write(image,"png",bytes);image.flush();
+        var entered=new CountDownLatch(2);var release=new CountDownLatch(1);var executor=Executors.newFixedThreadPool(2);List<Future<Integer>> requests=new ArrayList<>();
+        try {
+            for(int i=0;i<2;i++) {
+                Long id=fixture.orders().get(i);
+                requests.add(executor.submit(()->{
+                    var file=new org.springframework.mock.web.MockMultipartFile("arquivo","teste.png","image/png",bytes.toByteArray()) {
+                        @Override public byte[] getBytes() {
+                            entered.countDown();try{if(!release.await(20,TimeUnit.SECONDS))throw new IllegalStateException("Tempo de espera de teste excedido.");}
+                            catch(InterruptedException ex){Thread.currentThread().interrupt();throw new IllegalStateException(ex);}return bytes.toByteArray();
+                        }
+                    };
+                    return mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart("/api/v1/workspace/qualidade/"+id+"/evidencias").file(file).header("Authorization",fixture.token())).andReturn().getResponse().getStatus();
+                }));
+            }
+            assertTrue(entered.await(10,TimeUnit.SECONDS));
+            var third=new org.springframework.mock.web.MockMultipartFile("arquivo","teste.png","image/png",bytes.toByteArray());
+            int status=mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart("/api/v1/workspace/qualidade/"+fixture.orders().get(2)+"/evidencias").file(third).header("Authorization",fixture.token())).andReturn().getResponse().getStatus();
+            assertEquals(503,status);release.countDown();for(var request:requests)assertEquals(201,request.get(15,TimeUnit.SECONDS));
+        } finally {release.countDown();executor.shutdownNow();}
+    }
 }

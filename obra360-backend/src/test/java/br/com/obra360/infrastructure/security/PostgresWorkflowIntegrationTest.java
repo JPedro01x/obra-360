@@ -12,7 +12,6 @@ import org.springframework.boot.test.context.SpringBootTest;
     "spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect",
     "spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect",
     "spring.flyway.enabled=true","spring.jpa.hibernate.ddl-auto=validate",
-    "MFA_ENCRYPTION_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
     "obra360.storage.directory=${java.io.tmpdir}/obra360-pg-test-documents-${random.uuid}"
 })
 class PostgresWorkflowIntegrationTest extends WorkspaceSecurityIntegrationTest {}

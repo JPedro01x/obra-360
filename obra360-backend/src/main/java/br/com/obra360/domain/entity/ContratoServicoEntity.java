@@ -42,6 +42,11 @@ public class ContratoServicoEntity {
     @Column(name = "tempo_limite_sla_horas", nullable = false)
     private Integer tempoLimiteSlaHoras;
 
+    @Column(name = "ativo", nullable = false)
+    @org.hibernate.annotations.ColumnDefault("true")
+    @Builder.Default
+    private boolean ativo = true;
+
     @Column(name = "data_inicio", nullable = false)
     private LocalDate dataInicio;
 

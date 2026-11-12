@@ -27,6 +27,8 @@ public class RecursosHumanosController {
     private final OperacaoService operation;
     private final ObjectMapper mapper;
     private final br.com.obra360.application.service.RhHistoricoService historico;
+    private final br.com.obra360.application.service.AcessoFuncionarioService acessos;
+    private final br.com.obra360.application.service.PlanningDates dates;
     private static final Map<String,Class<? extends RhBase>> TYPES=Map.of(
         "estrutura",RhEstruturaEntity.class,"funcionarios",RhFuncionarioEntity.class,"ponto",RhPontoEntity.class,
         "afastamentos",RhAfastamentoEntity.class,"beneficios",RhBeneficioEntity.class,"folhas",RhFolhaEntity.class,
@@ -73,7 +75,8 @@ public class RecursosHumanosController {
     @GetMapping("/registros/{resource}/{id}")
     public RhBase detail(@PathVariable String resource,@PathVariable Long id){var type=TYPES.get(resource);if(type==null)throw new ResponseStatusException(HttpStatus.NOT_FOUND);return own(type,id);}
     @GetMapping("/opcoes/{resource}") @Transactional(readOnly=true)
-    public List<Map<String,Object>> options(@PathVariable String resource,@RequestParam(defaultValue="") @Size(max=100) String q){
+    public List<Map<String,Object>> options(@PathVariable String resource,@RequestParam(defaultValue="") @Size(max=100) String q,
+        @RequestParam(required=false) Long departamentoId,@RequestParam(required=false) Long projetoObraId){
         String type,field,extra="";
         switch(resource){
             case "departamentos" -> {type="RhEstruturaEntity";field="nome";extra=" and e.tipo='DEPARTAMENTO' and e.ativo=true";}
@@ -87,8 +90,23 @@ public class RecursosHumanosController {
             default -> throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         }
         String scope=resource.equals("equipes")?"1=1":"e.empresaId=:t";
-        return em.createQuery("select e.id,e."+field+" from "+type+" e where "+scope+extra+" and lower(e."+field+") like :q order by e."+field,Object[].class)
-            .setParameter("t",tenant()).setParameter("q","%"+q.trim().toLowerCase(Locale.ROOT)+"%").setMaxResults(200).getResultList().stream().map(r->Map.<String,Object>of("id",r[0],"nome",r[1])).toList();
+        if(departamentoId!=null) {
+            if(!resource.equals("cargos") || departamentoId<1)throw bad("Filtro de departamento inválido.");
+            var department=own(RhEstruturaEntity.class,departamentoId);
+            if(!"DEPARTAMENTO".equals(department.getTipo()))throw bad("Selecione um departamento.");
+            extra+=" and e.departamentoId=:department";
+        }
+        if(projetoObraId!=null) {
+            if(!resource.equals("equipes") || projetoObraId<1)throw bad("Filtro de obra inválido.");
+            var project=em.find(ProjetoObraEntity.class,projetoObraId);
+            if(project==null || !tenant().equals(project.getEmpresaId()))throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+            extra+=" and e.projetoObraId=:project";
+        }
+        var query=em.createQuery("select e.id,e."+field+" from "+type+" e where "+scope+extra+" and lower(e."+field+") like :q order by e."+field,Object[].class)
+            .setParameter("t",tenant()).setParameter("q","%"+q.trim().toLowerCase(Locale.ROOT)+"%").setMaxResults(200);
+        if(departamentoId!=null)query.setParameter("department",departamentoId);
+        if(projetoObraId!=null)query.setParameter("project",projetoObraId);
+        return query.getResultList().stream().map(r->Map.<String,Object>of("id",r[0],"nome",r[1])).toList();
     }
     @GetMapping("/resumo") @Transactional(readOnly=true)
     public Map<String,Object> summary(){
@@ -113,19 +131,25 @@ public class RecursosHumanosController {
         e.setNome(r.nome().trim());e.setTipo(r.tipo());e.setDepartamentoId("CARGO".equals(r.tipo())?r.departamentoId():null);e.setAtivo(r.ativo());return save(e,a);
     }
     @RequestMapping(value={"/funcionarios","/funcionarios/{id}"},method={RequestMethod.POST,RequestMethod.PUT})
-    public RhFuncionarioEntity employeeSave(@PathVariable(required=false) Long id,@RequestParam(defaultValue="-1") long versao,@Valid @RequestBody EmployeeRequest r,Authentication a){
+    public Map<String,Object> employeeSave(@PathVariable(required=false) Long id,@RequestParam(defaultValue="-1") long versao,@Valid @RequestBody EmployeeRequest r,Authentication a){
         var e=edit(RhFuncionarioEntity.class,id,versao);structure(r.departamentoId(),r.cargoId());
         if(!validCpf(r.cpf()))throw bad("CPF inválido. Informe os 11 dígitos.");
         if(r.nascimento()!=null&&(!r.nascimento().isBefore(r.admissao())||r.nascimento().isAfter(LocalDate.now())))throw bad("Nascimento deve ser anterior à admissão.");
         if(r.projetoObraId()!=null)operation.project(r.projetoObraId());
-        if(r.equipeId()!=null){var team=em.find(EquipeTrabalhoEntity.class,r.equipeId());if(team==null)throw new ResponseStatusException(HttpStatus.NOT_FOUND);operation.project(team.getProjetoObraId());if(!Objects.equals(team.getProjetoObraId(),r.projetoObraId()))throw bad("Equipe não pertence à obra selecionada.");}
-        if(r.usuarioId()!=null)operation.member(r.usuarioId());
+        if(r.equipeId()!=null){var team=operation.team(r.equipeId());if(team==null)throw new ResponseStatusException(HttpStatus.NOT_FOUND);operation.project(team.getProjetoObraId());if(!Objects.equals(team.getProjetoObraId(),r.projetoObraId()))throw bad("Equipe não pertence à obra selecionada.");}
         if(id!=null&&(!e.getAdmissao().equals(r.admissao())||!e.getCpf().equals(r.cpf())))conflict("CPF e admissão não podem ser alterados após o cadastro.");
         Map<String,Object> before=id==null?null:historico.snapshot(e);
-        e.setMatricula(r.matricula().trim());e.setNome(r.nome().trim());e.setCpf(r.cpf());e.setEmail(r.email());e.setTelefone(r.telefone());e.setNascimento(r.nascimento());e.setAdmissao(r.admissao());e.setVinculo(r.vinculo());e.setDepartamentoId(r.departamentoId());e.setCargoId(r.cargoId());e.setProjetoObraId(r.projetoObraId());e.setEquipeId(r.equipeId());e.setUsuarioId(r.usuarioId());e.setSalarioBase(r.salarioBase());e.setJornadaSemanalMinutos(r.jornadaSemanalMinutos());if(id==null)e.setSituacao("ATIVO");save(e,a);historico.record(e,before,Long.valueOf(a.getName()),r.motivoAlteracao());return e;
+        Long account=r.usuarioId()!=null?r.usuarioId():e.getUsuarioId();
+        if(id!=null && !Objects.equals(account,e.getUsuarioId()) && !"SUPER_ADMIN".equals(operation.member(Long.valueOf(a.getName())).getPerfil()))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Somente o administrador pode substituir a conta vinculada.");
+        var access=(id==null || account!=null)?acessos.provision(account,id,r.nome(),r.email(),Long.valueOf(a.getName())):null;
+        e.setMatricula(r.matricula().trim());e.setNome(r.nome().trim());e.setCpf(r.cpf());e.setEmail(r.email());e.setTelefone(r.telefone());e.setNascimento(r.nascimento());e.setAdmissao(r.admissao());e.setVinculo(r.vinculo());e.setDepartamentoId(r.departamentoId());e.setCargoId(r.cargoId());e.setProjetoObraId(r.projetoObraId());e.setEquipeId(r.equipeId());if(access!=null)e.setUsuarioId(access.user().getId());e.setSalarioBase(r.salarioBase());e.setJornadaSemanalMinutos(r.jornadaSemanalMinutos());if(id==null)e.setSituacao("ATIVO");save(e,a);historico.record(e,before,Long.valueOf(a.getName()),r.motivoAlteracao());
+        Map<String,Object> result=mapper.convertValue(e,new com.fasterxml.jackson.core.type.TypeReference<Map<String,Object>>(){});
+        if(access!=null && access.initial()!=null) result.put("acessoInicial",access.initial());
+        return result;
     }
     @PostMapping("/funcionarios/{id}/desligar")
-    public RhFuncionarioEntity terminate(@PathVariable Long id,@Valid @RequestBody TerminationRequest r,Authentication a){var e=activeEmployee(id);if(e.getVersao()!=r.versao())conflict("Atualize o cadastro antes de desligar.");if(r.data().isBefore(e.getAdmissao())||r.data().isAfter(LocalDate.now()))throw bad("Data de desligamento inválida.");var before=historico.snapshot(e);e.setSituacao("DESLIGADO");e.setDesligamento(r.data());historico.record(e,before,Long.valueOf(a.getName()),"Desligamento registrado com data informada "+r.data());audit("RH_DESLIGAR",e,a);em.flush();return e;}
+    public RhFuncionarioEntity terminate(@PathVariable Long id,@Valid @RequestBody TerminationRequest r,Authentication a){var e=activeEmployee(id);if(e.getVersao()!=r.versao())conflict("Atualize o cadastro antes de desligar.");if(r.data().isBefore(e.getAdmissao())||r.data().isAfter(LocalDate.now()))throw bad("Data de desligamento inválida.");var before=historico.snapshot(e);acessos.deactivate(e,Long.valueOf(a.getName()));e.setSituacao("DESLIGADO");e.setDesligamento(r.data());historico.record(e,before,Long.valueOf(a.getName()),"Desligamento registrado com data informada "+r.data());audit("RH_DESLIGAR",e,a);em.flush();return e;}
     @RequestMapping(value={"/ponto","/ponto/{id}"},method={RequestMethod.POST,RequestMethod.PUT})
     public RhPontoEntity attendance(@PathVariable(required=false) Long id,@RequestParam(defaultValue="-1") long versao,@Valid @RequestBody AttendanceRequest r,Authentication a){
         var f=employee(r.funcionarioId());employmentDate(f,r.data());if(r.data().isAfter(LocalDate.now()))throw bad("Ponto não pode ser futuro.");
@@ -140,6 +164,7 @@ public class RecursosHumanosController {
     public RhAfastamentoEntity absence(@PathVariable(required=false) Long id,@RequestParam(defaultValue="-1") long versao,@Valid @RequestBody AbsenceRequest r,Authentication a){
         var f=activeEmployee(r.funcionarioId());employmentDate(f,r.inicio());if(r.fim().isBefore(r.inicio()))throw bad("Fim anterior ao início.");
         var e=edit(RhAfastamentoEntity.class,id,versao);if(id!=null&&!"SOLICITADO".equals(e.getSituacao()))conflict("Somente solicitações pendentes podem ser editadas.");
+        if("FERIAS".equals(r.tipo())) dates.changedPeriod(r.inicio(),r.fim(),e.getInicio(),e.getFim());
         e.setFuncionarioId(f.getId());e.setTipo(r.tipo());e.setInicio(r.inicio());e.setFim(r.fim());e.setObservacao(r.observacao());e.setSituacao("SOLICITADO");return save(e,a);
     }
     @PostMapping("/afastamentos/{id}/decisao")
@@ -162,7 +187,7 @@ public class RecursosHumanosController {
         employee(r.funcionarioId());if(r.validade()!=null&&r.validade().isBefore(r.realizacao()))throw bad("Validade anterior à realização.");var e=edit(RhTreinamentoEntity.class,id,versao);e.setFuncionarioId(r.funcionarioId());e.setTipo(r.tipo());e.setTitulo(r.titulo().trim());e.setRealizacao(r.realizacao());e.setValidade(r.validade());e.setCargaHorariaMinutos(r.cargaHorariaMinutos());e.setInstituicao(r.instituicao());e.setObservacao(r.observacao());return save(e,a);
     }
     @RequestMapping(value={"/vagas","/vagas/{id}"},method={RequestMethod.POST,RequestMethod.PUT})
-    public RhVagaEntity vacancy(@PathVariable(required=false) Long id,@RequestParam(defaultValue="-1") long versao,@Valid @RequestBody VacancyRequest r,Authentication a){structure(r.departamentoId(),r.cargoId());var e=edit(RhVagaEntity.class,id,versao);e.setTitulo(r.titulo().trim());e.setDepartamentoId(r.departamentoId());e.setCargoId(r.cargoId());e.setQuantidade(r.quantidade());e.setDescricao(r.descricao().trim());e.setAbertura(r.abertura());e.setSituacao(r.situacao());return save(e,a);}
+    public RhVagaEntity vacancy(@PathVariable(required=false) Long id,@RequestParam(defaultValue="-1") long versao,@Valid @RequestBody VacancyRequest r,Authentication a){structure(r.departamentoId(),r.cargoId());var e=edit(RhVagaEntity.class,id,versao);if("ABERTA".equals(r.situacao()))dates.changedPeriod(r.abertura(),r.abertura(),e.getAbertura(),e.getAbertura());e.setTitulo(r.titulo().trim());e.setDepartamentoId(r.departamentoId());e.setCargoId(r.cargoId());e.setQuantidade(r.quantidade());e.setDescricao(r.descricao().trim());e.setAbertura(r.abertura());e.setSituacao(r.situacao());return save(e,a);}
     @RequestMapping(value={"/candidatos","/candidatos/{id}"},method={RequestMethod.POST,RequestMethod.PUT})
     public RhCandidatoEntity candidate(@PathVariable(required=false) Long id,@RequestParam(defaultValue="-1") long versao,@Valid @RequestBody CandidateRequest r,Authentication a){var v=own(RhVagaEntity.class,r.vagaId());if(id==null&&!"ABERTA".equals(v.getSituacao()))conflict("Vaga não está aberta.");var e=edit(RhCandidatoEntity.class,id,versao);e.setVagaId(r.vagaId());e.setNome(r.nome().trim());e.setEmail(r.email().trim().toLowerCase(Locale.ROOT));e.setTelefone(r.telefone());e.setEtapa(r.etapa());e.setObservacao(r.observacao());return save(e,a);}
     @DeleteMapping("/candidatos/{id}") @ResponseStatus(HttpStatus.NO_CONTENT)

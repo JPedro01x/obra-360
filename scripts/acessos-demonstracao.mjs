@@ -1,0 +1,10 @@
+import { fileURLToPath } from 'node:url';
+import { readCredentials } from './homologacao-credentials.mjs';
+const root=fileURLToPath(new URL('../',import.meta.url));
+const data=await readCredentials(root,'ACESSO-DEMONSTRACAO.local');
+const reveal=process.argv.includes('--mostrar-senhas');
+const index=process.argv.indexOf('--perfil');
+const role=index>=0?process.argv[index+1]:null;
+console.log(data.empresa+' — DADOS FICTICIOS');
+console.table(data.contas.filter(a=>!role||a.perfil===role).map(a=>({perfil:a.perfil,email:a.email,...(reveal?{senha:a.senha}:{}),senhaInicial:!!a.senhaInicial})));
+if(!reveal)console.log('Senhas protegidas. No terminal privado: --perfil SUPER_ADMIN --mostrar-senhas');

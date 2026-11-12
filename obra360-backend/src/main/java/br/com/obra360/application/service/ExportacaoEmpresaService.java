@@ -26,6 +26,10 @@ public class ExportacaoEmpresaService {
         try(var zip=new ZipOutputStream(output)){
             write(zip,"empresa.json",json.writeValueAsBytes(em.find(EmpresaEntity.class,tenant)),budget);
             Map<String,String> scopes=new LinkedHashMap<>();DIRECT.forEach(e->scopes.put(e,"e.empresaId=:t"));
+            scopes.put("RequisicaoCompraEntity","e.empresaId=:t");
+            scopes.put("CoberturaGarantiaEntity","e.empresaId=:t");
+            scopes.put("NotificacaoEntity","e.empresaId=:t");
+            scopes.put("EvidenciaQualidadeEntity","e.empresaId=:t");
             scopes.put("ModeloReferenciaEntity","e.empresaId=:t");
             var exportedReferences = new HashSet<String>();
             for(String e:List.of("DocumentoProjetoEntity","EquipeTrabalhoEntity","EtapaCronogramaEntity","OcorrenciaQualidadeEntity","UnidadeImobiliariaEntity"))scopes.put(e,PROJECT);
@@ -52,12 +56,13 @@ public class ExportacaoEmpresaService {
                         write(zip,"registros/"+entry.getKey()+"/"+(++count)+".json",json.writeValueAsBytes(node),budget);
                         if(row instanceof DocumentoProjetoEntity d)file(zip,"arquivos/projeto-"+d.getId(),storage.read(d.getUrlArmazenamento()),d.getHashArquivoSha256(),budget);
                         if(row instanceof RhDocumentoEntity d)file(zip,"arquivos/rh-"+d.getId(),storage.readRh(d.getReferenciaArquivo()),d.getSha256(),budget);
+                        if(row instanceof EvidenciaQualidadeEntity e)file(zip,"arquivos/qualidade-"+e.getId(),storage.read(e.getArquivoKey()),e.getSha256(),budget);
                     }
                     em.clear();
                 }
                 counts.put(entry.getKey(),count);
             }
-            write(zip,"manifesto.json",json.writeValueAsBytes(Map.of("formato","obra360-export-v1","empresaId",tenant,"geradoEm",OffsetDateTime.now(),"contagens",counts,"credenciaisIncluidas",false,"observacao","Dados operacionais e arquivos da empresa. Não é backup restaurável do servidor. Sessões, MFA, tokens e convites não são exportados.")),budget);
+            write(zip,"manifesto.json",json.writeValueAsBytes(Map.of("formato","obra360-export-v1","empresaId",tenant,"geradoEm",OffsetDateTime.now(),"contagens",counts,"credenciaisIncluidas",false,"observacao","Dados operacionais e arquivos da empresa. Não é backup restaurável do servidor. Sessões, tokens e convites não são exportados.")),budget);
         }
         return output.toByteArray();
     }
