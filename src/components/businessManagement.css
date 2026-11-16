@@ -1,0 +1,37 @@
+.business-management {
+  min-width: 0;
+}
+.business-tabs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  gap: 8px;
+  margin: 18px 0;
+}
+.business-tabs button {
+  min-height: 44px;
+  white-space: normal;
+}
+.business-tabs button[aria-current='page'] {
+  color: var(--brand-text);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.business-management .ws-detail-table table {
+  table-layout: auto;
+  min-width: 720px;
+}
+.business-management .ws-detail-table th {
+  white-space: nowrap;
+}
+.business-management .ws-detail-table td {
+  min-width: 85px;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+.business-management .ws-detail-metrics {
+  margin: 18px 0;
+}
+.business-management .ws-detail-tools > label {
+  flex: 1 1 250px;
+  max-width: 480px;
+}

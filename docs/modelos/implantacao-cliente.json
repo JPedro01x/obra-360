@@ -1,0 +1,54 @@
+{
+  "formato": "obra360-implantacao-v1",
+  "situacao": "PENDENTE_PREENCHIMENTO",
+  "empresa": "",
+  "versao": "",
+  "hashEntrega": "",
+  "modulosContratados": [],
+  "ambienteDestino": "",
+  "responsaveis": {
+    "cliente": "",
+    "implantacao": "",
+    "operacao": "",
+    "financeiro": "",
+    "rh": "",
+    "contabilidade": "",
+    "juridico": "",
+    "segurancaIndependente": ""
+  },
+  "volumeEsperado": {
+    "usuarios": null,
+    "usuariosSimultaneos": null,
+    "obras": null,
+    "armazenamentoGB": null
+  },
+  "suporte": {
+    "canalDisponibilidadeSistema": "",
+    "canalExternoIndisponibilidade": "",
+    "horario": "",
+    "prazoPrimeiraResposta": "",
+    "escalonamento": ""
+  },
+  "comercial": {
+    "preco": null,
+    "periodoPiloto": "",
+    "limites": "",
+    "criterioAtualizacao": "",
+    "encerramento": ""
+  },
+  "continuidade": {
+    "destinoBackupPrivado": "",
+    "perdaMaximaAceitavel": "",
+    "tempoMaximoRecuperacao": "",
+    "evidenciaRestauracao": ""
+  },
+  "validacoes": {
+    "contrato": "PENDENTE",
+    "privacidade": "PENDENTE",
+    "contabilidade": "PENDENTE",
+    "segurancaIndependente": "PENDENTE",
+    "treinamento": "PENDENTE",
+    "aceiteCliente": "PENDENTE"
+  },
+  "observacao": "Modelo sem dados ou aprovacoes reais. Nao incluir senhas, certificados ou chaves. Guardar o preenchimento fora do repositorio publico."
+}

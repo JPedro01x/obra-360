@@ -1,7 +1,7 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { API_BASE_URL, requestApi } from '../services/http';
-import { planningError, planningMinimum } from '../utils/planningDates';
+import { planningError, planningMinimum, localCalendarDate } from '../utils/planningDates';
 
 type Field = {
   name: string;
@@ -18,6 +18,7 @@ type Field = {
   optional?: boolean;
   value?: string;
   futureOnly?: boolean;
+  maxToday?: boolean;
   dependsOn?: string;
   contextParam?: string;
   contextLabel?: string;
@@ -1053,7 +1054,7 @@ export function OperationForm({
                     disabled={saving}
                     defaultValue={field.type === 'file' ? undefined : field.value}
                     min={planningMinimum(field, dateValues, originals) ?? field.min}
-                    max={field.max}
+                    max={field.maxToday ? localCalendarDate() : field.max}
                     step={field.step}
                     maxLength={field.maxLength}
                     minLength={field.type === 'password' ? field.min : undefined}

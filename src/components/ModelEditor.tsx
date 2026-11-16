@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { WallRecognition } from './WallRecognition';
 import {
   Box,
   Copy,
@@ -28,6 +29,8 @@ import {
 } from '../services/modelGeometry';
 import { ModelPlan } from './ModelPlan';
 import { ModelViewport } from './ModelViewport';
+import { ModelDiagnostics } from './ModelDiagnostics';
+import { transformElement } from '../services/modelTransform';
 import { connectWalls, syncTopology, upgrade, writeWallNodes } from '../services/planTopology';
 import { PlanTools } from './PlanTools';
 import { ModelTimeline } from './ModelTimeline';
@@ -1330,6 +1333,38 @@ export function ModelEditor({
               }}
             />
           )}
+          {canEdit && !saved.arquivado && (
+            <WallRecognition
+              reference={floorReference}
+              floor={floor}
+              scope={`${saved.id}:${saved.revisao}:${floor.id}`}
+              disabled={!writable || referenceLoading || !!calibration}
+              onApply={(walls) => {
+                if (!draft) return false;
+                const next = copyDraft(draft);
+                next.documento.elementos.push(...walls);
+                const accepted = commit(next);
+                if (accepted) {
+                  setSelected(walls.map((w) => w.id));
+                  setView('split');
+                  setNotice(
+                    'Elementos adicionados como rascunho. Confira medidas e aberturas antes de salvar.',
+                  );
+                }
+                return accepted;
+              }}
+            />
+          )}
+          <ModelDiagnostics
+            documento={draft.documento}
+            onInspect={(ids, floor) => {
+              setSelected(ids);
+              setFloorId(floor);
+              setAllFloors(true);
+              setView('split');
+              setFit((value) => value + 1);
+            }}
+          />
           {calibration && (
             <p role="status">
               {calibration.first
@@ -1485,6 +1520,16 @@ export function ModelEditor({
                   selected={selected}
                   onSelect={select}
                   fit={fit}
+                  writable={writable}
+                  snap={snap}
+                  onTransform={(id, change) => {
+                    try {
+                      return commit(transformElement(draft, id, change));
+                    } catch (e) {
+                      setError((e as Error).message);
+                      return false;
+                    }
+                  }}
                 />
               )}
             </div>

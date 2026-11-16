@@ -416,9 +416,7 @@ for (const role of roles)
       390,
     );
     await page.getByLabel('Sair da plataforma').click();
-    await expect(
-      page.getByRole('heading', { name: 'Acessar Plataforma', exact: true }),
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Obra360', exact: true })).toBeVisible();
     await testInfo.attach('cobertura', {
       body: JSON.stringify({ perfil: role, verificacoes: visited, erros: issues }, null, 2),
       contentType: 'application/json',

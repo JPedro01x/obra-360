@@ -41,7 +41,7 @@ public class ExclusaoCadastroService {
         var project=em.createQuery("select p from ProjetoObraEntity p where p.id=:id and p.empresaId=:tenant",ProjetoObraEntity.class).setParameter("id",id).setParameter("tenant",TenantContext.getCurrentTenant()).setLockMode(LockModeType.PESSIMISTIC_WRITE).getResultList().stream().findFirst().orElse(null);
         if(project==null || !TenantContext.getCurrentTenant().equals(project.getEmpresaId()))throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         confirm(confirmation,project.getNome());
-        for(String entity:new String[]{"EquipeTrabalhoEntity","ItemEstoqueEntity","ContratoServicoEntity","DocumentoProjetoEntity","EtapaCronogramaEntity","OcorrenciaQualidadeEntity","UnidadeImobiliariaEntity","ModeloObraEntity","AcessoExternoEntity","RhFuncionarioEntity"})
+        for(String entity:new String[]{"EquipeTrabalhoEntity","ItemEstoqueEntity","ContratoServicoEntity","DocumentoProjetoEntity","EtapaCronogramaEntity","OcorrenciaQualidadeEntity","UnidadeImobiliariaEntity","ModeloObraEntity","AcessoExternoEntity","RhFuncionarioEntity","OrcamentoObraEntity","TituloFinanceiroEntity","BaixaFinanceiraEntity","ExtratoBancarioEntity","PedidoMateriaisEntity"})
             unused(entity,"projetoObraId",id,"a obra possui cadastros vinculados");
         legacyUnused("elemento_bim_3d","projeto_obra_id",id,"a obra possui elementos BIM legados");
         operations.audit("EXCLUIR_PROJETO","projeto_obra",id,actor);em.remove(project);em.flush();
@@ -50,7 +50,7 @@ public class ExclusaoCadastroService {
         var supplier=em.createQuery("select f from FornecedorB2BEntity f where f.id=:id and f.empresaId=:tenant",FornecedorB2BEntity.class).setParameter("id",id).setParameter("tenant",TenantContext.getCurrentTenant()).setLockMode(LockModeType.PESSIMISTIC_WRITE).getResultList().stream().findFirst().orElse(null);
         if(supplier==null || !TenantContext.getCurrentTenant().equals(supplier.getEmpresaId()))throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         confirm(confirmation,supplier.getRazaoSocial());
-        for(String entity:new String[]{"ContratoServicoEntity","CotacaoB2BEntity","AcessoExternoEntity"})
+        for(String entity:new String[]{"ContratoServicoEntity","CotacaoB2BEntity","AcessoExternoEntity","PedidoMateriaisEntity"})
             unused(entity,"fornecedorB2bId",id,"o fornecedor possui contratos, cotações ou acessos vinculados");
         operations.audit("EXCLUIR_FORNECEDOR","fornecedor_b2b",id,actor);em.remove(supplier);em.flush();
     }

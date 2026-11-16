@@ -14,6 +14,7 @@ import { requestApi } from '../services/http';
 import './rh.css';
 import { RhSelect } from './RhSelect';
 import { RhDossie } from './RhDossie';
+import { LaborPreparation } from './LaborPreparation';
 import { localCalendarDate, planningError, planningMinimum } from '../utils/planningDates';
 
 type RecordData = Record<string, string | number | boolean | null>;
@@ -600,7 +601,7 @@ export function HumanResources() {
   const [statementEmployee, setStatementEmployee] = useState('');
   const [statementPayroll, setStatementPayroll] = useState('');
   useEffect(() => {
-    if (dossierMode) return;
+    if (dossierMode || sectionId === 'trabalhista') return;
     const c = new AbortController();
     setLoading(true);
     setError('');
@@ -758,6 +759,7 @@ export function HumanResources() {
           ...sections,
           { id: 'documentos-rh', title: 'Documentos privados' },
           { id: 'historico', title: 'Histórico funcional' },
+          { id: 'trabalhista', title: 'Contabilidade e obrigações' },
         ].map((s) => (
           <button
             key={s.id}
@@ -769,7 +771,9 @@ export function HumanResources() {
           </button>
         ))}
       </nav>
-      {dossierMode ? (
+      {sectionId === 'trabalhista' ? (
+        <LaborPreparation />
+      ) : dossierMode ? (
         <RhDossie key={sectionId} mode={sectionId === 'historico' ? 'historico' : 'documentos'} />
       ) : (
         <section className="rh-section" aria-labelledby="rh-section-title">

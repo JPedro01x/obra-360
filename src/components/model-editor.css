@@ -503,6 +503,46 @@
     flex-direction: column;
   }
 }
+.model-three-tools {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  pointer-events: none;
+}
+.model-three-tools button {
+  pointer-events: auto;
+  padding: 6px 9px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.model-three-tools button[aria-pressed='true'] {
+  border-color: #f97316;
+}
+.model-diagnostic-list {
+  max-height: 260px;
+  overflow: auto;
+  padding-left: 20px;
+}
+.model-diagnostic-list li {
+  margin: 8px 0;
+}
+.model-diagnostic-list button {
+  margin-left: 8px;
+}
+.model-opening-suggestions label {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 0;
+}
 @media (max-width: 480px) {
   .model-module h1 {
     font-size: 24px;

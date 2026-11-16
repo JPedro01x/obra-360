@@ -114,3 +114,13 @@ O escopo inicial é gestão de obras: projetos, equipes, OS, compras, estoque, d
 ## Operação local preparada
 
 Inicie com `npm run dev`, consulte `npm run diagnostico:local` e acompanhe com `npm run monitorar:local`. O guia de inicialização, encerramento, backup, recuperação e treinamento está em [docs/OPERACAO-LOCAL.md](docs/OPERACAO-LOCAL.md).
+
+## Gestão financeira e compras (15/11/2026)
+
+Orçamentos revisados, contas a pagar/receber, baixas, estornos, conciliação CSV, pedidos com vários materiais, entregas parciais e devoluções. Veja [o guia de operação](docs/GESTAO-FINANCEIRA-E-COMPRAS.md) para permissões, limites e preparação trabalhista mantida desativada.
+
+## Auditoria de carga, integridade e segurança
+
+A atualização para Spring Boot 4 e os bloqueios de entrega estão registrados na [validação corporativa atualizada](docs/VALIDACAO-CORPORATIVA-2026-11-15.md). Para preparar uma instalação, siga [o procedimento de entrega](docs/ENTREGA-CORPORATIVA.md).
+
+Consulte [os resultados e as pendências conhecidas](docs/AUDITORIA-2026-11-15.md). Execute `npm run test:stress` para o laboratório isolado de carga e `npm run audit:java` para consultar avisos das dependências do JAR compilado. A auditoria Java retorna erro enquanto houver avisos; os testes não certificam funcionamento perfeito nem substituem o aceite operacional.

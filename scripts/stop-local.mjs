@@ -16,7 +16,25 @@ if($connections.Count -eq 0){Write-Output '{"executando":false}';exit 0}
 $localProcessId=$connections[0].OwningProcess
 $app=Get-CimInstance Win32_Process -Filter "ProcessId=$localProcessId"
 $appCommand=([string]$app.CommandLine).Replace('/','\')
-if(-not $appCommand.ToLowerInvariant().Contains($workspaceRoot.ToLowerInvariant()) -or $appCommand -notmatch 'br\.com\.obra360\.Obra360Application'){
+$workspaceConfirmed=$appCommand.ToLowerInvariant().Contains($workspaceRoot.ToLowerInvariant())
+# Long Windows classpaths are stored in a Spring Boot temporary argument file.
+# Read only a bounded, recognized file inside the current user's temp directory.
+if(-not $workspaceConfirmed -and $app.Name -eq 'java.exe'){
+ $tempDirectory=(Get-Item -LiteralPath ([IO.Path]::GetTempPath())).FullName.TrimEnd('\')
+ foreach($argument in [regex]::Matches([string]$app.CommandLine,'@("[^"]+"|\S+)')){
+  $argumentPath=$argument.Groups[1].Value.Trim('"')
+  if(-not (Test-Path -LiteralPath $argumentPath -PathType Leaf)){continue}
+  $argumentInfo=Get-Item -LiteralPath $argumentPath
+  if($argumentInfo.Directory.FullName.TrimEnd('\') -ne $tempDirectory -or $argumentInfo.Name -notmatch '^spring-boot-\d+[.]argfile$' -or $argumentInfo.Length -gt 1048576){continue}
+  $argumentBytes=[IO.File]::ReadAllBytes($argumentInfo.FullName)
+  foreach($encoding in @([Text.Encoding]::UTF8,[Text.Encoding]::GetEncoding(1252))){
+   $argumentContent=$encoding.GetString($argumentBytes).Replace('\\','\').Replace('/','\')
+   if($argumentContent.ToLowerInvariant().Contains(($workspaceRoot+'\obra360-backend\target\classes').ToLowerInvariant())){$workspaceConfirmed=$true;break}
+  }
+  if($workspaceConfirmed){break}
+ }
+}
+if(-not $workspaceConfirmed -or $appCommand -notmatch 'br\.com\.obra360\.Obra360Application'){
  throw 'A porta 8080 pertence a um processo que não foi identificado como este projeto. Nenhum processo foi encerrado.'
 }
 $launcher=$null

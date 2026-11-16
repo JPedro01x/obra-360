@@ -64,3 +64,7 @@ A aba **Histórico funcional** mostra os valores anteriores e novos, motivo, res
 São preservados nomes de cargos/departamentos e valores observados no momento da alteração. CPF, nascimento, contatos, senhas e informações clínicas não fazem parte dos snapshots. Não existe endpoint para editar/apagar eventos. O histórico é relacional e não oferece garantia criptográfica contra alterações feitas diretamente por administradores do banco.
 
 Funcionários já existentes não recebem uma admissão retroativa fictícia. Na primeira alteração funcional rastreada, o sistema registra a **BASE INICIAL** observada antes da mudança e depois o evento de alteração. A data de referência da base é o dia em que foi observada; a data de registro sempre identifica quando o evento entrou no sistema. Desligamento guarda a data informada. Mudanças funcionais são imediatas; não há agendamento ou cálculo retroativo da folha, e folhas já lançadas não são recalculadas.
+
+## Contabilidade (15/11/2026)
+
+A aba Contabilidade e obrigações exporta lançamentos de folha fechada/paga para conferência. Cálculos legais e eSocial permanecem desativados. Veja [o guia atualizado](GESTAO-FINANCEIRA-E-COMPRAS.md).

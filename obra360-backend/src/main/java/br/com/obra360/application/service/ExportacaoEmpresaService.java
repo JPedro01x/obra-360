@@ -18,11 +18,18 @@ import java.security.MessageDigest;
 public class ExportacaoEmpresaService {
     private final EntityManager em;private final ObjectMapper json;private final DocumentStorage storage;
     private static final int MAX_BYTES=25*1024*1024,MAX_ROWS=10000;
-    private static final List<String> DIRECT=List.of("UsuarioEntity","ProjetoObraEntity","FornecedorB2BEntity","ItemEstoqueEntity","ContratoServicoEntity","CotacaoB2BEntity","AcessoExternoEntity","LogAuditoriaEntity","ModeloObraEntity","ModeloRevisaoEntity","RhAfastamentoEntity","RhBeneficioEntity","RhCandidatoEntity","RhDocumentoEntity","RhEstruturaEntity","RhFolhaEntity","RhFuncionarioEntity","RhHistoricoEntity","RhLancamentoEntity","RhPontoEntity","RhTreinamentoEntity","RhVagaEntity","SolicitacaoAtendimentoEntity");
+    private static final List<String> DIRECT=List.of("UsuarioEntity","ProjetoObraEntity","FornecedorB2BEntity","ItemEstoqueEntity","ContratoServicoEntity","CotacaoB2BEntity","AcessoExternoEntity","LogAuditoriaEntity","ModeloObraEntity","ModeloRevisaoEntity","RhAfastamentoEntity","RhBeneficioEntity","RhCandidatoEntity","RhDocumentoEntity","RhEstruturaEntity","RhFolhaEntity","RhFuncionarioEntity","RhHistoricoEntity","RhLancamentoEntity","RhPontoEntity","RhTreinamentoEntity","RhVagaEntity","SolicitacaoAtendimentoEntity","OrcamentoObraEntity","TituloFinanceiroEntity","BaixaFinanceiraEntity","ExtratoBancarioEntity","PedidoMateriaisEntity","ItemPedidoMateriaisEntity","EventoPedidoEntity");
     private static final String PROJECT="e.projetoObraId in (select p.id from ProjetoObraEntity p where p.empresaId=:t)";
     @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
     public byte[] export(Long tenant) throws IOException {
-        var output=new ByteArrayOutputStream();long[] budget={0,0};var counts=new LinkedHashMap<String,Integer>();
+        var output=new ByteArrayOutputStream();writeCompany(tenant,output,MAX_BYTES,MAX_ROWS);return output.toByteArray();
+    }
+    @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
+    public void exportTo(Long tenant,java.nio.file.Path output) throws IOException {
+        try(var stream=java.nio.file.Files.newOutputStream(output,java.nio.file.StandardOpenOption.CREATE_NEW)){writeCompany(tenant,stream,250L*1024*1024,100000);}
+    }
+    private void writeCompany(Long tenant,OutputStream output,long maxBytes,long maxRows) throws IOException {
+        long[] budget={0,0,maxBytes,maxRows};var counts=new LinkedHashMap<String,Integer>();
         try(var zip=new ZipOutputStream(output)){
             write(zip,"empresa.json",json.writeValueAsBytes(em.find(EmpresaEntity.class,tenant)),budget);
             Map<String,String> scopes=new LinkedHashMap<>();DIRECT.forEach(e->scopes.put(e,"e.empresaId=:t"));
@@ -41,10 +48,11 @@ public class ExportacaoEmpresaService {
             for(var entry:scopes.entrySet()){
                 int page=0,count=0;
                 while(true){
+                    if(Thread.currentThread().isInterrupted())throw new IOException("Exportação interrompida.");
                     var rows=em.createQuery("select e from "+entry.getKey()+" e where "+entry.getValue()+" order by e.id").setParameter("t",tenant).setFirstResult(page++*50).setMaxResults(50).getResultList();
                     if(rows.isEmpty())break;
                     for(Object row:rows){
-                        if(++budget[1]>MAX_ROWS)throw tooLarge();
+                        if(++budget[1]>budget[3])throw tooLarge();
                         ObjectNode node=json.valueToTree(row);
                         if(row instanceof UsuarioEntity)node.remove(List.of("senhaHash","googleSubject","versaoCredencial","tentativasLoginFalhas","bloqueadoAte"));
                         if(row instanceof ModeloReferenciaEntity reference){
@@ -64,14 +72,13 @@ public class ExportacaoEmpresaService {
             }
             write(zip,"manifesto.json",json.writeValueAsBytes(Map.of("formato","obra360-export-v1","empresaId",tenant,"geradoEm",OffsetDateTime.now(),"contagens",counts,"credenciaisIncluidas",false,"observacao","Dados operacionais e arquivos da empresa. Não é backup restaurável do servidor. Sessões, tokens e convites não são exportados.")),budget);
         }
-        return output.toByteArray();
     }
     private void file(ZipOutputStream zip,String name,byte[] bytes,String expected,long[] budget)throws IOException{
         try{String hash=HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));if(!hash.equalsIgnoreCase(expected))throw new ResponseStatusException(HttpStatus.CONFLICT,"Integridade de arquivo divergente. Corrija antes de exportar.");}
         catch(java.security.NoSuchAlgorithmException e){throw new IllegalStateException(e);}write(zip,name,bytes,budget);
     }
     private void write(ZipOutputStream zip,String name,byte[] bytes,long[] budget)throws IOException{
-        budget[0]+=bytes.length;if(budget[0]>MAX_BYTES)throw tooLarge();zip.putNextEntry(new ZipEntry(name));zip.write(bytes);zip.closeEntry();
+        budget[0]+=bytes.length;if(budget[0]>budget[2])throw tooLarge();zip.putNextEntry(new ZipEntry(name));zip.write(bytes);zip.closeEntry();
     }
-    private ResponseStatusException tooLarge(){return new ResponseStatusException(HttpStatus.CONFLICT,"Exportação excede 25 MB ou 10 mil registros. Solicite uma exportação assistida em Atendimento.");}
+    private ResponseStatusException tooLarge(){return new ResponseStatusException(HttpStatus.CONFLICT,"Exportação excede os limites desta modalidade. Use a exportação em segundo plano ou solicite atendimento para volumes maiores.");}
 }

@@ -1,7 +1,14 @@
 import { test, expect } from '@playwright/test';
-import { wallCells, type ModelElement } from '../../src/services/modelGeometry';
+import { wallCells, validation, type ModelElement } from '../../src/services/modelGeometry';
 import * as topology from '../../src/services/planTopology';
 import * as rooms from '../../src/services/planRooms';
+import { parseBankCsv } from '../../src/services/bankCsv';
+import { wallRectangles } from '../../src/services/wallRecognition';
+import { applyOpeningSuggestions, suggestOpenings } from '../../src/services/wallRecognitionCore';
+import { transformElement } from '../../src/services/modelTransform';
+import { diagnoseGeometry } from '../../src/services/modelDiagnostics';
+import type { ModelDraft } from '../../src/services/modelGeometry';
+import * as THREE from 'three';
 
 // API fixtures exercise browser states; database/auth behavior is covered by the
 // Spring integration suite, using isolated H2 records, never operational data.
@@ -221,6 +228,546 @@ for (const width of [375, 1280]) {
   });
 }
 
+test('bank CSV preserves identifiers, signs and quoted descriptions and rejects malformed amounts', () => {
+  expect(
+    parseBankCsv(
+      'identificador;data;descricao;valor\n001;2026-11-15;"Pagamento; material";-100,50\n',
+    ),
+  ).toEqual([
+    { identificador: '001', data: '2026-11-15', descricao: 'Pagamento; material', valor: -100.5 },
+  ]);
+  expect(() =>
+    parseBankCsv('identificador;data;descricao;valor\n1;2026-11-15;Teste;1.000,50'),
+  ).toThrow();
+  expect(() => parseBankCsv('identificador;data;descricao;valor\n"campo incompleto')).toThrow();
+});
+test('wall recognition suggests calibrated solid walls without interpreting labels or colors as walls', () => {
+  const width = 200,
+    height = 200,
+    pixels = new Uint8ClampedArray(width * height * 4).fill(255);
+  function rect(x: number, y: number, w: number, h: number, rgb: number[]) {
+    for (let j = y; j < y + h; j++)
+      for (let i = x; i < x + w; i++) {
+        const k = (j * width + i) * 4;
+        pixels[k] = rgb[0];
+        pixels[k + 1] = rgb[1];
+        pixels[k + 2] = rgb[2];
+      }
+  }
+  rect(20, 20, 160, 4, [100, 100, 100]);
+  rect(30, 50, 4, 130, [100, 100, 100]);
+  rect(60, 70, 80, 30, [0, 255, 255]);
+  rect(70, 130, 4, 4, [0, 0, 0]);
+  const walls = wallRectangles(pixels, width, height, {
+    url: '',
+    x: 0,
+    z: 0,
+    width: 10,
+    height: 10,
+  });
+  expect(walls).toHaveLength(2);
+  expect(walls.map((w) => w.rotacao).sort()).toEqual([0, 90]);
+  expect(walls[0].largura).toBe(8);
+  expect(walls[0].profundidade).toBeCloseTo(0.2);
+  expect(() =>
+    wallRectangles(pixels, width, height, { url: '', x: 0, z: 0, width: 0, height: 10 }),
+  ).toThrow();
+});
+function geometryWall(id: string, values: Partial<ModelElement> = {}): ModelElement {
+  return {
+    id,
+    pavimentoId: 'floor-a',
+    tipo: 'PAREDE',
+    nome: id,
+    x: 0,
+    z: 0,
+    base: 0,
+    largura: 4,
+    profundidade: 0.2,
+    altura: 2.8,
+    rotacao: 0,
+    cor: '#aaaaaa',
+    paredeId: null,
+    deslocamento: 0,
+    ...values,
+  };
+}
+function geometryDraft(elements: ModelElement[]): ModelDraft {
+  return {
+    nome: 'Modelo de ensaio',
+    documento: {
+      schemaVersao: 1,
+      pavimentos: [{ id: 'floor-a', nome: 'Térreo', cota: 0, altura: 3.2 }],
+      elementos: elements,
+    },
+  };
+}
+test('3D transformations preserve connected topology, openings and the original draft', () => {
+  const draft = geometryDraft([
+    geometryWall('wall-a'),
+    geometryWall('wall-b', { x: 2, z: -2, rotacao: 90 }),
+    geometryWall('door', { tipo: 'PORTA', paredeId: 'wall-a', largura: 0.9, altura: 2.1 }),
+  ]);
+  topology.connectWalls(draft.documento, 'floor-a');
+  const original = JSON.stringify(draft);
+  const next = transformElement(draft, 'wall-a', {
+    x: 1,
+    y: 0,
+    z: 1,
+    rotation: 0,
+    scaleX: 1,
+    scaleY: 1,
+    scaleZ: 1,
+  });
+  expect(JSON.stringify(draft)).toBe(original);
+  expect(validation(next)).toBeNull();
+  expect(topology.wallEnds(next.documento.elementos[0])[1]).toEqual(
+    topology.wallEnds(next.documento.elementos[1])[0],
+  );
+  expect(next.documento.elementos.find((e) => e.id === 'door')!.paredeId).toBe('wall-a');
+  expect(() =>
+    transformElement(draft, 'wall-a', {
+      x: 0,
+      y: 0,
+      z: 0,
+      rotation: 0,
+      scaleX: 0.1,
+      scaleY: 1,
+      scaleZ: 1,
+    }),
+  ).toThrow(/abertura/i);
+  expect(JSON.stringify(draft)).toBe(original);
+});
+test('3D opening movement projects onto its wall and enforces height and positive dimensions', () => {
+  const draft = geometryDraft([
+    geometryWall('wall', { rotacao: 90 }),
+    geometryWall('window', { tipo: 'JANELA', paredeId: 'wall', base: 1, largura: 1, altura: 1.2 }),
+  ]);
+  const change = { x: 5, y: 1, z: -0.5, rotation: 0, scaleX: 1, scaleY: 1, scaleZ: 1 };
+  const moved = transformElement(draft, 'window', change).documento.elementos[1];
+  expect(moved.deslocamento).toBe(0.5);
+  expect(moved.base).toBe(1);
+  expect(() => transformElement(draft, 'window', { ...change, y: 2.5 })).toThrow(/abertura/i);
+  expect(() => transformElement(draft, 'window', { ...change, scaleX: -1 })).toThrow(/positiva/);
+  expect(() => transformElement(draft, 'window', { ...change, x: NaN })).toThrow(/finitas/);
+});
+test('geometry diagnostics distinguish collisions from touching corners and separated floors', () => {
+  const a = geometryWall('a'),
+    b = geometryWall('b', { x: 2, z: -2, rotacao: 90 });
+  expect(
+    diagnoseGeometry(geometryDraft([a, b]).documento).issues.filter(
+      (i) => i.kind === 'SOBREPOSICAO',
+    ),
+  ).toHaveLength(0);
+  const tee = geometryDraft([a, geometryWall('tee', { x: 0, z: -2, rotacao: 90 })]);
+  expect(
+    diagnoseGeometry(tee.documento).issues.filter((i) => i.kind === 'SOBREPOSICAO'),
+  ).toHaveLength(0);
+  const duplicate = diagnoseGeometry(geometryDraft([a, geometryWall('duplicate')]).documento);
+  expect(duplicate.issues.some((i) => i.kind === 'SOBREPOSICAO')).toBe(true);
+  expect(
+    diagnoseGeometry(
+      geometryDraft([a, geometryWall('cross', { rotacao: 37 })]).documento,
+    ).issues.some((i) => i.kind === 'SOBREPOSICAO'),
+  ).toBe(true);
+  const two = geometryDraft([a, geometryWall('up', { pavimentoId: 'upper' })]);
+  two.documento.pavimentos.push({ id: 'upper', nome: 'Superior', cota: 4, altura: 3 });
+  expect(
+    diagnoseGeometry(two.documento).issues.filter((i) => i.kind === 'SOBREPOSICAO'),
+  ).toHaveLength(0);
+  two.documento.pavimentos[1].cota = 2;
+  expect(diagnoseGeometry(two.documento).issues.some((i) => i.kind === 'PAVIMENTO')).toBe(true);
+});
+test('geometry diagnostics bound dense model analysis and leave elements unchanged', () => {
+  const doc = geometryDraft(
+    Array.from({ length: 800 }, (_, i) =>
+      geometryWall(`p${i}`, { tipo: 'PILAR', largura: 0.3, profundidade: 0.3 }),
+    ),
+  ).documento;
+  const original = JSON.stringify(doc),
+    result = diagnoseGeometry(doc);
+  expect(result.limited).toBe(true);
+  expect(result.issues.length).toBe(100);
+  expect(result.comparisons).toBeLessThan(250010);
+  expect(JSON.stringify(doc)).toBe(original);
+});
+for (const dimensions of [
+  [10, 10],
+  [12, 8],
+])
+  test(`recognition measures a diagonal solid wall in calibrated world coordinates ${dimensions.join('x')}`, () => {
+    const width = 240,
+      height = 240,
+      pixels = new Uint8ClampedArray(width * height * 4).fill(255),
+      angle = (37 * Math.PI) / 180;
+    for (let y = 0; y < height; y++)
+      for (let x = 0; x < width; x++) {
+        const wx = ((x + 0.5) * dimensions[0]) / width - dimensions[0] / 2,
+          wz = ((y + 0.5) * dimensions[1]) / height - dimensions[1] / 2;
+        if (
+          Math.abs(wx * Math.cos(angle) - wz * Math.sin(angle)) < 3 &&
+          Math.abs(wx * Math.sin(angle) + wz * Math.cos(angle)) < 0.1
+        ) {
+          const i = (y * width + x) * 4;
+          pixels[i] = pixels[i + 1] = pixels[i + 2] = 80;
+        }
+      }
+    const walls = wallRectangles(pixels, width, height, {
+      url: '',
+      x: 0,
+      z: 0,
+      width: dimensions[0],
+      height: dimensions[1],
+    });
+    expect(walls).toHaveLength(1);
+    expect(walls[0].rotacao).toBeCloseTo(37, 0);
+    expect(walls[0].largura).toBeCloseTo(6, 0);
+    expect(walls[0].profundidade).toBeLessThan(0.32);
+  });
+test('possible gaps require explicit classification and cannot reuse wall segments', () => {
+  const walls = [
+    geometryWall('left', { x: -1.5, largura: 2 }),
+    geometryWall('right', { x: 1.5, largura: 2 }),
+  ];
+  const [gap] = suggestOpenings(walls);
+  expect(gap.gap).toBe(1);
+  expect(applyOpeningSuggestions(walls, {})).toHaveLength(2);
+  for (const tipo of ['PORTA', 'JANELA'] as const) {
+    const elements = applyOpeningSuggestions(walls, { [gap.id]: tipo });
+    expect(elements).toHaveLength(2);
+    expect(elements[0].largura).toBe(5);
+    expect(elements[1].tipo).toBe(tipo);
+    expect(elements[1].paredeId).toBe(elements[0].id);
+    expect(validation(geometryDraft(elements))).toBeNull();
+  }
+  expect(() => applyOpeningSuggestions([walls[0]], { [gap.id]: 'PORTA' })).toThrow(/selecionadas/);
+  const chain = [
+    geometryWall('a', { x: -3, largura: 2 }),
+    geometryWall('b', { largura: 2 }),
+    geometryWall('c', { x: 3, largura: 2 }),
+  ];
+  const gaps = suggestOpenings(chain);
+  expect(() =>
+    applyOpeningSuggestions(chain, Object.fromEntries(gaps.map((g) => [g.id, 'PORTA']))),
+  ).toThrow(/mais de um vão/);
+});
+
+test('financial screen creates a budget tied to the selected project and refreshes the summary', async ({
+  page,
+}) => {
+  await authenticated(page);
+  await page.route('**/api/v1/workspace/registros/**', (route) =>
+    route.fulfill({ json: { items: [], total: 0, page: 0, size: 25 } }),
+  );
+  await page.route('**/api/v1/workspace/opcoes/projetos**', (route) =>
+    route.fulfill({ json: [{ id: 7, nome: 'Obra financeira' }] }),
+  );
+  let saved = false;
+  await page.route('**/api/v1/workspace/gestao/**', (route) => {
+    if (route.request().method() === 'POST') {
+      expect(route.request().postDataJSON().projetoObraId).toBe(7);
+      expect(Number(route.request().postDataJSON().valorAprovado)).toBe(50000);
+      saved = true;
+      return route.fulfill({ status: 201, json: { id: 1 } });
+    }
+    if (route.request().url().includes('/resumo/'))
+      return route.fulfill({
+        json: {
+          investimentoAprovado: null,
+          despesasComprometidas: 0,
+          pagamentosRegistrados: 0,
+          saldoPagar: 0,
+          receitasPrevistas: 0,
+          recebimentosRegistrados: 0,
+          saldoReceber: 0,
+          saldoOrcamento: null,
+        },
+      });
+    return route.fulfill({
+      json: {
+        items: saved
+          ? [
+              {
+                id: 1,
+                revisao: 1,
+                versao: 0,
+                valorAprovado: 50000,
+                situacao: 'RASCUNHO',
+                justificativa: 'Investimento previsto conferido',
+              },
+            ]
+          : [],
+        total: saved ? 1 : 0,
+        page: 0,
+      },
+    });
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Orçamento e financeiro', exact: true }).click();
+  await page.getByLabel('Obra da gestão', { exact: true }).selectOption('7');
+  await page.getByRole('button', { name: 'Novo orçamento', exact: true }).click();
+  await page.getByLabel('Investimento previsto (R$)', { exact: true }).fill('50000');
+  await page
+    .getByLabel('Justificativa da revisão', { exact: true })
+    .fill('Investimento previsto conferido');
+  await page.getByRole('button', { name: 'Salvar', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Aprovar orçamento', exact: true })).toBeVisible();
+  expect(saved).toBe(true);
+});
+test('purchase order form sends multiple materials and prices from the selected project', async ({
+  page,
+}) => {
+  await authenticated(page);
+  await page.route('**/api/v1/workspace/registros/**', (route) =>
+    route.fulfill({ json: { items: [], total: 0, page: 0, size: 25 } }),
+  );
+  await page.route('**/api/v1/workspace/opcoes/**', (route) =>
+    route.fulfill({
+      json: route.request().url().includes('/estoque?')
+        ? [
+            { id: 11, nome: 'Cimento' },
+            { id: 12, nome: 'Areia' },
+          ]
+        : [{ id: 7, nome: 'Cadastro teste' }],
+    }),
+  );
+  let body: any;
+  await page.route('**/api/v1/workspace/gestao/**', (route) => {
+    if (route.request().method() === 'POST') {
+      body = route.request().postDataJSON();
+      return route.fulfill({ status: 201, json: { id: 1 } });
+    }
+    return route.fulfill({
+      json: route.request().url().includes('/resumo/') ? {} : { items: [], total: 0, page: 0 },
+    });
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Pedidos de materiais', exact: true }).click();
+  await page.getByLabel('Obra da gestão', { exact: true }).selectOption('7');
+  await page.getByRole('button', { name: 'Novo pedido de materiais', exact: true }).click();
+  await page.getByLabel('Fornecedor do pedido', { exact: true }).selectOption('7');
+  await page.getByLabel('Referência da proposta comercial', { exact: true }).fill('PROPOSTA-001');
+  await page
+    .getByLabel('Justificativa do pedido', { exact: true })
+    .fill('Reposição de dois materiais conferidos');
+  await page.getByLabel('Vencimento do compromisso', { exact: true }).fill('2099-12-31');
+  await page.getByLabel('Material 1', { exact: true }).selectOption('11');
+  await page.getByLabel('Quantidade 1', { exact: true }).fill('10');
+  await page.getByLabel('Preço unitário 1 (R$)', { exact: true }).fill('20');
+  await page.getByRole('button', { name: 'Adicionar material ao pedido', exact: true }).click();
+  await page.getByLabel('Material 2', { exact: true }).selectOption('12');
+  await page.getByLabel('Quantidade 2', { exact: true }).fill('5');
+  await page.getByLabel('Preço unitário 2 (R$)', { exact: true }).fill('30');
+  await page.getByRole('button', { name: 'Enviar para aprovação', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  expect(body.itens).toEqual([
+    { itemEstoqueId: 11, quantidade: 10, valorUnitario: 20 },
+    { itemEstoqueId: 12, quantidade: 5, valorUnitario: 30 },
+  ]);
+  expect(body.projetoObraId).toBe(7);
+});
+
+test('financial management and its budget form fit a small phone in both themes', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 740 });
+  await authenticated(page);
+  await page.route('**/api/v1/workspace/registros/**', (route) =>
+    route.fulfill({ json: { items: [], total: 0, page: 0, size: 25 } }),
+  );
+  await page.route('**/api/v1/workspace/opcoes/projetos**', (route) =>
+    route.fulfill({ json: [{ id: 1, nome: 'Obra responsiva' }] }),
+  );
+  await page.route('**/api/v1/workspace/gestao/**', (route) =>
+    route.fulfill({
+      json: route.request().url().includes('/resumo/')
+        ? {
+            investimentoAprovado: 100000,
+            despesasComprometidas: 1000,
+            pagamentosRegistrados: 500,
+            saldoPagar: 500,
+            receitasPrevistas: 10000,
+            recebimentosRegistrados: 1000,
+            saldoReceber: 9000,
+            saldoOrcamento: 99000,
+          }
+        : {
+            items: [
+              {
+                id: 1,
+                revisao: 1,
+                valorAprovado: 100000,
+                situacao: 'APROVADO',
+                justificativa: 'Investimento da obra responsiva',
+              },
+            ],
+            total: 1,
+            page: 0,
+          },
+    }),
+  );
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Menu', exact: true }).click();
+  await page.getByRole('button', { name: 'Orçamento e financeiro', exact: true }).click();
+  await page.getByLabel('Obra da gestão', { exact: true }).selectOption('1');
+  for (const theme of ['light', 'dark']) {
+    await page.getByRole('button', { name: 'Tema escuro', exact: true }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-obra-theme', theme);
+    await expect(
+      page.getByRole('heading', { name: 'Investimento aprovado', exact: true }),
+    ).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+      320,
+    );
+    await page.getByRole('button', { name: 'Novo orçamento', exact: true }).click();
+    const bounds = await page.getByRole('dialog').boundingBox();
+    expect(bounds!.x).toBeGreaterThanOrEqual(0);
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(320);
+    await page.getByRole('button', { name: 'Cancelar', exact: true }).click();
+    await page.screenshot({ path: `scratch/financeiro-${theme}-320.png`, fullPage: true });
+  }
+});
+
+test('purchase deliveries and returns send only the quantities confirmed by the warehouse', async ({
+  page,
+}) => {
+  await authenticated(page);
+  await page.route('**/api/v1/workspace/registros/**', (route) =>
+    route.fulfill({ json: { items: [], total: 0, page: 0, size: 25 } }),
+  );
+  await page.route('**/api/v1/workspace/opcoes/projetos**', (route) =>
+    route.fulfill({ json: [{ id: 7, nome: 'Obra logística' }] }),
+  );
+  let received = 0,
+    returned = 0,
+    version = 0;
+  await page.route('**/api/v1/workspace/gestao/**', (route) => {
+    const url = new URL(route.request().url());
+    if (route.request().method() === 'POST') {
+      const body = route.request().postDataJSON();
+      expect(body.itens).toEqual([{ itemId: 21, quantidade: version === 0 ? 2 : 1 }]);
+      expect(body.versao).toBe(version);
+      expect(body.chave).toMatch(/^[0-9a-f-]{36}$/);
+      if (url.pathname.endsWith('/receber')) received += 2;
+      else returned += 1;
+      version++;
+      return route.fulfill({ json: { id: version, creditoId: returned ? 9 : null } });
+    }
+    if (url.pathname.endsWith('/pedidos/10'))
+      return route.fulfill({
+        json: {
+          pedido: {
+            id: 10,
+            versao: version,
+            situacao: returned ? 'DEVOLUCAO' : received ? 'PARCIAL' : 'PEDIDO',
+            total: 50,
+            tituloId: 5,
+            referenciaProposta: 'PROPOSTA',
+            justificativa: 'Entrega de material programada',
+          },
+          fornecedor: 'Fornecedor logístico',
+          itens: [[21, 11, 'Cimento', 'un', 5, 10, received, returned]],
+          eventos: returned
+            ? [
+                {
+                  id: 1,
+                  tipo: 'DEVOLVER',
+                  criadoEm: '2026-11-15',
+                  observacao: 'Avaria conferida pelo responsável',
+                  creditoId: 9,
+                },
+              ]
+            : [],
+        },
+      });
+    return route.fulfill({
+      json: url.pathname.includes('/resumo/')
+        ? {}
+        : {
+            items: [
+              {
+                id: 10,
+                versao: version,
+                fornecedorB2bId: 7,
+                total: 50,
+                situacao: 'PEDIDO',
+                referenciaProposta: 'PROPOSTA',
+              },
+            ],
+            total: 1,
+            page: 0,
+          },
+    });
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Pedidos de materiais', exact: true }).click();
+  await page.getByLabel('Obra da gestão', { exact: true }).selectOption('7');
+  await page.getByRole('button', { name: 'Ver pedido e entregas', exact: true }).click();
+  await page.getByRole('button', { name: 'Registrar entrega', exact: true }).click();
+  await page.getByLabel('Quantidade: Cimento', { exact: true }).fill('2');
+  await page
+    .getByLabel('Documento e justificativa', { exact: true })
+    .fill('Primeira entrega conferida no estoque');
+  await page.getByRole('button', { name: 'Confirmar entrega', exact: true }).click();
+  await expect(page.getByRole('dialog')).toContainText('PARCIAL');
+  await page.getByRole('button', { name: 'Registrar devolução', exact: true }).click();
+  await page.getByLabel('Quantidade: Cimento', { exact: true }).fill('1');
+  await page
+    .getByLabel('Documento e justificativa', { exact: true })
+    .fill('Avaria conferida pelo responsável');
+  await page.getByRole('button', { name: 'Confirmar devolução', exact: true }).click();
+  await expect(page.getByRole('dialog')).toContainText('Crédito #9');
+  expect(received).toBe(2);
+  expect(returned).toBe(1);
+});
+
+test('accounting handoff remains disabled for legal processing and downloads confirmed closed payroll', async ({
+  page,
+}) => {
+  await authenticated(page);
+  await page.route('**/api/v1/workspace/rh/**', (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith('/preparacao'))
+      return route.fulfill({
+        json: {
+          calculosLegaisAtivos: false,
+          envioEsocialAtivo: false,
+          funcionariosAtivos: 8,
+          preRequisitos: ['Contador e certificado pendentes'],
+          observacao: 'Arquivo de conferência, sem envio oficial.',
+        },
+      });
+    if (path.endsWith('/exportar-folha')) {
+      expect(route.request().postDataJSON()).toEqual({ folhaId: 12, confirmacao: 'EXPORTAR' });
+      return route.fulfill({ contentType: 'text/csv', body: 'matricula;nome\n1;Teste' });
+    }
+    return route.fulfill({
+      json: path.includes('/opcoes/')
+        ? [{ id: 12, nome: '2026-11' }]
+        : path.includes('/registros/')
+          ? { items: [], total: 0 }
+          : {},
+    });
+  });
+  await page.route('**/api/v1/workspace/registros/**', (route) =>
+    route.fulfill({ json: { items: [], total: 0, page: 0, size: 25 } }),
+  );
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Recursos humanos', exact: true }).click();
+  await page.getByRole('button', { name: 'Contabilidade e obrigações', exact: true }).click();
+  await expect(
+    page.getByText('Cálculos legais automáticos: desativados. Envio ao eSocial: desativado.', {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page.getByLabel('Folha para contabilidade', { exact: true }).selectOption('12');
+  await page.getByLabel('Digite EXPORTAR para confirmar', { exact: true }).fill('EXPORTAR');
+  const downloading = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Baixar CSV da contabilidade', exact: true }).click();
+  expect((await downloading).suggestedFilename()).toBe('folha-contabilidade-12.csv');
+});
+
 test('quality form sends JSON metadata and the selected photo together', async ({ page }) => {
   await authenticated(page);
   await page.route('**/api/v1/workspace/registros/**', (route) =>
@@ -378,9 +925,7 @@ test('initial password requires a personal password before showing the workspace
     .getByLabel('Nova senha (mínimo de 12 caracteres)', { exact: true })
     .fill('SenhaPessoalTeste@12345');
   await page.getByRole('button', { name: 'Salvar', exact: true }).click();
-  await expect(
-    page.getByRole('heading', { name: 'Acessar Plataforma', exact: true }),
-  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Obra360', exact: true })).toBeVisible();
   expect(await page.evaluate(() => sessionStorage.getItem('obra360_access_token'))).toBeNull();
 });
 
@@ -628,45 +1173,61 @@ test('engineering account does not expose HR navigation', async ({ page }) => {
 
 test('real mode requires login and never shows demonstration records', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Acessar Plataforma' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Obra360' })).toBeVisible();
   await expect(page.getByLabel('E-mail corporativo')).toHaveValue('');
   await expect(page.getByLabel('Senha', { exact: true })).toHaveValue('');
   await expect(page.getByText('Carlos Silva')).toHaveCount(0);
   await expect(page.locator('canvas')).toHaveCount(0);
 });
-test('one-click appearance toggle persists and keeps login fields', async ({ page }) => {
+test('minimal login inherits the saved theme and keeps fields when another tab changes it', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByLabel('E-mail corporativo').fill('theme@test.invalid');
+  await page.evaluate(() => {
+    localStorage.setItem('obra360_appearance', 'light');
+    window.dispatchEvent(
+      new StorageEvent('storage', { key: 'obra360_appearance', newValue: 'light' }),
+    );
+  });
+  await expect(page.locator('html')).toHaveAttribute('data-obra-theme', 'light');
+  await expect(page.getByLabel('E-mail corporativo')).toHaveValue('theme@test.invalid');
+  await expect(page.getByRole('button', { name: 'Tema escuro', exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-obra-theme', 'light');
+  expect(
+    await page.locator('.login-card').evaluate((e) => getComputedStyle(e).backgroundColor),
+  ).toBe('rgb(255, 255, 255)');
+});
+
+test('login theme icon switches on click and keyboard without clearing credentials', async ({
+  page,
+}) => {
   await page.goto('/');
   const toggle = page.getByRole('button', { name: 'Tema escuro', exact: true });
+  await page.getByLabel('E-mail corporativo').fill('theme@test.invalid');
+  await page.getByLabel('Senha', { exact: true }).fill('SenhaApenasDeTeste');
   await expect(toggle).toHaveAttribute('title', 'Ativar tema claro');
   await toggle.click();
   await expect(page.locator('html')).toHaveAttribute('data-obra-theme', 'light');
   await expect(toggle).toHaveAttribute('title', 'Ativar tema escuro');
-  await page.getByLabel('E-mail corporativo').fill('theme@test.invalid');
+  await expect(page.getByLabel('E-mail corporativo')).toHaveValue('theme@test.invalid');
+  await expect(page.getByLabel('Senha', { exact: true })).toHaveValue('SenhaApenasDeTeste');
   await toggle.press('Enter');
   await expect(page.locator('html')).toHaveAttribute('data-obra-theme', 'dark');
-  await expect(page.getByLabel('E-mail corporativo')).toHaveValue('theme@test.invalid');
-  await toggle.click();
   await page.reload();
-  await expect(toggle).toHaveAttribute('aria-pressed', 'false');
-  expect(
-    await page
-      .locator('.access-card')
-      .first()
-      .evaluate((e) => getComputedStyle(e).backgroundColor),
-  ).toBe('rgb(255, 255, 255)');
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
 });
-test('a previously saved system preference can be overridden with one click', async ({ page }) => {
+
+test('minimal login follows the system theme when that preference was saved', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light' });
-  await page.addInitScript(() => {
-    if (!localStorage.getItem('obra360_appearance'))
-      localStorage.setItem('obra360_appearance', 'system');
-  });
+  await page.addInitScript(() => localStorage.setItem('obra360_appearance', 'system'));
   await page.goto('/');
   await expect(page.locator('html')).toHaveAttribute('data-obra-theme', 'light');
-  await page.getByRole('button', { name: 'Tema escuro', exact: true }).click();
-  await page.reload();
+  await page.emulateMedia({ colorScheme: 'dark' });
   await expect(page.locator('html')).toHaveAttribute('data-obra-theme', 'dark');
 });
+
 test('appearance remains usable when local storage is blocked', async ({ page }) => {
   await page.addInitScript(() =>
     Object.defineProperty(window, 'localStorage', {
@@ -681,11 +1242,8 @@ test('appearance remains usable when local storage is blocked', async ({ page })
     }),
   );
   await page.goto('/');
-  await page.getByRole('button', { name: 'Tema escuro', exact: true }).click();
-  await expect(
-    page.getByRole('heading', { name: 'Acessar Plataforma', exact: true }),
-  ).toBeVisible();
-  await expect(page.locator('html')).toHaveAttribute('data-obra-theme', 'light');
+  await expect(page.getByRole('heading', { name: 'Obra360', exact: true })).toBeVisible();
+  await expect(page.locator('html')).toHaveAttribute('data-obra-theme', 'dark');
 });
 test('error recovery follows the chosen palette without exposing technical details', async ({
   page,
@@ -735,31 +1293,39 @@ test('Google control adapts to the theme and available width', async ({ page }) 
     'data-google-theme',
     'filled_black',
   );
-  await page.getByRole('button', { name: 'Tema escuro', exact: true }).click();
+  await page.evaluate(() => {
+    localStorage.setItem('obra360_appearance', 'light');
+    window.dispatchEvent(
+      new StorageEvent('storage', { key: 'obra360_appearance', newValue: 'light' }),
+    );
+  });
   await expect(page.getByRole('button', { name: 'Google de teste' })).toHaveAttribute(
     'data-google-theme',
     'outline',
   );
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
 });
-test('touch phone can choose a role and change appearance', async ({ browser }) => {
+test('touch phone uses the minimal login and can reveal and hide the password', async ({
+  browser,
+}) => {
   const context = await browser.newContext({
     baseURL: 'http://127.0.0.1:4174',
     viewport: { width: 390, height: 844 },
-    deviceScaleFactor: 3,
     isMobile: true,
     hasTouch: true,
   });
   try {
     const page = await context.newPage();
-    await page.route('**/api/v1/instalacao', (route) =>
-      route.fulfill({ json: { necessaria: false } }),
-    );
+    await page.route('**/api/v1/instalacao', (r) => r.fulfill({ json: { necessaria: false } }));
     await page.goto('/');
-    await page.getByText('Engenheiro Residente (Campo)', { exact: true }).tap();
-    await expect(page.locator('input[type=radio][value=ENGENHEIRO]')).toBeChecked();
+    await page.getByLabel('Senha', { exact: true }).fill('SenhaApenasDeTeste');
+    await page.getByRole('button', { name: 'Mostrar senha', exact: true }).tap();
+    await expect(page.getByLabel('Senha', { exact: true })).toHaveAttribute('type', 'text');
+    await page.getByRole('button', { name: 'Ocultar senha', exact: true }).tap();
+    await expect(page.getByLabel('Senha', { exact: true })).toHaveAttribute('type', 'password');
     await page.getByRole('button', { name: 'Tema escuro', exact: true }).tap();
     await expect(page.locator('html')).toHaveAttribute('data-obra-theme', 'light');
+    await expect(page.getByRole('radio')).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
       390,
     );
@@ -767,6 +1333,7 @@ test('touch phone can choose a role and change appearance', async ({ browser }) 
     await context.close();
   }
 });
+
 test('compact navigation opens, restores focus and closes on selection', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 568 });
   await authenticated(page);
@@ -870,29 +1437,112 @@ test('connected pages and their dialogs share the login dark palette', async ({ 
     await page.getByLabel('Nome do empreendimento').evaluate((e) => getComputedStyle(e).color),
   ).toBe('rgb(250, 250, 250)');
 });
-test('login keeps the dark profile picker without inventing account credentials', async ({
+test('minimal login shows only account fields and derives the profile from the authenticated account', async ({
   page,
 }) => {
   await page.goto('/');
-  const engineer = page.getByRole('radio', { name: /Engenheiro Residente/ });
-  await engineer.check();
-  await expect(engineer).toBeChecked();
-  await expect(page.locator('.access-selected')).toContainText('Nível 2');
-  await expect(page.locator('.access-selected')).toContainText('Engenharia de Campo');
+  await expect(page.getByRole('heading', { name: 'Obra360', exact: true })).toBeVisible();
+  await expect(page.getByRole('radio')).toHaveCount(0);
+  await expect(page.locator('.access-selected')).toHaveCount(0);
   await expect(page.getByLabel('E-mail corporativo')).toHaveValue('');
   await expect(page.getByLabel('Senha', { exact: true })).toHaveValue('');
-  await expect(page.getByRole('button', { name: 'Fazer login com o Google' })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Fazer login com o Google', exact: true }),
+  ).toBeDisabled();
   await page.route('**/api/v1/auth/login', async (route) => {
-    expect(route.request().postDataJSON().perfil).toBe('ENGENHEIRO');
+    expect(route.request().postDataJSON()).not.toHaveProperty('perfil');
     await route.fulfill({ status: 401, json: { detail: 'Credenciais inválidas.' } });
   });
   await page.getByLabel('E-mail corporativo').fill('test@test.invalid');
   await page.getByLabel('Senha', { exact: true }).fill('SenhaDeTeste@12345');
-  await page.getByRole('button', { name: 'Entrar na plataforma' }).click();
+  await page.getByRole('button', { name: 'Entrar na plataforma', exact: true }).click();
   await expect(page.getByRole('alert')).toBeVisible();
-  await page.setViewportSize({ width: 390, height: 844 });
-  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
+
+for (const [width, height, theme] of [
+  [280, 650, 'dark'],
+  [390, 844, 'light'],
+  [1440, 900, 'dark'],
+  [1440, 900, 'light'],
+] as const)
+  test(`minimal login fits ${width}x${height} in ${theme} with only the requested controls`, async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width, height });
+    await page.addInitScript((value) => localStorage.setItem('obra360_appearance', value), theme);
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: 'Obra360', exact: true })).toBeVisible();
+    await expect(page.locator('input')).toHaveCount(2);
+    await expect(page.getByRole('radio')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Mostrar senha', exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Entrar na plataforma', exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Fazer login com o Google', exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Esqueci minha senha', exact: true }),
+    ).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Tema escuro', exact: true })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+      width,
+    );
+    await page.screenshot({
+      path: testInfo.outputPath('login.png'),
+      fullPage: true,
+      animations: 'disabled',
+    });
+  });
+
+test('Google login uses the registered account profile without a profile selector', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    let callback: ((value: { credential: string }) => void) | undefined;
+    (window as any).google = {
+      accounts: {
+        id: {
+          initialize(settings: { callback: typeof callback }) {
+            callback = settings.callback;
+          },
+          renderButton(target: HTMLElement) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.textContent = 'Google de teste';
+            button.onclick = () => callback?.({ credential: 'synthetic-google-credential' });
+            target.replaceChildren(button);
+          },
+          cancel() {},
+        },
+      },
+    };
+  });
+  await page.route('**/api/v1/auth/configuracao', (r) =>
+    r.fulfill({ json: { googleClientId: 'test-client', emailRecovery: false } }),
+  );
+  await page.route('**/api/v1/auth/google/nonce', (r) =>
+    r.fulfill({ json: { nonce: 'A'.repeat(43) } }),
+  );
+  await page.route('**/api/v1/auth/google', async (r) => {
+    expect(r.request().postDataJSON()).toEqual({ credential: 'synthetic-google-credential' });
+    await r.fulfill({ json: { token: 'synthetic-token' } });
+  });
+  await page.route('**/api/v1/workspace/**', (r) =>
+    r.fulfill({ json: { items: [], total: 0, page: 0, size: 25 } }),
+  );
+  await page.route('**/api/v1/workspace/sessao', (r) =>
+    r.fulfill({ json: { ...session, perfil: 'ENGENHEIRO' } }),
+  );
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Google de teste', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Empreendimentos', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Recursos humanos', exact: true })).toHaveCount(0);
+  expect(await page.evaluate(() => sessionStorage.getItem('obra360_access_token'))).toBe(
+    'synthetic-token',
+  );
+});
+
 test('rejected credentials display an error without logging in', async ({ page }) => {
   await page.route('**/api/v1/auth/login', (route) =>
     route.fulfill({ status: 401, json: { detail: 'Credenciais inválidas' } }),
@@ -972,7 +1622,7 @@ test('records support page search, pagination and logout', async ({ page }) => {
   await page.getByLabel('Próxima página').click();
   await expect(page.getByRole('cell', { name: 'Obra página 2' })).toBeVisible();
   await page.getByLabel('Sair da plataforma').click();
-  await expect(page.getByRole('heading', { name: 'Acessar Plataforma' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Obra360' })).toBeVisible();
   expect(await page.evaluate(() => sessionStorage.getItem('obra360_access_token'))).toBeNull();
 });
 test('project form saves through API and reports validation errors', async ({ page }) => {
@@ -1057,7 +1707,7 @@ test('first installation collects real company details and creates no demo accou
   await page.getByLabel('Senha (mínimo de 12 caracteres)').fill('SenhaDeTeste@12345');
   await page.getByLabel('Confirme a senha').fill('SenhaDeTeste@12345');
   await page.getByRole('button', { name: 'Criar empresa e administrador' }).click();
-  await expect(page.getByRole('heading', { name: 'Acessar Plataforma' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Obra360' })).toBeVisible();
   await expect(page.getByRole('status')).toContainText('Empresa configurada');
 });
 
@@ -1159,7 +1809,7 @@ test('password recovery uses a generic response and resets through the API', asy
   );
   await page.route('**/api/v1/auth/recuperar', (route) => route.fulfill({ status: 202, body: '' }));
   await page.goto('/');
-  await page.getByRole('button', { name: 'Esqueci minha senha' }).click();
+  await page.goto('/#recuperar');
   await page.getByLabel('E-mail cadastrado').fill('usuario@test.invalid');
   await page.getByRole('button', { name: 'Enviar link de recuperação' }).click();
   await expect(page.getByRole('status')).toContainText('Se existir uma conta ativa');
@@ -1335,6 +1985,88 @@ async function openModelFixture(page: import('@playwright/test').Page) {
   await page.getByRole('button', { name: /Modelo de teste/ }).click();
   await expect(page.getByLabel('Nome do modelo', { exact: true })).toHaveValue('Modelo de teste');
 }
+for (const variant of ['single', 'gap'])
+  test(`recognized walls require calibration and explicit acceptance before entering the model draft: ${variant}`, async ({
+    page,
+  }) => {
+    await mockModelEditor(page);
+    const recognizing = page.getByRole('button', {
+      name: 'Sugerir paredes da planta',
+      exact: true,
+    });
+    await expect(recognizing).toBeDisabled();
+    await page.getByText('Usar planta PDF ou imagem como referência', { exact: true }).click();
+    const image = await page.evaluate((variant) => {
+      const c = document.createElement('canvas');
+      c.width = 200;
+      c.height = 200;
+      const ctx = c.getContext('2d')!;
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, 200, 200);
+      ctx.fillStyle = '#555';
+      if (variant === 'gap') {
+        ctx.fillRect(20, 20, 65, 4);
+        ctx.fillRect(105, 20, 75, 4);
+      } else ctx.fillRect(20, 20, 160, 4);
+      return c.toDataURL('image/png').split(',')[1];
+    }, variant);
+    await page.getByLabel('Arquivo da planta', { exact: true }).setInputFiles({
+      name: 'parede.png',
+      mimeType: 'image/png',
+      buffer: Buffer.from(image, 'base64'),
+    });
+    const plan = page.getByRole('img', { name: 'Planta 2D editável em metros', exact: true });
+    await expect(plan.locator('image')).toHaveCount(1);
+    await page.getByLabel('Distância real (m)', { exact: true }).fill('6');
+    await page.getByRole('button', { name: 'Calibrar escala', exact: true }).click();
+    await plan.scrollIntoViewIfNeeded();
+    const points = await plan.locator('image').evaluate((node) => {
+      const image = node as SVGImageElement,
+        b = image.getBBox();
+      return [0.25, 0.75].map((f) => {
+        const point = new DOMPoint(b.x + b.width * f, b.y + b.height / 2).matrixTransform(
+          image.getScreenCTM()!,
+        );
+        return { x: point.x, y: point.y };
+      });
+    });
+    for (const point of points) await page.mouse.click(point.x, point.y);
+    await expect(recognizing).toBeEnabled();
+    await recognizing.click();
+    await expect(
+      page.getByRole('img', { name: 'Prévia das paredes sugeridas', exact: true }),
+    ).toBeVisible();
+    await expect(page.locator('.model-element-list').getByRole('button')).toHaveCount(0);
+    if (variant === 'gap') {
+      const gap = page.getByLabel('Classificação do vão 1', { exact: true });
+      await expect(gap).toHaveValue('');
+      await gap.selectOption('JANELA');
+      const panel = page.getByRole('region', { name: 'Reconhecimento assistido de paredes' });
+      await panel.getByRole('checkbox').first().uncheck();
+      await expect(gap).toBeDisabled();
+      await expect(gap).toHaveValue('');
+      await panel.getByRole('checkbox').first().check();
+      await gap.selectOption('JANELA');
+    }
+    await page
+      .getByRole('button', { name: 'Adicionar paredes selecionadas ao rascunho', exact: true })
+      .click();
+    await expect(page.locator('.model-element-list').getByRole('button')).toHaveCount(
+      variant === 'gap' ? 2 : 1,
+    );
+    if (variant === 'gap') {
+      await page
+        .locator('.model-element-list')
+        .getByRole('button')
+        .filter({ hasText: 'Janela' })
+        .click();
+      await expect(page.getByLabel('Peitoril / base (m)', { exact: true })).toHaveValue('0.9333');
+      await page.getByRole('button', { name: 'Aplicar propriedades', exact: true }).click();
+      await expect(page.locator('.model-element-list').getByRole('button')).toHaveCount(2);
+    }
+    await expect(page.getByText('Alterações não salvas', { exact: true })).toBeVisible();
+  });
+
 test('model draft survives reload and is cleared only after the official save', async ({
   page,
 }) => {
@@ -1453,6 +2185,174 @@ test('a delayed JSON import cannot land in a different model', async ({ page }) 
   await expect(name).toHaveValue('Segundo modelo');
   await expect(page.getByText('Alterações não salvas', { exact: true })).toHaveCount(0);
 });
+test('3D gizmo moves a real mesh and creates a single undoable document edit', async ({ page }) => {
+  const wall = geometryWall('wall-a');
+  await mockModelEditor(page, 'SUPER_ADMIN', {
+    ...modelFixture,
+    documento: geometryDraft([wall]).documento,
+  });
+  await page.getByLabel('Modo de visualização do modelo', { exact: true }).selectOption('3d');
+  await page.locator('.model-element-list').getByRole('button').click();
+  await page.getByRole('button', { name: 'Mover 3D', exact: true }).click();
+  const canvas = page.getByRole('img', { name: 'Vista 3D do modelo', exact: true });
+  await canvas.scrollIntoViewIfNeeded();
+  const rect = (await canvas.boundingBox())!;
+  const radius = new THREE.Vector3(4, 2.8, 0.2).length() * 0.8;
+  const camera = new THREE.PerspectiveCamera(45, rect.width / rect.height, 0.01, 50000);
+  camera.position.set(radius, 1.4 + radius * 0.8, radius);
+  camera.lookAt(0, 1.4, 0);
+  camera.updateMatrixWorld();
+  const factor = (camera.position.length() * 1.9 * Math.tan((45 * Math.PI) / 360) * 1.05) / 4;
+  const project = (x: number) => {
+    const p = new THREE.Vector3(x, 0, 0).project(camera);
+    return { x: rect.x + ((p.x + 1) * rect.width) / 2, y: rect.y + ((1 - p.y) * rect.height) / 2 };
+  };
+  const from = project(factor * 0.45),
+    to = project(factor * 0.45 + 1);
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(to.x, to.y, { steps: 12 });
+  await page.mouse.up();
+  await expect
+    .poll(async () => Number(await page.getByLabel('Posição X (m)', { exact: true }).inputValue()))
+    .toBeCloseTo(1, 1);
+  await page.getByRole('button', { name: 'Desfazer', exact: true }).click();
+  await page.locator('.model-element-list').getByRole('button').click();
+  await expect(page.getByLabel('Posição X (m)', { exact: true })).toHaveValue('0');
+  await page.getByRole('button', { name: 'Refazer', exact: true }).click();
+  await page.locator('.model-element-list').getByRole('button').click();
+  await expect
+    .poll(async () => Number(await page.getByLabel('Posição X (m)', { exact: true }).inputValue()))
+    .toBeCloseTo(1, 1);
+});
+test('3D scaling preserves the dimensions of child openings and Escape cancels a drag', async ({
+  page,
+}) => {
+  const wall = geometryWall('wall-a'),
+    window = geometryWall('window', {
+      tipo: 'JANELA',
+      paredeId: wall.id,
+      deslocamento: 0.5,
+      base: 1,
+      largura: 1,
+      altura: 1.2,
+    });
+  await mockModelEditor(page, 'SUPER_ADMIN', {
+    ...modelFixture,
+    documento: geometryDraft([wall, window]).documento,
+  });
+  await page.getByLabel('Modo de visualização do modelo', { exact: true }).selectOption('3d');
+  const wallButton = page
+    .locator('.model-element-list')
+    .getByRole('button', { name: 'Parede · wall-a', exact: true });
+  await wallButton.click();
+  await page.getByRole('button', { name: 'Dimensionar 3D', exact: true }).click();
+  const canvas = page.getByRole('img', { name: 'Vista 3D do modelo', exact: true });
+  await canvas.scrollIntoViewIfNeeded();
+  const rect = (await canvas.boundingBox())!,
+    radius = new THREE.Vector3(4, 2.8, 0.2).length() * 0.8;
+  const camera = new THREE.PerspectiveCamera(45, rect.width / rect.height, 0.01, 50000);
+  camera.position.set(radius, 1.4 + radius * 0.8, radius);
+  camera.lookAt(0, 1.4, 0);
+  camera.updateMatrixWorld();
+  const factor = (camera.position.length() * 1.9 * Math.tan((45 * Math.PI) / 360) * 1.05) / 4;
+  const project = (x: number) => {
+    const p = new THREE.Vector3(x, 0, 0).project(camera);
+    return { x: rect.x + ((p.x + 1) * rect.width) / 2, y: rect.y + ((1 - p.y) * rect.height) / 2 };
+  };
+  const from = project(factor * 0.45),
+    to = project(factor * 0.45 * 1.25);
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(to.x, to.y, { steps: 10 });
+  await page.mouse.up();
+  await expect
+    .poll(async () => Number(await page.getByLabel('Largura (m)', { exact: true }).inputValue()))
+    .toBeCloseTo(5, 1);
+  await page
+    .locator('.model-element-list')
+    .getByRole('button', { name: 'Janela · window', exact: true })
+    .click();
+  await expect(page.getByLabel('Largura (m)', { exact: true })).toHaveValue('1');
+  await expect(page.getByLabel('Deslocamento na parede (m)', { exact: true })).toHaveValue('0.5');
+  await wallButton.click();
+  await page.getByRole('button', { name: 'Mover 3D', exact: true }).click();
+  await canvas.scrollIntoViewIfNeeded();
+  const current = (await canvas.boundingBox())!;
+  const corrected = (p: { x: number; y: number }) => ({
+    x: p.x + current.x - rect.x,
+    y: p.y + current.y - rect.y,
+  });
+  const start = corrected(from),
+    end = corrected(project(factor * 0.45 + 1));
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(end.x, end.y, { steps: 10 });
+  await canvas.press('Escape');
+  await page.mouse.up();
+  await wallButton.click();
+  await expect(page.getByLabel('Posição X (m)', { exact: true })).toHaveValue('0');
+  await page.getByRole('button', { name: 'Desfazer', exact: true }).click();
+  await wallButton.click();
+  await expect(page.getByLabel('Largura (m)', { exact: true })).toHaveValue('4');
+});
+test('geometry findings can be inspected and become stale after editing', async ({ page }) => {
+  await mockModelEditor(page, 'SUPER_ADMIN', {
+    ...modelFixture,
+    documento: geometryDraft([geometryWall('a'), geometryWall('b')]).documento,
+  });
+  const panel = page.getByRole('region', { name: 'Conferência da geometria' });
+  // A named section is exposed as a region for keyboard and screen-reader navigation.
+  await panel.getByRole('button', { name: 'Verificar geometria', exact: true }).click();
+  const finding = panel.locator('li').filter({ hasText: 'Possível interferência' });
+  await expect(finding).toHaveCount(1);
+  await finding.getByRole('button', { name: 'Inspecionar', exact: true }).click();
+  await expect(page.getByText('2 elemento(s) · 2 selecionado(s)', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Adicionar parede', exact: true }).click();
+  await expect(
+    panel.getByText('O modelo mudou. Execute a conferência novamente.', { exact: true }),
+  ).toBeVisible();
+});
+test('read-only model profiles never receive 3D transformation tools', async ({ page }) => {
+  await mockModelEditor(page, 'AUDITOR', {
+    ...modelFixture,
+    documento: geometryDraft([geometryWall('a')]).documento,
+  });
+  await page.locator('.model-element-list').getByRole('button').click();
+  await expect(page.getByRole('group', { name: 'Edição na vista 3D' })).toHaveCount(0);
+  await expect(
+    page.getByRole('button', { name: 'Verificar geometria', exact: true }),
+  ).toBeVisible();
+});
+
+test('losing WebGL removes transformation tools while retaining the editable 2D document', async ({
+  page,
+}) => {
+  await mockModelEditor(page, 'SUPER_ADMIN', {
+    ...modelFixture,
+    documento: geometryDraft([geometryWall('a')]).documento,
+  });
+  await page.locator('.model-element-list').getByRole('button').click();
+  await page.getByRole('button', { name: 'Mover 3D', exact: true }).click();
+  await page
+    .getByRole('img', { name: 'Vista 3D do modelo', exact: true })
+    .dispatchEvent('webglcontextlost', { cancelable: true });
+  await expect(
+    page.getByText(
+      'A vista 3D perdeu o contexto gráfico. Use a planta 2D e recarregue a vista após salvar.',
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Edição na vista 3D' })).toHaveCount(0);
+  await expect(
+    page.getByRole('img', { name: 'Planta 2D editável em metros', exact: true }),
+  ).toBeVisible();
+  await expect(page.getByLabel('Posição X (m)', { exact: true })).toHaveValue('0');
+  await page.getByLabel('Posição X (m)', { exact: true }).fill('1');
+  await page.getByRole('button', { name: 'Aplicar propriedades', exact: true }).click();
+  await expect(page.getByText('Alterações não salvas', { exact: true })).toBeVisible();
+});
+
 test('changing appearance preserves the model draft and the WebGL canvas', async ({ page }) => {
   await mockModelEditor(page);
   await page.getByRole('button', { name: 'Adicionar parede', exact: true }).click();

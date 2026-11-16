@@ -6,7 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
@@ -38,6 +38,7 @@ class WorkspaceSecurityIntegrationTest {
     @Autowired PasswordEncoder encoder;
     @Autowired JwtService jwt;
     @Autowired BruteForceProtectionService bruteForce;
+    @Autowired br.com.obra360.application.service.RetencaoOperacionalService retention;
     private UsuarioEntity admin;
     private UsuarioEntity engineer;
     private UsuarioEntity outsider;
@@ -65,6 +66,93 @@ class WorkspaceSecurityIntegrationTest {
     }
     private String token(UsuarioEntity user) { return "Bearer " + jwt.issue(user); }
 
+    private com.fasterxml.jackson.databind.JsonNode gestion(String path,Object body,UsuarioEntity actor,int expected) throws Exception {
+        var response=mvc.perform(post("/api/v1/workspace/gestao"+path).header("Authorization",token(actor)).contentType("application/json").content(json.writeValueAsString(body))).andExpect(status().is(expected)).andReturn();em.flush();
+        return json.readTree(response.getResponse().getContentAsString());
+    }
+    @Test void budgetRevisionsPaymentsReversalsAndReconciliationRemainConsistent() throws Exception {
+        Long project=ownProject();
+        Long budget=gestion("/orcamentos",Map.of("projetoObraId",project,"valorAprovado",1000,"justificativa","Investimento inicial conferido"),admin,201).get("id").asLong();
+        gestion("/orcamentos/"+budget+"/aprovar",Map.of("versao",0),admin,200);
+        Long title=gestion("/titulos",Map.of("projetoObraId",project,"tipo","PAGAR","categoria","SERVICOS","descricao","Serviço contratado","contraparte","Fornecedor teste","valor",300,"vencimento",LocalDate.now()),admin,201).get("id").asLong();
+        var payload=Map.of("versao",0,"valor",100,"data",LocalDate.now(),"conta","CAIXA-01","observacao","Comprovante conferido","chave",java.util.UUID.randomUUID().toString());
+        Long payment=gestion("/titulos/"+title+"/baixar",payload,admin,200).get("id").asLong();
+        Long repeated=gestion("/titulos/"+title+"/baixar",payload,admin,200).get("id").asLong();org.junit.jupiter.api.Assertions.assertEquals(payment,repeated);
+        var line=Map.of("identificador","BANCO-01","data",LocalDate.now(),"descricao","Pagamento conferido","valor",-100);
+        gestion("/extrato/importar",Map.of("projetoObraId",project,"conta","CAIXA-01","linhas",List.of(line)),admin,200);
+        gestion("/extrato/importar",Map.of("projetoObraId",project,"conta","CAIXA-01","linhas",List.of(line)),admin,200);
+        var bank=em.createQuery("select e from ExtratoBancarioEntity e where e.empresaId=:t",ExtratoBancarioEntity.class).setParameter("t",admin.getEmpresaId()).getSingleResult();
+        gestion("/extrato/"+bank.getId()+"/conciliar",Map.of("versao",0,"baixaId",payment),admin,200);
+        mvc.perform(get("/api/v1/workspace/gestao/resumo/"+project).header("Authorization",token(admin))).andExpect(status().isOk()).andExpect(jsonPath("$.investimentoAprovado").value(1000)).andExpect(jsonPath("$.despesasComprometidas").value(300)).andExpect(jsonPath("$.pagamentosRegistrados").value(100)).andExpect(jsonPath("$.saldoPagar").value(200)).andExpect(jsonPath("$.saldoOrcamento").value(700));
+        gestion("/baixas/"+payment+"/estornar",Map.of("versao",0,"justificativa","Correção de pagamento registrado"),admin,409);
+        gestion("/extrato/"+bank.getId()+"/conciliar",Map.of("versao",bank.getVersao()),admin,200);
+        var b=em.find(BaixaFinanceiraEntity.class,payment);gestion("/baixas/"+payment+"/estornar",Map.of("versao",b.getVersao(),"justificativa","Correção de pagamento registrado"),admin,200);
+        org.junit.jupiter.api.Assertions.assertEquals(0,em.find(TituloFinanceiroEntity.class,title).getBaixado().signum());
+        Long revision=gestion("/orcamentos",Map.of("projetoObraId",project,"valorAprovado",1500,"justificativa","Revisão autorizada do investimento"),admin,201).get("id").asLong();
+        gestion("/orcamentos/"+revision+"/aprovar",Map.of("versao",0),admin,200);org.junit.jupiter.api.Assertions.assertEquals("SUBSTITUIDO",em.find(OrcamentoObraEntity.class,budget).getSituacao());
+    }
+    @Test void financialApiRejectsUnauthorizedForeignOverpaymentsAndFutureActualDates() throws Exception {
+        var finance=user(admin.getEmpresaId(),"financial-ledger@test.invalid","FINANCEIRO");var outsideAdmin=user(outsider.getEmpresaId(),"outside-ledger@test.invalid","SUPER_ADMIN");
+        var payload=Map.of("projetoObraId",ownProject(),"tipo","PAGAR","categoria","TAXAS","descricao","Taxa de teste","contraparte","Prestador","valor",50,"vencimento",LocalDate.now());
+        gestion("/titulos",payload,engineer,403);gestion("/titulos",payload,outsideAdmin,404);
+        Long id=gestion("/titulos",payload,finance,201).get("id").asLong();
+        var payment=new java.util.HashMap<String,Object>(Map.of("versao",0,"valor",51,"data",LocalDate.now(),"conta","BANCO","observacao","Comprovante teste","chave",java.util.UUID.randomUUID().toString()));
+        gestion("/titulos/"+id+"/baixar",payment,finance,409);payment.put("valor",20);payment.put("data",LocalDate.now().plusDays(1));gestion("/titulos/"+id+"/baixar",payment,finance,400);
+        mvc.perform(get("/api/v1/workspace/gestao/registros/titulos").header("Authorization",token(engineer))).andExpect(status().isForbidden());
+        var warehouse=user(admin.getEmpresaId(),"warehouse-ledger@test.invalid","ALMOXARIFE");
+        mvc.perform(get("/api/v1/workspace/gestao/registros/titulos").header("Authorization",token(warehouse))).andExpect(status().isForbidden());
+    }
+    private Long multiOrder(Map<String,Long> flow) throws Exception {
+        Long supplier=em.find(ContratoServicoEntity.class,flow.get("contract")).getFornecedorB2bId();
+        return gestion("/pedidos",Map.of("projetoObraId",flow.get("project"),"fornecedorB2bId",supplier,"justificativa","Reposição conforme planejamento","referenciaProposta","PROPOSTA-TESTE","vencimento",LocalDate.now().plusDays(10),"itens",List.of(Map.of("itemEstoqueId",flow.get("item"),"quantidade",10,"valorUnitario",5))),admin,201).get("id").asLong();
+    }
+    @Test void retentionDryRunAndExecutionOnlyAffectOldExpiredTokensOfTheChosenCompany() {
+        var old=new SessaoEntity();old.setId(java.util.UUID.randomUUID().toString());old.setUsuarioId(admin.getId());old.setCriadoEm(java.time.OffsetDateTime.now().minusDays(200));old.setExpiraEm(java.time.OffsetDateTime.now().minusDays(120));em.persist(old);
+        var valid=new SessaoEntity();valid.setId(java.util.UUID.randomUUID().toString());valid.setUsuarioId(admin.getId());valid.setCriadoEm(java.time.OffsetDateTime.now());valid.setExpiraEm(java.time.OffsetDateTime.now().plusHours(1));em.persist(valid);
+        var foreign=new SessaoEntity();foreign.setId(java.util.UUID.randomUUID().toString());foreign.setUsuarioId(outsider.getId());foreign.setCriadoEm(old.getCriadoEm());foreign.setExpiraEm(old.getExpiraEm());em.persist(foreign);em.flush();
+        var preview=retention.clean(admin.getEmpresaId(),90,false);org.junit.jupiter.api.Assertions.assertEquals(1,preview.get("SessaoEntity"));org.junit.jupiter.api.Assertions.assertNotNull(em.find(SessaoEntity.class,old.getId()));
+        retention.clean(admin.getEmpresaId(),90,true);em.flush();em.clear();
+        org.junit.jupiter.api.Assertions.assertNull(em.find(SessaoEntity.class,old.getId()));org.junit.jupiter.api.Assertions.assertNotNull(em.find(SessaoEntity.class,valid.getId()));org.junit.jupiter.api.Assertions.assertNotNull(em.find(SessaoEntity.class,foreign.getId()));
+    }
+    @Test void exportJobsRequireAdministratorAndPasswordConfirmation() throws Exception {
+        mvc.perform(get("/api/v1/workspace/exportacoes").header("Authorization",token(engineer))).andExpect(status().isForbidden());
+        mvc.perform(post("/api/v1/workspace/exportacoes").header("Authorization",token(admin)).contentType("application/json").content("{\"senha\":\"Senha incorreta\"}")).andExpect(status().isBadRequest());
+        mvc.perform(get("/api/v1/workspace/exportacoes").header("Authorization",token(admin))).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+    }
+    @Test void accountingExportIsPrivateAndLegalWorkflowsRemainDisabled() throws Exception {
+        Long employee=hrEmployee();Long payroll=rh("folhas",Map.of("competencia",java.time.YearMonth.now().toString())).get("id").asLong();
+        mvc.perform(get("/api/v1/workspace/rh/trabalhista/preparacao").header("Authorization",token(admin))).andExpect(status().isOk()).andExpect(jsonPath("$.calculosLegaisAtivos").value(false)).andExpect(jsonPath("$.envioEsocialAtivo").value(false));
+        mvc.perform(get("/api/v1/workspace/rh/trabalhista/preparacao").header("Authorization",token(engineer))).andExpect(status().isForbidden());
+        mvc.perform(post("/api/v1/workspace/rh/trabalhista/exportar-folha").header("Authorization",token(admin)).contentType("application/json").content(json.writeValueAsString(Map.of("folhaId",payroll,"confirmacao","EXPORTAR")))).andExpect(status().isConflict());
+        rh("lancamentos",Map.of("folhaId",payroll,"funcionarioId",employee,"codigo","SALARIO","descricao","Lançamento conferido","natureza","PROVENTO","valor",1000));
+        em.flush();var h=em.find(RhFolhaEntity.class,payroll);
+        mvc.perform(post("/api/v1/workspace/rh/folhas/"+payroll+"/fechar").header("Authorization",token(admin)).contentType("application/json").content(json.writeValueAsString(Map.of("versao",h.getVersao())))).andExpect(status().isOk());
+        mvc.perform(post("/api/v1/workspace/rh/trabalhista/exportar-folha").header("Authorization",token(admin)).contentType("application/json").content(json.writeValueAsString(Map.of("folhaId",payroll,"confirmacao","EXPORTAR")))).andExpect(status().isOk()).andExpect(header().string("Cache-Control","no-store")).andExpect(content().string(containsString("Lançamento conferido"))).andExpect(content().string(not(containsString("senhaHash"))));
+        var outsideAdmin=user(outsider.getEmpresaId(),"outside-rh-export@test.invalid","SUPER_ADMIN");
+        mvc.perform(post("/api/v1/workspace/rh/trabalhista/exportar-folha").header("Authorization",token(outsideAdmin)).contentType("application/json").content(json.writeValueAsString(Map.of("folhaId",payroll,"confirmacao","EXPORTAR")))).andExpect(status().isNotFound());
+    }
+    @Test void multiItemPurchasesRequireSeparateApprovalsAndTrackPartialReceiptsAndReturns() throws Exception {
+        var flow=workflow();Long id=multiOrder(flow);var p=em.find(PedidoMateriaisEntity.class,id);
+        gestion("/pedidos/"+id+"/aprovar",Map.of("versao",p.getVersao(),"alcada","GESTAO"),admin,200);
+        gestion("/pedidos/"+id+"/aprovar",Map.of("versao",p.getVersao(),"alcada","FINANCEIRO"),admin,409);
+        var finance=user(admin.getEmpresaId(),"multi-finance@test.invalid","FINANCEIRO");gestion("/pedidos/"+id+"/aprovar",Map.of("versao",p.getVersao(),"alcada","FINANCEIRO"),finance,200);
+        gestion("/pedidos/"+id+"/emitir",Map.of("versao",p.getVersao()),admin,200);
+        org.junit.jupiter.api.Assertions.assertNotNull(p.getTituloId());
+        var item=em.createQuery("select i from ItemPedidoMateriaisEntity i where i.pedidoId=:id",ItemPedidoMateriaisEntity.class).setParameter("id",id).getSingleResult();
+        var receipt=Map.of("versao",p.getVersao(),"chave",java.util.UUID.randomUUID().toString(),"observacao","Primeira entrega conferida","itens",List.of(Map.of("itemId",item.getId(),"quantidade",4)));
+        Long event=gestion("/pedidos/"+id+"/receber",receipt,admin,200).get("id").asLong();
+        org.junit.jupiter.api.Assertions.assertEquals(event,gestion("/pedidos/"+id+"/receber",receipt,admin,200).get("id").asLong());
+        org.junit.jupiter.api.Assertions.assertEquals("PARCIAL",p.getSituacao());
+        org.junit.jupiter.api.Assertions.assertEquals(0,em.find(ItemEstoqueEntity.class,flow.get("item")).getQuantidadeAtual().compareTo(new BigDecimal("14")));
+        gestion("/pedidos/"+id+"/receber",Map.of("versao",p.getVersao(),"chave",java.util.UUID.randomUUID().toString(),"observacao","Entrega além do saldo","itens",List.of(Map.of("itemId",item.getId(),"quantidade",7))),admin,409);
+        gestion("/pedidos/"+id+"/receber",Map.of("versao",p.getVersao(),"chave",java.util.UUID.randomUUID().toString(),"observacao","Segunda entrega conferida","itens",List.of(Map.of("itemId",item.getId(),"quantidade",6))),admin,200);
+        org.junit.jupiter.api.Assertions.assertEquals("RECEBIDO",p.getSituacao());
+        var returned=gestion("/pedidos/"+id+"/devolver",Map.of("versao",p.getVersao(),"chave",java.util.UUID.randomUUID().toString(),"observacao","Devolução por avaria conferida","itens",List.of(Map.of("itemId",item.getId(),"quantidade",2))),admin,200);
+        var credit=em.find(TituloFinanceiroEntity.class,returned.get("creditoId").asLong());org.junit.jupiter.api.Assertions.assertEquals("RECEBER",credit.getTipo());org.junit.jupiter.api.Assertions.assertEquals(0,credit.getValor().compareTo(BigDecimal.TEN));
+        mvc.perform(get("/api/v1/workspace/gestao/resumo/"+flow.get("project")).header("Authorization",token(admin))).andExpect(status().isOk()).andExpect(jsonPath("$.creditosDevolucao").value(10)).andExpect(jsonPath("$.despesasLiquidasComprometidas").value(40));
+        org.junit.jupiter.api.Assertions.assertEquals(0,em.find(ItemEstoqueEntity.class,flow.get("item")).getQuantidadeAtual().compareTo(new BigDecimal("18")));
+        gestion("/pedidos/"+id+"/cancelar",Map.of("versao",p.getVersao()),admin,409);
+    }
     @Test void projectDetailsShowPersistedLinksAndProtectPersonnelAndOtherTenants() throws Exception {
         var flow=workflow();Long employeeId=hrEmployee();var employee=em.find(RhFuncionarioEntity.class,employeeId);
         employee.setProjetoObraId(flow.get("project"));employee.setEquipeId(flow.get("team"));em.flush();

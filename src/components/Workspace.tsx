@@ -28,13 +28,15 @@ import { IntegrationHub, IfcInspector } from './IntegrationHub';
 import { modelRoles } from '../services/modelGeometry';
 import { DataQuality } from './DataQuality';
 import { AppearanceProvider, AppearanceToggle, PublicAppearance } from './Appearance';
-import { AccessLayout, SelectedAccess } from './AccessLayout';
+import './minimal-login.css';
+import { LoginScene } from './LoginScene';
 import { AccountCenter } from './AccountCenter';
 import { AcceptInvitation } from './UserInvitations';
 import { HumanResources } from './HumanResources';
 import { EmployeePortal } from './EmployeePortal';
 import { QualityEvidence } from './QualityEvidence';
 import { RecordDetails, type DetailTarget } from './RecordDetails';
+import { BusinessManagement } from './BusinessManagement';
 import { Notifications } from './Notifications';
 import { localCalendarDate, planningError } from '../utils/planningDates';
 import { ExternalPortal } from './ExternalPortal';
@@ -343,11 +345,19 @@ const navigationGroups = [
   },
   {
     title: 'Estoque e compras',
-    ids: ['estoque', 'movimentacoes', 'consumos', 'fornecedores', 'cotacoes', 'compras'],
+    ids: [
+      'estoque',
+      'movimentacoes',
+      'consumos',
+      'fornecedores',
+      'cotacoes',
+      'compras',
+      'pedidosmateriais',
+    ],
   },
   {
     title: 'Financeiro e relacionamento',
-    ids: ['contratos', 'unidades', 'coberturas', 'garantias'],
+    ids: ['financeiro', 'contratos', 'unidades', 'coberturas', 'garantias'],
   },
   { title: 'Recursos humanos', ids: ['rh'] },
   { title: 'Administração', ids: ['usuarios', 'acessos', 'auditoria', 'dados', 'integracoes'] },
@@ -384,7 +394,6 @@ function WorkspaceContent() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [accessRole, setAccessRole] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [active, updateActive] = useState('projetos');
@@ -435,8 +444,8 @@ function WorkspaceContent() {
   useEffect(() => {
     const detect = () => {
       const match = location.hash.match(/^#recuperar=([A-Za-z0-9_-]{43})$/);
-      if (match) {
-        setRecovery({ token: match[1] });
+      if (match || location.hash === '#recuperar') {
+        setRecovery(match ? { token: match[1] } : {});
         history.replaceState(null, '', location.pathname + location.search);
       }
     };
@@ -445,7 +454,7 @@ function WorkspaceContent() {
   }, []);
   const [recovery, setRecovery] = useState<{ token?: string } | null>(() => {
     const match = location.hash.match(/^#recuperar=([A-Za-z0-9_-]{43})$/);
-    return match ? { token: match[1] } : null;
+    return match ? { token: match[1] } : location.hash === '#recuperar' ? {} : null;
   });
   useEffect(() => {
     let current = true;
@@ -454,7 +463,7 @@ function WorkspaceContent() {
         if (current) setAuthConfiguration(value);
       })
       .catch(() => {});
-    if (location.hash.startsWith('#recuperar='))
+    if (location.hash.startsWith('#recuperar=') || location.hash === '#recuperar')
       history.replaceState(null, '', location.pathname + location.search);
     return () => {
       current = false;
@@ -518,9 +527,17 @@ function WorkspaceContent() {
       !session ||
       session.exigeTrocaSenha ||
       !internal.includes(session.perfil) ||
-      ['integracoes', 'ifc', 'rh', 'modelador', 'dados', 'conta', 'notificacoes'].includes(
-        active,
-      ) ||
+      [
+        'integracoes',
+        'ifc',
+        'rh',
+        'modelador',
+        'dados',
+        'conta',
+        'notificacoes',
+        'financeiro',
+        'pedidosmateriais',
+      ].includes(active) ||
       session.perfil === 'RH'
     )
       return;
@@ -562,7 +579,6 @@ function WorkspaceContent() {
         body: JSON.stringify({
           email: email.trim(),
           senha: password,
-          perfil: accessRole || undefined,
         }),
       });
       sessionStorage.setItem('obra360_access_token', result.token);
@@ -624,145 +640,139 @@ function WorkspaceContent() {
     );
   if (!session)
     return (
-      <PublicAppearance>
-        <AccessLayout
-          role={accessRole}
-          onRoleChange={(role) => {
-            if (busy) return;
-            setAccessRole(role);
-            setError('');
-          }}
-        >
-          <form onSubmit={login} className="ws-login-form">
-            <h2>Acessar Plataforma</h2>
-            <p>Entre com sua conta cadastrada para consultar os registros da operação.</p>
-            <SelectedAccess role={accessRole} />
-            {error && (
-              <div className="ws-alert" role="alert">
-                <AlertCircle size={18} />
-                {error}
-              </div>
-            )}
-            {notice && (
-              <div className="ws-notice" role="status">
-                {notice}
-              </div>
-            )}
-            <label>
-              E-mail corporativo
-              <input
-                type="email"
-                autoComplete="username"
-                required
-                readOnly={busy}
-                maxLength={120}
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                }}
-                placeholder="voce@empresa.com.br"
-              />
-            </label>
-            <div className="access-password">
+      <main className="ws minimal-login">
+        <div className="login-shell">
+          <LoginScene />
+          <section className="login-card" aria-labelledby="login-brand">
+            <header className="login-card-header">
+              <h1 id="login-brand">
+                Obra<span>360</span>
+              </h1>
+              <AppearanceToggle />
+            </header>
+            <form onSubmit={login} className="login-form" aria-label="Entrar na Obra360">
+              {error && (
+                <div className="ws-alert" role="alert">
+                  <AlertCircle size={18} />
+                  {error}
+                </div>
+              )}
+              {notice && (
+                <div className="ws-notice" role="status">
+                  {notice}
+                </div>
+              )}
               <label>
-                Senha
+                E-mail corporativo
                 <input
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete="current-password"
+                  type="email"
+                  autoComplete="username"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  inputMode="email"
                   required
                   readOnly={busy}
-                  value={password}
+                  maxLength={120}
+                  value={email}
                   onChange={(e) => {
-                    setPassword(e.target.value);
+                    setEmail(e.target.value);
                   }}
+                  placeholder="voce@empresa.com.br"
                 />
               </label>
-              <button
-                type="button"
-                aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
-                onClick={() => setShowPassword((visible) => !visible)}
-                disabled={busy}
-              >
-                {showPassword ? (
-                  <EyeOff size={18} aria-hidden="true" />
-                ) : (
-                  <Eye size={18} aria-hidden="true" />
-                )}
-              </button>
-            </div>
-            <button className="ws-primary" disabled={busy}>
-              {busy ? 'Entrando…' : 'Entrar na plataforma'}
-              <ArrowRight size={18} />
-            </button>
-            <p className="ws-help">
-              Precisa de acesso? Solicite uma conta ao administrador da sua empresa.
-            </p>
-            {authConfiguration.emailRecovery && (
-              <button
-                type="button"
-                className="ws-secondary"
-                disabled={busy}
-                onClick={() => {
-                  setShowPassword(false);
-                  setRecovery({});
-                }}
-              >
-                Esqueci minha senha
-              </button>
-            )}
-            {authConfiguration.googleClientId ? (
-              <GoogleSignIn
-                clientId={authConfiguration.googleClientId}
-                onSuccess={async (token) => {
-                  try {
-                    sessionStorage.setItem('obra360_access_token', token);
-                    const user = await requestApi<Session>('/v1/workspace/sessao');
-                    if (accessRole && user.perfil !== accessRole) {
-                      await requestApi('/v1/workspace/minhas-sessoes/sair', { method: 'POST' });
-                      sessionStorage.removeItem('obra360_access_token');
-                      setError('O perfil selecionado não corresponde ao cadastro desta conta.');
-                      return;
-                    }
-                    setSession(user);
-                    setPassword('');
-                    setShowPassword(false);
-                    setActive('projetos');
-                    setPage(0);
-                  } catch (e) {
-                    setError((e as Error).message);
-                  }
-                }}
-              />
-            ) : (
-              <div>
+              <div className="login-password">
+                <label>
+                  Senha
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    required
+                    readOnly={busy}
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                    }}
+                  />
+                </label>
                 <button
                   type="button"
-                  className="access-google-placeholder"
-                  disabled
-                  aria-describedby="google-configuration-help"
+                  aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                  aria-pressed={showPassword}
+                  onClick={() => setShowPassword((visible) => !visible)}
+                  disabled={busy}
                 >
-                  <span className="access-google-mark" aria-hidden="true">
-                    G
-                  </span>{' '}
-                  Fazer login com o Google
+                  {showPassword ? (
+                    <EyeOff size={18} aria-hidden="true" />
+                  ) : (
+                    <Eye size={18} aria-hidden="true" />
+                  )}
                 </button>
-                <p id="google-configuration-help" className="access-google-help">
-                  Google aguardando configuração pelo administrador.
-                </p>
               </div>
-            )}
-            {error && (
-              <button
-                type="button"
-                className="ws-secondary"
-                onClick={() => window.location.reload()}
-              >
-                Verificar conexão novamente
+              <button className="ws-primary" disabled={busy}>
+                {busy ? 'Entrando…' : 'Entrar na plataforma'}
+                <ArrowRight size={18} />
               </button>
-            )}
-          </form>
-        </AccessLayout>
-      </PublicAppearance>
+              <div className="login-divider" aria-hidden="true">
+                <span>ou</span>
+              </div>
+              {authConfiguration.googleClientId ? (
+                <GoogleSignIn
+                  clientId={authConfiguration.googleClientId}
+                  onSuccess={async (token) => {
+                    try {
+                      sessionStorage.setItem('obra360_access_token', token);
+                      const user = await requestApi<Session>('/v1/workspace/sessao');
+                      setSession(user);
+                      setPassword('');
+                      setShowPassword(false);
+                      setActive('projetos');
+                      setPage(0);
+                    } catch (e) {
+                      setError((e as Error).message);
+                    }
+                  }}
+                />
+              ) : (
+                <div>
+                  <button
+                    type="button"
+                    className="login-google"
+                    disabled
+                    title="Login Google ainda não configurado pelo administrador"
+                  >
+                    <svg
+                      className="login-google-mark"
+                      width="20"
+                      height="20"
+                      aria-hidden="true"
+                      focusable="false"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        fill="#4285F4"
+                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                      />
+                      <path
+                        fill="#34A853"
+                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                      />
+                      <path
+                        fill="#FBBC05"
+                        d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.62z"
+                      />
+                      <path
+                        fill="#EA4335"
+                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                      />
+                    </svg>
+                    Fazer login com o Google
+                  </button>
+                </div>
+              )}
+            </form>
+          </section>
+        </div>
+      </main>
     );
 
   if (session.exigeTrocaSenha)
@@ -821,6 +831,10 @@ function WorkspaceContent() {
       links.set(item.id, { title: item.title, icon });
     }
     links.set('integracoes', { title: 'Integrações', icon: Layers3 });
+    if (privileged.includes(session.perfil))
+      links.set('financeiro', { title: 'Orçamento e financeiro', icon: Building2 });
+    if ([...privileged, 'ALMOXARIFE'].includes(session.perfil))
+      links.set('pedidosmateriais', { title: 'Pedidos de materiais', icon: Package });
     links.set('ifc', { title: 'Leitor IFC', icon: Layers3 });
     if (modelRoles.includes(session.perfil))
       links.set('modelador', { title: 'Modelador 2D/3D', icon: Layers3 });
@@ -984,6 +998,13 @@ function WorkspaceContent() {
             <HumanResources />
           ) : !internal.includes(session.perfil) ? (
             <ExternalPortal />
+          ) : ['financeiro', 'pedidosmateriais'].includes(active) &&
+            [...privileged, 'ALMOXARIFE'].includes(session.perfil) ? (
+            <BusinessManagement
+              key={active}
+              role={session.perfil}
+              ordersOnly={active === 'pedidosmateriais'}
+            />
           ) : active === 'dados' && session.perfil === 'SUPER_ADMIN' ? (
             <DataQuality />
           ) : active === 'modelador' && modelRoles.includes(session.perfil) ? (

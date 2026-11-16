@@ -35,9 +35,21 @@ As unidades são metros. O eixo Y é vertical; X/Z definem a planta. Cada pavime
 
 Portas e janelas acompanham posição, rotação, base e pavimento da parede. Sua profundidade visual deriva da espessura da parede. O recorte remove efetivamente a área correspondente da geometria da parede; não é apenas uma marcação por cima do sólido. A porta representa um painel fechado e a janela um painel translúcido, sem ferragens ou folhas articuladas.
 
-Aberturas precisam caber na parede e não podem se sobrepor. Excluir uma parede também exclui suas aberturas na edição local; **Desfazer** recupera o conjunto. Duplicar uma parede copia suas aberturas com novos identificadores. Não há detecção geral de colisões entre paredes, pilares e lajes.
+Aberturas precisam caber na parede e não podem se sobrepor. Excluir uma parede também exclui suas aberturas na edição local; **Desfazer** recupera o conjunto. Duplicar uma parede copia suas aberturas com novos identificadores. A conferência geométrica descrita abaixo aponta possíveis interferências; não é uma verificação normativa ou estrutural.
 
-Na planta, clique para selecionar, use Shift para seleção múltipla e arraste para mover. As posições usam o incremento de grade escolhido. No painel lateral, edite medidas, posição, rotação, nome e cor e clique em **Aplicar propriedades**. Mudar o pavimento de uma parede também transfere suas aberturas; a validação impede ultrapassar a altura do novo pavimento. A edição por arraste ocorre na planta; a vista 3D oferece seleção, órbita, deslocamento de câmera e zoom, sem gizmo de transformação.
+Na planta, clique para selecionar, use Shift para seleção múltipla e arraste para mover. As posições usam o incremento de grade escolhido. No painel lateral, edite medidas, posição, rotação, nome e cor e clique em **Aplicar propriedades**. Mudar o pavimento de uma parede também transfere suas aberturas; a validação impede ultrapassar a altura do novo pavimento. Na vista 3D, selecione um elemento e escolha **Mover 3D**, **Girar 3D** ou **Dimensionar 3D**. Arraste um eixo do controle e solte para aplicar uma única alteração local; Esc cancela. **Navegar** retoma a órbita. As propriedades numéricas continuam disponíveis.
+
+O deslocamento usa a grade escolhida; a rotação é somente no eixo vertical, em passos de 5°, e a escala usa passos de 5%. As medidas confirmadas são conferidas ao soltar, com os mesmos limites do editor e suporte a Desfazer/Refazer. Operações inválidas restauram a geometria anterior e exibem o motivo. O controle edita um elemento por vez. Perfis de consulta e modelos arquivados não recebem as ferramentas de transformação.
+
+Portas e janelas se deslocam ao longo da parede; portas permanecem na base e janelas permitem ajuste vertical. Não possuem rotação independente nem alteração de espessura pelo controle. Mover ou girar uma parede acompanha suas aberturas; dimensionar a parede preserva largura, altura e deslocamento das aberturas, rejeitando medidas em que elas não caibam. Na topologia conectada, alterar a parede também atualiza os nós compartilhados e os trechos adjacentes, sujeitos à validação. A prévia durante o gesto não é uma revisão salva.
+
+## Conferência da geometria
+
+Clique em **Verificar geometria** para listar possíveis sobreposições, extremidades livres e sobreposição das faixas de altura dos pavimentos. **Inspecionar** seleciona os elementos e enquadra a vista. Após qualquer edição, refaça a conferência; o resultado anterior é identificado como desatualizado.
+
+A análise usa caixas retangulares orientadas e intervalos verticais em coordenadas do modelo, sem descontar os recortes das aberturas. Junções de paredes em L/T e encontros nas bases/topos de lajes são tratados como conexões usuais. Outras interseções podem ser intencionais e exigem avaliação profissional. Extremidade livre não significa necessariamente erro. Nada é removido, corrigido ou bloqueado automaticamente por esses avisos.
+
+São no máximo 100 apontamentos e aproximadamente 250 mil comparações por execução, com aviso quando o limite é atingido. Isso mantém a análise limitada; não certifica ausência de interferências nem substitui análise BIM/estrutural completa. A vista 3D também passou a renderizar sob demanda, em vez de manter desenho contínuo quando está parada.
 
 **Desfazer/Refazer** e Ctrl+Z/Ctrl+Y mantêm até 50 estados da geometria enquanto o modelo está aberto. O estado atual da geometria fica guardado como rascunho neste navegador, por conta, empresa e modelo. Ao reabrir, escolha **Recuperar rascunho** ou descarte a cópia local. Se a versão no banco mudou, baixe o rascunho em JSON para comparar. Salve uma revisão para registrar as alterações da referência, que fica fora do rascunho e do JSON do modelo. A exportação privada da empresa inclui os arquivos de referência dentro do limite da exportação.
 
@@ -100,3 +112,13 @@ A folha imprime o estado atual da tela. Alterações não salvas recebem a ident
 ## Verificação
 
 Testes de API cobrem persistência, revisões, conflitos, histórico de publicação e isolamento dos rascunhos por conta. Os 51 cenários em PostgreSQL isolado passaram com as migrações até a V22. Os testes de navegador conferiram os destaques da comparação. A jornada integrada recuperou um rascunho em outro contexto de navegador, conferiu a prévia e abriu a revisão publicada em 2D e 3D no portal.
+
+## Reconhecimento assistido (15/11/2026)
+
+Após calibrar a referência, **Sugerir paredes da planta** apresenta uma prévia de traços sólidos horizontais, verticais e inclinados. O processamento ocorre em um worker local, cancelado ao trocar a referência, modelo ou pavimento, com limite de 20 segundos. Não utiliza um provedor externo de IA. A imagem é reduzida para até 1.024 pixels no maior lado; o reconhecimento limita sugestões a 150 paredes.
+
+Trechos colineares separados por 0,50 a 2,20 m podem produzir **possíveis vãos**. A opção inicial é **Não criar abertura**. Só escolha **Porta** ou **Janela** quando conferir que aquele intervalo é uma abertura: a aplicação une os dois trechos e cria o elemento vinculado à parede. Confira largura, altura e peitoril; a classificação não é reconhecida automaticamente a partir dos símbolos. Um trecho não pode participar de duas uniões na mesma aplicação. Desmarcar uma parede cancela a classificação daquele par.
+
+Selecione sugestões, adicione ao rascunho, revise e salve. Nada é gravado apenas por analisar ou aceitar a prévia. Fotografias em perspectiva, paredes sem preenchimento sólido, curvas, hachuras, textos conectados ao traço ou imagens pouco nítidas podem exigir traçado manual. Não identifica qualquer planta arbitrária nem substitui conferência de medidas e aberturas.
+
+Validação desta melhoria: 87 testes de interface aprovados e jornada integrada com API/banco reais aprovada. A jornada arrastou uma parede pelo controle 3D, salvou e conferiu as coordenadas no retorno do servidor; também preservou revisões, referências e publicação. Os ensaios usam bases isoladas e dados sintéticos. Veja [o registro da melhoria](MODELADOR-MELHORIAS-2026-11-15.md) para evidências e limites.

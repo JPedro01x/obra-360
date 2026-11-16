@@ -3,6 +3,8 @@ import path from 'node:path';
 import { validatePilot } from './pilot-acceptance.mjs';
 import { loadProjectEnv } from './load-env.mjs';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
+import { validateDependencyAudit } from './dependency-audit-policy.mjs';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const env = { ...(await loadProjectEnv(root)), ...process.env };
 const checks = [];
@@ -11,8 +13,12 @@ const profiles = (env.SPRING_PROFILES_ACTIVE || '').split(',').map((profile) => 
 function httpsOrigin(value) {
   if (!value || /[*\s]/.test(value) || !URL.canParse(value)) return false;
   const url = new URL(value);
-  return url.protocol === 'https:' && !url.username && !url.password &&
-    (value === url.origin || value === url.origin + '/');
+  return (
+    url.protocol === 'https:' &&
+    !url.username &&
+    !url.password &&
+    (value === url.origin || value === url.origin + '/')
+  );
 }
 add(
   'PostgreSQL configurado',
@@ -32,7 +38,10 @@ add(
 add('Modo demonstrativo desativado', env.VITE_USE_MOCK === 'false');
 add('Instalação inicial desabilitada', env.OBRA360_SETUP_ENABLED === 'false');
 add('URL pública HTTPS', httpsOrigin(env.APP_PUBLIC_URL));
-const origins = (env.CORS_ALLOWED_ORIGINS || '').split(',').map((origin) => origin.trim()).filter(Boolean);
+const origins = (env.CORS_ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 add(
   'Origens CORS HTTPS explícitas',
   origins.length > 0 && origins.every((origin) => httpsOrigin(origin) && !origin.endsWith('/')),
@@ -41,17 +50,41 @@ add(
   'Recuperação por e-mail configurada',
   env.EMAIL_ENABLED === 'true' && !!env.SMTP_HOST && !!env.EMAIL_FROM && !!env.APP_PUBLIC_URL,
 );
-add(
-  'Armazenamento declarado',
-  !!env.OBRA360_STORAGE_DIRECTORY,
-);
+add('Armazenamento declarado', !!env.OBRA360_STORAGE_DIRECTORY);
 add('Backup e restauração homologados pelo operador', env.PRODUCTION_BACKUP_VERIFIED === 'true');
+let dependencyAudit = { aprovado: false };
+if (env.PRODUCTION_RELEASE_JAR && env.PRODUCTION_DEPENDENCY_REPORT) {
+  try {
+    const binary = await readFile(path.resolve(root, env.PRODUCTION_RELEASE_JAR));
+    const report = JSON.parse(
+      await readFile(path.resolve(root, env.PRODUCTION_DEPENDENCY_REPORT), 'utf8'),
+    );
+    dependencyAudit = validateDependencyAudit(
+      report,
+      createHash('sha256').update(binary).digest('hex'),
+    );
+  } catch {
+    /* Missing, mismatched or incomplete evidence never approves the delivery. */
+  }
+}
+add(
+  'Auditoria recente de dependências sem avisos e vinculada ao JAR da entrega',
+  dependencyAudit.aprovado,
+);
 let pilot = { aceiteDeclaradoCompleto: false };
 if (env.PRODUCTION_PILOT_REPORT) {
-  try { pilot = validatePilot(JSON.parse(await readFile(path.resolve(root, env.PRODUCTION_PILOT_REPORT), 'utf8'))); }
-  catch { /* A missing or malformed acceptance report is never treated as approved. */ }
+  try {
+    pilot = validatePilot(
+      JSON.parse(await readFile(path.resolve(root, env.PRODUCTION_PILOT_REPORT), 'utf8')),
+    );
+  } catch {
+    /* A missing or malformed acceptance report is never treated as approved. */
+  }
 }
-add('Relatório de aceite do piloto preenchido com versão, responsáveis e evidências', pilot.aceiteDeclaradoCompleto);
+add(
+  'Relatório de aceite do piloto preenchido com versão, responsáveis e evidências',
+  pilot.aceiteDeclaradoCompleto,
+);
 console.log(
   JSON.stringify(
     {

@@ -1,23 +1,25 @@
+Atualização de escopo em 15/11/2026: orçamento, financeiro administrativo e pedidos de vários materiais foram adicionados. Ver [GESTAO-FINANCEIRA-E-COMPRAS.md](GESTAO-FINANCEIRA-E-COMPRAS.md). Permanecem pendentes piloto real, validação contábil/trabalhista e homologação dos provedores.
+
 # Primeira versão comercial: gestão de obras
 
 Escopo escolhido pelo responsável: projetos, equipes, ordens de serviço, compras, estoque, documentos, RH administrativo e plantas. A aprovação comercial exige um piloto com dados autorizados e usuários de uma empresa real. Este documento prepara o piloto; não registra um aceite já realizado.
 
 ## O que a versão oferece
 
-| Área | Escopo da primeira versão |
-| --- | --- |
-| Projetos | Cadastro, edição, responsáveis, datas e isolamento por empresa |
-| Equipes e OS | Vínculo à obra, contrato, prioridade, prazo, andamento, consumo e encerramento controlado |
-| Compras | Um material por requisição, propostas, aprovação, pedido e recebimento integral |
-| Estoque | Entradas, saídas, consumo por OS e custo médio de recebimento |
-| Documentos | Arquivos privados locais, versões, downloads autorizados e verificação de integridade |
-| RH administrativo | Cadastros, acesso de Colaborador, ponto administrativo, ausências, benefícios, treinamentos e lançamentos manuais de folha |
-| Plantas | Referência PDF/imagem, calibração e traçado, edição 2D/3D, revisões, publicação por unidade e impressão em escala |
-| Administração | Perfis, sessões revogáveis, convites, auditoria, exportação e solicitações internas de atendimento |
+| Área              | Escopo da primeira versão                                                                                                                              |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Projetos          | Cadastro, edição, responsáveis, datas e isolamento por empresa                                                                                         |
+| Equipes e OS      | Vínculo à obra, contrato, prioridade, prazo, andamento, consumo e encerramento controlado                                                              |
+| Compras           | Requisições com cotações e pedidos com vários materiais, duas aprovações, entregas parciais e devoluções                                               |
+| Estoque           | Entradas, saídas, consumo por OS e custo médio de recebimento                                                                                          |
+| Documentos        | Arquivos privados locais, versões, downloads autorizados e verificação de integridade                                                                  |
+| RH administrativo | Cadastros, acesso de Colaborador, ponto administrativo, ausências, benefícios, treinamentos e lançamentos manuais de folha                             |
+| Plantas           | Referência PDF/imagem, calibração, reconhecimento assistido de paredes e traçado, edição 2D/3D, revisões, publicação por unidade e impressão em escala |
+| Administração     | Perfis, sessões revogáveis, convites, auditoria, exportação e solicitações internas de atendimento                                                     |
 
 Armazenamento exclusivamente local no servidor; login sem autenticação em duas etapas. Google permanece opcional e depende de configuração e vínculo autorizado. IA e SEFAZ só integram a oferta se forem contratadas e homologadas explicitamente. A recuperação por e-mail requer SMTP configurado e entrega real conferida.
 
-Não vender como disponíveis nesta versão: financeiro contábil completo, contas a pagar/receber integradas, vários materiais por pedido, recebimento parcial, devoluções, folha trabalhista automatizada/eSocial ou conversão automática completa de PDF/imagem. O RH não substitui um sistema especializado de folha e o modelador não certifica projetos técnicos. A contratação e a cobrança podem ser administradas manualmente.
+Não vender como disponíveis nesta versão: financeiro contábil completo, contas a pagar/receber integradas, folha trabalhista automatizada/eSocial ou conversão automática completa de qualquer PDF/imagem. O RH não substitui um sistema especializado de folha e o modelador não certifica projetos técnicos. A contratação e a cobrança podem ser administradas manualmente.
 
 ## Preparar a empresa piloto
 
@@ -31,21 +33,29 @@ Não vender como disponíveis nesta versão: financeiro contábil completo, cont
 
 Registrar evidência, responsável e resultado por cenário. Uma falha deve conter o problema, sua correção e o novo teste; não substituir o histórico por uma aprovação sem evidência.
 
-| ID | Execução e resultado esperado |
-| --- | --- |
-| cadastros | Conferir empresa, usuários, fornecedores, materiais e saldos contra as fontes autorizadas |
-| perfis | Entrar com cada perfil contratado, conferir suas ações permitidas e negar acesso às áreas restritas; verificar saída e troca de senha |
-| projetos | Criar e editar uma obra; rejeitar novos prazos passados e término anterior ao início; preservar datas históricas inalteradas na edição |
-| equipes_os | Escolher contrato; listar somente equipes da mesma obra; mudar contrato e limpar equipe; executar e concluir OS conforme prazo, consumo e aprovações |
-| compras_estoque | Requisitar, cotar, aprovar com responsáveis distintos, receber e conferir saldo/custo; repetir recebimento sem duplicar entrada; negar saldo insuficiente |
-| documentos | Enviar, versionar e baixar documento; conferir integridade e negar download sem permissão |
-| rh_administrativo | Cadastrar funcionário e entregar acesso inicial em canal privado; exigir troca de senha; conferir ponto/ausências/lançamentos e desativação da conta no desligamento |
-| plantas | Calibrar uma referência, traçar e editar em 2D/3D, salvar, reabrir, consultar revisões e publicar somente para a unidade autorizada; conferir impressão fisicamente |
-| isolamento_empresas | Usar duas empresas e tentar acessar registros, seletores e arquivos da outra; não deve haver exposição nem alteração |
-| recuperacao_senha | Receber mensagem real, usar token uma vez e rejeitar reutilização/expiração; conferir invalidação das sessões anteriores |
-| backup_restauracao | Restaurar banco, documentos e configurações em ambiente separado; conferir registros e arquivos e medir tempo de recuperação e perda admissível |
-| capacidade | Executar consultas, cadastros, consumo, uploads e downloads com o volume simultâneo acordado; registrar recursos, falhas e latências e comparar com a meta |
-| atendimento | Abrir e responder uma solicitação, conferir visibilidade por empresa e exportação autorizada; confirmar responsáveis e canal de suporte |
+O escopo ampliado exige também os cenários `orcamento_financeiro`, `pedidos_multiplos` e `conciliacao`, totalizando 16 cenários. Relatórios antigos sem esses cenários não aprovam a oferta ampliada. O piloto automatizado sintético é evidência técnica separada, nunca um aceite humano.
+
+| Novo cenário         | Conferência necessária                                                                                                                              |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| orcamento_financeiro | Aprovar uma revisão, criar títulos, registrar baixa parcial e estorno e conferir orçamento, compromissos e saldos com as fontes da empresa          |
+| pedidos_multiplos    | Aprovar por duas pessoas, emitir pedido de vários materiais, receber parcialmente, devolver e conferir estoque, custo médio e crédito do fornecedor |
+| conciliacao          | Importar extrato autorizado sem duplicidade, conferir sinal/conta/valor, conciliar e desfazer conciliação quando necessário                         |
+
+| ID                  | Execução e resultado esperado                                                                                                                                        |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| cadastros           | Conferir empresa, usuários, fornecedores, materiais e saldos contra as fontes autorizadas                                                                            |
+| perfis              | Entrar com cada perfil contratado, conferir suas ações permitidas e negar acesso às áreas restritas; verificar saída e troca de senha                                |
+| projetos            | Criar e editar uma obra; rejeitar novos prazos passados e término anterior ao início; preservar datas históricas inalteradas na edição                               |
+| equipes_os          | Escolher contrato; listar somente equipes da mesma obra; mudar contrato e limpar equipe; executar e concluir OS conforme prazo, consumo e aprovações                 |
+| compras_estoque     | Requisitar, cotar, aprovar com responsáveis distintos, receber e conferir saldo/custo; repetir recebimento sem duplicar entrada; negar saldo insuficiente            |
+| documentos          | Enviar, versionar e baixar documento; conferir integridade e negar download sem permissão                                                                            |
+| rh_administrativo   | Cadastrar funcionário e entregar acesso inicial em canal privado; exigir troca de senha; conferir ponto/ausências/lançamentos e desativação da conta no desligamento |
+| plantas             | Calibrar uma referência, traçar e editar em 2D/3D, salvar, reabrir, consultar revisões e publicar somente para a unidade autorizada; conferir impressão fisicamente  |
+| isolamento_empresas | Usar duas empresas e tentar acessar registros, seletores e arquivos da outra; não deve haver exposição nem alteração                                                 |
+| recuperacao_senha   | Receber mensagem real, usar token uma vez e rejeitar reutilização/expiração; conferir invalidação das sessões anteriores                                             |
+| backup_restauracao  | Restaurar banco, documentos e configurações em ambiente separado; conferir registros e arquivos e medir tempo de recuperação e perda admissível                      |
+| capacidade          | Executar consultas, cadastros, consumo, uploads e downloads com o volume simultâneo acordado; registrar recursos, falhas e latências e comparar com a meta           |
+| atendimento         | Abrir e responder uma solicitação, conferir visibilidade por empresa e exportação autorizada; confirmar responsáveis e canal de suporte                              |
 
 ## Registrar e conferir o aceite
 

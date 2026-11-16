@@ -109,6 +109,30 @@
       "aprovadoEm": null,
       "evidencia": "",
       "observacoes": ""
+    },
+    {
+      "id": "orcamento_financeiro",
+      "resultado": "PENDENTE",
+      "responsavel": "",
+      "aprovadoEm": null,
+      "evidencia": "",
+      "observacoes": ""
+    },
+    {
+      "id": "pedidos_multiplos",
+      "resultado": "PENDENTE",
+      "responsavel": "",
+      "aprovadoEm": null,
+      "evidencia": "",
+      "observacoes": ""
+    },
+    {
+      "id": "conciliacao",
+      "resultado": "PENDENTE",
+      "responsavel": "",
+      "aprovadoEm": null,
+      "evidencia": "",
+      "observacoes": ""
     }
   ]
 }

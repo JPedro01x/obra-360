@@ -7,6 +7,15 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class DocumentStorageTest {
     @TempDir Path directory;
+    @Test void storageQuotaIncludesRhAndRejectsWriteWithoutLeavingPartialFiles() throws Exception {
+        var storage=new DocumentStorage(directory.toString());
+        org.springframework.test.util.ReflectionTestUtils.setField(storage,"maxBytes",10L);
+        String first=storage.put(new byte[6]);
+        var ex=assertThrows(org.springframework.web.server.ResponseStatusException.class,()->storage.putRh(new byte[5]));
+        assertEquals(507,ex.getStatusCode().value());
+        try(var files=Files.walk(directory)){assertEquals(1,files.filter(Files::isRegularFile).count());}
+        storage.delete(first);String hr=storage.putRh(new byte[10]);assertEquals(10,storage.readRh(hr).length);
+    }
 
     @Test void localFilesPersistAcrossInstancesAndHrRemainsIsolated() throws Exception {
         var storage=new DocumentStorage(directory.toString());

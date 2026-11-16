@@ -1,6 +1,8 @@
 import { test, expect, Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { localCalendarDate } from '../local-calendar';
+import { financialPilot } from './financial-pilot';
+import * as THREE from 'three';
 
 // No HTTP mocks. This journey uses a separate API on 8081, an in-memory test
 // database and files under target/e2e-documents, never the operational database.
@@ -202,11 +204,11 @@ test('complete operation through browser, API and database', async ({
   await page.getByLabel('Senha atual', { exact: true }).fill(password);
   await page.getByLabel('Nova senha (mínimo de 12 caracteres)').fill(changed);
   await save(page);
-  await expect(page.getByRole('heading', { name: 'Acessar Plataforma' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Obra360' })).toBeVisible();
   await login(changed);
   await expect(page.getByRole('cell', { name: 'Obra E2E', exact: true })).toBeVisible();
   await page.getByLabel('Sair da plataforma').click();
-  await page.getByRole('button', { name: 'Esqueci minha senha' }).click();
+  await page.goto('/#recuperar');
   await page.getByLabel('E-mail cadastrado').fill('admin-e2e@test.invalid');
   await page.getByRole('button', { name: 'Enviar link de recuperação' }).click();
   await expect(page.getByRole('status')).toContainText('Se existir uma conta ativa');
@@ -317,13 +319,11 @@ test('complete operation through browser, API and database', async ({
     canvas.getContext('2d')!.fillRect(0, 0, 4, 4);
     return canvas.toDataURL('image/png').split(',')[1];
   });
-  await page
-    .getByLabel(/Foto PNG\/JPEG/)
-    .setInputFiles({
-      name: 'evidencia.png',
-      mimeType: 'image/png',
-      buffer: Buffer.from(photoBytes, 'base64'),
-    });
+  await page.getByLabel(/Foto PNG\/JPEG/).setInputFiles({
+    name: 'evidencia.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(photoBytes, 'base64'),
+  });
   await save(page);
   const occurrence = () => page.getByRole('row').filter({ hasText: 'Ocorrência E2E com foto' });
   await occurrence().getByRole('button', { name: 'Ver evidências', exact: true }).click();
@@ -393,9 +393,7 @@ test('complete operation through browser, API and database', async ({
     .getByLabel('Nova senha (mínimo de 12 caracteres)', { exact: true })
     .fill('SenhaPessoalFuncionario@12345');
   await employeePage.getByRole('button', { name: 'Salvar', exact: true }).click();
-  await expect(
-    employeePage.getByRole('heading', { name: 'Acessar Plataforma', exact: true }),
-  ).toBeVisible();
+  await expect(employeePage.getByRole('heading', { name: 'Obra360', exact: true })).toBeVisible();
   await employeePage.getByLabel('E-mail corporativo').fill('employee-e2e@test.invalid');
   await employeePage.getByLabel('Senha', { exact: true }).fill('SenhaPessoalFuncionario@12345');
   await employeePage.getByRole('button', { name: 'Entrar na plataforma' }).click();
@@ -588,6 +586,59 @@ test('complete operation through browser, API and database', async ({
   await page.mouse.up();
   await expect(page.locator('.model-element-list').getByRole('button')).toHaveCount(1);
   await expect(page.getByLabel('Largura (m)', { exact: true })).toHaveValue('6');
+  // Exercise the actual WebGL gizmo before persisting through the real API.
+  const originalWallX = Number(
+    await page.getByLabel('Posição X (m)', { exact: true }).inputValue(),
+  );
+  const originalWallZ = Number(
+    await page.getByLabel('Posição Z (m)', { exact: true }).inputValue(),
+  );
+  const wallHeight = Number(await page.getByLabel('Altura (m)', { exact: true }).inputValue());
+  const wallDepth = Number(await page.getByLabel('Espessura (m)', { exact: true }).inputValue());
+  await page.getByLabel('Modo de visualização do modelo', { exact: true }).selectOption('3d');
+  await page.getByRole('button', { name: 'Enquadrar modelo', exact: true }).click();
+  await page.getByRole('button', { name: 'Mover 3D', exact: true }).click();
+  const viewport = page.getByRole('img', { name: 'Vista 3D do modelo', exact: true });
+  await viewport.scrollIntoViewIfNeeded();
+  const bounds = (await viewport.boundingBox())!,
+    radius = new THREE.Vector3(6, wallHeight, wallDepth).length() * 0.8;
+  const camera = new THREE.PerspectiveCamera(45, bounds.width / bounds.height, 0.01, 50000);
+  camera.position.set(
+    originalWallX + radius,
+    wallHeight / 2 + radius * 0.8,
+    originalWallZ + radius,
+  );
+  camera.lookAt(originalWallX, wallHeight / 2, originalWallZ);
+  camera.updateMatrixWorld();
+  const factor =
+    (camera.position.distanceTo(new THREE.Vector3(originalWallX, 0, originalWallZ)) *
+      1.9 *
+      Math.tan((45 * Math.PI) / 360) *
+      1.05) /
+    4;
+  const projected = (offset: number) => {
+    const p = new THREE.Vector3(originalWallX + offset, 0, originalWallZ).project(camera);
+    return {
+      x: bounds.x + ((p.x + 1) * bounds.width) / 2,
+      y: bounds.y + ((1 - p.y) * bounds.height) / 2,
+    };
+  };
+  const grip = projected(factor * 0.45),
+    destination = projected(factor * 0.45 + 1);
+  await page.mouse.move(grip.x, grip.y);
+  await page.mouse.down();
+  await page.mouse.move(destination.x, destination.y, { steps: 12 });
+  await page.mouse.up();
+  await expect
+    .poll(async () => Number(await page.getByLabel('Posição X (m)', { exact: true }).inputValue()))
+    .toBeCloseTo(originalWallX + 1, 1);
+  const transformedWallX = Number(
+    await page.getByLabel('Posição X (m)', { exact: true }).inputValue(),
+  );
+  await page
+    .locator('.model-three')
+    .screenshot({ path: testInfo.outputPath('edicao-3d-real.png') });
+  await page.getByLabel('Modo de visualização do modelo', { exact: true }).selectOption('split');
   await page.getByLabel('Rotação Y (graus)', { exact: true }).fill('30');
   await page.getByRole('button', { name: 'Aplicar propriedades', exact: true }).click();
   await page.getByRole('button', { name: 'Adicionar porta', exact: true }).click();
@@ -637,7 +688,21 @@ test('complete operation through browser, API and database', async ({
       response.request().method() === 'GET' &&
       response.status() === 204,
   );
+  const savedGeometry = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'PUT' &&
+      /\/modelador\/modelos\/\d+$/.test(new URL(response.url()).pathname),
+  );
   await page.getByRole('button', { name: 'Salvar modelo', exact: true }).click();
+  const savedBody = await (await savedGeometry).json();
+  expect(
+    savedBody.documento.elementos.filter((e: { tipo: string }) => e.tipo === 'PAREDE'),
+  ).toHaveLength(2);
+  expect(
+    savedBody.documento.elementos
+      .filter((e: { tipo: string }) => e.tipo === 'PAREDE')
+      .every((e: { x: number }) => Math.abs(e.x - transformedWallX) < 0.0001),
+  ).toBe(true);
   await removedDraft;
   await expect(page.getByText('Salvo · revisão 2', { exact: true })).toBeVisible();
   const engineerContext = await page.context().browser()!.newContext();
@@ -892,7 +957,9 @@ test('complete operation through browser, API and database', async ({
   await guestPage.getByRole('button', { name: 'Criar meu acesso', exact: true }).click();
   await expect(guestPage.getByLabel('E-mail corporativo')).toBeVisible();
   await guest.close();
-  await expect(page.getByRole('button', { name: 'Configurar autenticador', exact: true })).toHaveCount(0);
+  await expect(
+    page.getByRole('button', { name: 'Configurar autenticador', exact: true }),
+  ).toHaveCount(0);
   await expect(page.getByLabel('Código de duas etapas (se ativado)')).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('conta-atendimento.png'), fullPage: true });
   const oldToken = await page.evaluate(() => sessionStorage.getItem('obra360_access_token'));
@@ -916,4 +983,7 @@ test('complete operation through browser, API and database', async ({
   await expect(page.getByRole('img', { name: 'Planta 2D em metros', exact: true })).toBeVisible();
   await expect(page.getByRole('img', { name: 'Vista 3D do modelo', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Salvar modelo', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Sair da plataforma', exact: true }).click();
+  await login('SenhaRecuperadaE2e@12345');
+  await financialPilot(page, request, testInfo);
 });

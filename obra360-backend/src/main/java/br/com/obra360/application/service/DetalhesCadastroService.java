@@ -13,7 +13,8 @@ import java.util.function.Predicate;
 @Transactional(readOnly=true)
 public class DetalhesCadastroService {
     private final EntityManager em;
-    public DetalhesCadastroService(EntityManager em){this.em=em;}
+    private final FinanceiroObraService finance;
+    public DetalhesCadastroService(EntityManager em,FinanceiroObraService finance){this.em=em;this.finance=finance;}
     public record Column(String label,String type){}
     public record Section(String key,String title,String resource,List<Column> columns,List<List<Object>> rows,long total,int page){}
     public record Metric(String label,Object value,String type,String note){}
@@ -54,7 +55,12 @@ public class DetalhesCadastroService {
             v.metrics.add(new Metric("Engenheiro responsável",engineer.isEmpty()?null:engineer.get(0),"text","Responsável cadastrado na obra."));
             v.metrics.add(new Metric("Evolução do cronograma",value("avg(e.percentualExecutado)","from EtapaCronogramaEntity e join ProjetoObraEntity p on p.id=e.projetoObraId where p.empresaId=:tenant and p.id=:id",id),"percent","Média simples das etapas cadastradas; sem etapas, evolução não informada."));
             if(readable.test("contratos")){
-                v.metrics.add(new Metric("Investimento aprovado",null,"money","Nenhum orçamento de investimento aprovado informado nesta visão."));
+                var financial=finance.summary(id);
+                v.metrics.add(new Metric("Investimento aprovado",financial.get("investimentoAprovado"),"money","Última revisão aprovada do orçamento da obra."));
+                v.metrics.add(new Metric("Despesas comprometidas",financial.get("despesasComprometidas"),"money","Títulos a pagar ativos. Não soma novamente contratos, compras e consumo."));
+                v.metrics.add(new Metric("Pagamentos registrados",financial.get("pagamentosRegistrados"),"money","Baixas registradas, descontados os estornos. Não executa transferências bancárias."));
+                v.metrics.add(new Metric("Créditos por devolução",financial.get("creditosDevolucao"),"money","Créditos a receber do fornecedor; não comprovam reembolso bancário."));
+                v.metrics.add(new Metric("Saldo do orçamento",financial.get("saldoOrcamento"),"money","Investimento aprovado menos despesas comprometidas, descontados créditos por devolução."));
                 v.metrics.add(new Metric("VGV estimado",p.getVgvEstimado(),"money","Estimativa de vendas; não é o investimento nem o orçamento da obra."));
                 v.metrics.add(new Metric("Contratos ativos",value("coalesce(sum(e.valorTotal),0)","from ContratoServicoEntity e where e.empresaId=:tenant and e.projetoObraId=:id and e.ativo=true",id),"money","Compromissos contratados; não comprovam pagamento."));
                 v.metrics.add(new Metric("Materiais consumidos",value("coalesce(sum(e.custoTotalInsumo),0)","from ConsumoOrdemEntity e join ItemEstoqueEntity i on i.id=e.itemEstoqueId where i.empresaId=:tenant and i.projetoObraId=:id",id),"money","Consumos registrados nas OS; não representa o gasto total da obra."));

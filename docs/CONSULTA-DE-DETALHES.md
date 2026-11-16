@@ -12,7 +12,7 @@ Equipes mostram membros e OS; fornecedores mostram contratos e cotações; contr
 
 - **Evolução:** média simples do percentual executado das etapas cadastradas. Sem etapas, aparece “Não informado”. Não usa o tempo transcorrido como progresso físico nem aplica pesos que não foram cadastrados.
 - **VGV estimado:** estimativa de vendas, não investimento.
-- **Investimento aprovado:** não há orçamento específico disponível nessa visão; fica “Não informado”.
+- **Investimento aprovado:** última revisão aprovada em Orçamento e financeiro; sem aprovação, fica “Não informado”.
 - **Contratos ativos:** soma dos contratos ativos, não comprovação de pagamento.
 - **Materiais consumidos:** soma dos custos registrados em consumo de OS.
 - **Compras recebidas:** soma dos valores das movimentações vinculadas às requisições recebidas. Não deve ser somada ao consumo dos mesmos materiais como se fosse uma despesa diferente.

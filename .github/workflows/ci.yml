@@ -2,9 +2,16 @@ name: Obra360 Enterprise CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main ]
   pull_request:
     branches: [ main ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   production-image:
@@ -22,6 +29,7 @@ jobs:
   backend-build-test:
     name: Backend Java 21 & Spring Boot Build
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -33,9 +41,25 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Build and Run Backend Unit Tests
+      - name: Build Package and Run Backend Unit Tests
         working-directory: obra360-backend
-        run: mvn clean test --batch-mode
+        run: mvn clean verify --batch-mode
+
+      - name: Set up Node for Java Dependency Audit
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Reject Java Dependencies with Known Advisories
+        run: node scripts/audit-java-dependencies.mjs
+
+      - name: Keep Dependency Audit Evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: java-dependency-audit
+          path: test-results/java-dependencies-*.json
+          if-no-files-found: ignore
 
   frontend-build-test:
     name: Frontend React 18, Vite & Playwright E2E Suite
@@ -69,7 +93,7 @@ jobs:
         run: npm run test:backup
 
       - name: Verify Protected Test Credentials
-        run: node --test scripts/homologacao-credentials.test.mjs scripts/pilot-acceptance.test.mjs scripts/operations-local.test.mjs
+        run: node --test scripts/homologacao-credentials.test.mjs scripts/pilot-acceptance.test.mjs scripts/operations-local.test.mjs scripts/dependency-audit-policy.test.mjs
 
       - name: Set up Java for Integrated Browser Journey
         uses: actions/setup-java@v4

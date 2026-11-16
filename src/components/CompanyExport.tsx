@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { requestApi } from '../services/http';
+import { AsyncCompanyExport } from './AsyncCompanyExport';
 export function CompanyExport() {
   const [message, setMessage] = useState(''),
     [busy, setBusy] = useState(false);
@@ -9,7 +10,8 @@ export function CompanyExport() {
       <p>
         Baixa os registros operacionais, RH, modelos e arquivos. O ZIP contém dados pessoais e deve
         ser guardado em local privado. Credenciais, sessões e segredos não são incluídos. Limite por
-        download: 25 MB e 10 mil registros; volumes maiores exigem exportação assistida.
+        download imediato: 25 MB e 10 mil registros. Para volumes maiores, use a exportação em
+        segundo plano abaixo.
       </p>
       {message && <p role="status">{message}</p>}
       <form
@@ -53,6 +55,7 @@ export function CompanyExport() {
         </label>
         <button disabled={busy}>Baixar exportação privada</button>
       </form>
+      <AsyncCompanyExport />
     </section>
   );
 }

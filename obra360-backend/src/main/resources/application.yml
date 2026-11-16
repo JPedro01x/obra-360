@@ -11,6 +11,9 @@ management:
           include: readinessState,db
 
 spring:
+  http:
+    converters:
+      preferred-json-mapper: jackson2
   servlet:
     multipart:
       max-file-size: 20MB

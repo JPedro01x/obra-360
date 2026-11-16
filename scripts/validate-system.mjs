@@ -10,7 +10,11 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import EmbeddedPostgres from 'embedded-postgres';
 
 // No target URL or operational database can be supplied to this harness.
-assert.equal(process.argv.length, 2, 'Este laboratório não aceita servidor ou banco externo.');
+const stress = process.argv.length === 3 && process.argv[2] === '--stress';
+assert(
+  process.argv.length === 2 || stress,
+  'Use sem argumentos ou --stress. Não aceita servidor ou banco externo.',
+);
 const root = fileURLToPath(new URL('../', import.meta.url));
 const jar = path.join(root, 'obra360-backend/target/obra360-backend-1.0.0-SNAPSHOT.jar');
 const jarBytes = await readFile(jar);
@@ -51,6 +55,7 @@ let app,
   serverStarted = false;
 const report = {
   data: new Date().toISOString(),
+  modo: stress ? 'SOBRECARGA_CONTROLADA' : 'CARGA_NOMINAL',
   jarSha256: createHash('sha256').update(jarBytes).digest('hex'),
   ambiente: {
     banco: 'PostgreSQL isolado',
@@ -168,7 +173,7 @@ try {
           OBRA360_SETUP_ENABLED: 'true',
           OBRA360_SECURITY_REQUESTS_PER_MINUTE: '100000',
           OBRA360_STORAGE_DIRECTORY: path.join(lab, 'documentos'),
-         
+
           AI_ENABLED: 'false',
           EMAIL_ENABLED: 'false',
           SEFAZ_ENABLED: 'false',
@@ -246,8 +251,12 @@ try {
     engenheiroResponsavelId: engineer.id,
     areaTotalM2: 100,
     vgvEstimado: 1000,
-    dataInicio: new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date()),
-    dataPrevisaoFim: new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date(Date.now() + 30 * 86400000)),
+    dataInicio: new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(
+      new Date(),
+    ),
+    dataPrevisaoFim: new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(
+      new Date(Date.now() + 30 * 86400000),
+    ),
   });
   const item = await create('/estoque', {
     projetoObraId: project.id,
@@ -461,28 +470,129 @@ try {
     },
   );
 
+  const budget = await create('/gestao/orcamentos', {
+    projetoObraId: project.id,
+    valorAprovado: 1000,
+    justificativa: 'Orçamento do laboratório de carga isolado',
+  });
+  await api(`/workspace/gestao/orcamentos/${budget.id}/aprovar`, {
+    method: 'POST',
+    body: { versao: budget.versao },
+  });
+  const title = await create('/gestao/titulos', {
+    projetoObraId: project.id,
+    empresaId: foreignCompany,
+    tipo: 'PAGAR',
+    categoria: 'SERVICOS',
+    descricao: 'Título sintético para concorrência',
+    contraparte: 'Fixture do laboratório',
+    valor: 100,
+    vencimento: new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(
+      new Date(),
+    ),
+  });
+  assert.equal(
+    title.empresaId,
+    login.empresaId,
+    'Empresa enviada pelo cliente não pode substituir a identidade autenticada.',
+  );
+  const paymentKey = randomUUID(),
+    payment = {
+      versao: title.versao,
+      valor: 1,
+      data: new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date()),
+      conta: 'LAB-ISOLADO',
+      observacao: 'Comprovante sintético de concorrência',
+      chave: paymentKey,
+    };
+  const same = await pool(30, 15, () =>
+    api(`/workspace/gestao/titulos/${title.id}/baixar`, { method: 'POST', body: payment }),
+  );
+  assert.equal(new Set(same.map((r) => r.value.id)).size, 1);
+  const current = (
+    await api(`/workspace/gestao/registros/titulos?projetoObraId=${project.id}`)
+  ).value.items.find((t) => t.id === title.id);
+  const settlements = await pool(30, 15, async () => {
+    const response = await fetch(
+      `http://127.0.0.1:${appPort}/api/v1/workspace/gestao/titulos/${title.id}/baixar`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...payment, versao: current.versao, chave: randomUUID() }),
+        signal: AbortSignal.timeout(20000),
+      },
+    );
+    await response.arrayBuffer();
+    return response.status;
+  });
+  assert.equal(settlements.filter((s) => s === 200).length, 1);
+  assert.equal(settlements.filter((s) => s === 409).length, 29);
+  const ledger = (
+    await database.query(
+      'select t.baixado,coalesce(sum(b.valor),0) as soma,count(b.id)::int as baixas from titulo_financeiro t left join baixa_financeira b on b.titulo_id=t.id where t.id=$1 group by t.id',
+      [title.id],
+    )
+  ).rows[0];
+  assert.equal(Number(ledger.baixado), 2);
+  assert.equal(Number(ledger.soma), 2);
+  assert.equal(ledger.baixas, 2);
+  await api(`/workspace/gestao/titulos/${title.id}/baixar`, {
+    method: 'POST',
+    body: { ...payment, valor: 2 },
+    expected: 409,
+  });
+  await api(`/workspace/detalhes/projetos/${project.id}`, { auth: outside, expected: 404 });
+  report.integridade.push(
+    { teste: '30 baixas simultâneas com mesma chave', registrosGerados: 1 },
+    {
+      teste: '30 baixas com mesma versão e chaves distintas',
+      aprovadas: 1,
+      conflitosEsperados: 29,
+      valorBaixado: 2,
+      somaLancamentos: 2,
+    },
+  );
+  report.seguranca.push(
+    'Mass assignment não altera empresa do título',
+    'Detalhes da obra não acessíveis por outra empresa',
+  );
+
   await database.query(
     "INSERT INTO item_estoque(empresa_id,projeto_obra_id,sku,nome,categoria,unidade_medida) SELECT $1,$2,'LOAD-'||n,'Material '||n,'Fixture','un' FROM generate_series(1,1000) n",
     [login.empresaId, project.id],
   );
   await pool(20, 5, () => api('/workspace/resumo'));
-  for (const [concurrency, count] of [
+  const stages = [
     [5, 150],
     [15, 300],
     [30, 450],
-  ]) {
+  ];
+  if (stress) stages.push([60, 600], [100, 900], [200, 1200]);
+  const routes = stress
+    ? [
+        '/workspace/resumo',
+        `/workspace/registros/estoque?page=0&size=25`,
+        `/workspace/gestao/resumo/${project.id}`,
+        `/workspace/detalhes/projetos/${project.id}`,
+        `/workspace/gestao/registros/titulos?projetoObraId=${project.id}`,
+      ]
+    : null;
+  report.rotasCarga = routes || ['/workspace/resumo', '/workspace/registros/estoque'];
+  for (const [concurrency, count] of stages) {
     const started = performance.now();
     const responses = await pool(count, concurrency, async (index) => {
       const before = performance.now();
       try {
         await api(
-          index % 2
-            ? `/workspace/registros/estoque?page=${index % 20}&size=25`
-            : '/workspace/resumo',
+          routes
+            ? routes[index % routes.length]
+            : index % 2
+              ? `/workspace/registros/estoque?page=${index % 20}&size=25`
+              : '/workspace/resumo',
         );
         return { ms: performance.now() - before, error: false };
-      } catch {
-        return { ms: performance.now() - before, error: true };
+      } catch (error) {
+        return { ms: performance.now() - before, error: true, status: error.actual || error.name };
       }
     });
     const elapsed = performance.now() - started,
@@ -491,6 +601,12 @@ try {
       concorrencia: concurrency,
       requisicoes: count,
       erros: responses.filter((response) => response.error).length,
+      falhasPorTipo: responses
+        .filter((r) => r.error)
+        .reduce((counts, r) => {
+          counts[r.status] = (counts[r.status] || 0) + 1;
+          return counts;
+        }, {}),
       p50Ms: percentile(sorted, 0.5),
       p95Ms: percentile(sorted, 0.95),
       p99Ms: percentile(sorted, 0.99),
@@ -499,8 +615,27 @@ try {
     };
     report.capacidade.push(stage);
     console.log(JSON.stringify(stage));
-    if (stage.erros > count * 0.05) break;
+    if (stage.erros > count * 0.05 || stage.p95Ms > 5000) break;
   }
+  const recovered = await pool(25, 5, async () => {
+    const start = performance.now();
+    await api('/workspace/resumo');
+    return performance.now() - start;
+  });
+  const after = Number(
+    (await database.query('select baixado from titulo_financeiro where id=$1', [title.id])).rows[0]
+      .baixado,
+  );
+  assert.equal(after, 2);
+  report.recuperacaoAposCarga = {
+    consultas: recovered.length,
+    erros: 0,
+    p95Ms: percentile(
+      recovered.sort((a, b) => a - b),
+      0.95,
+    ),
+    saldoFinanceiroPreservado: true,
+  };
   report.migracoes = Number(
     (await database.query('SELECT count(*) FROM flyway_schema_history WHERE success=true')).rows[0]
       .count,
@@ -512,9 +647,16 @@ try {
       )
     ).rows[0].count,
   );
+  report.cargaNominalAprovada =
+    report.capacidade.length >= 3 &&
+    report.capacidade.slice(0, 3).every((stage) => stage.erros === 0 && stage.p95Ms <= 2000);
   report.aprovado =
-    report.capacidade.length === 3 &&
-    report.capacidade.every((stage) => stage.erros === 0 && stage.p95Ms <= 2000);
+    report.cargaNominalAprovada &&
+    report.capacidade.length === stages.length &&
+    report.capacidade.every((stage) => stage.erros === 0);
+  report.maiorConcorrenciaDentroDaMeta =
+    report.capacidade.filter((s) => s.erros === 0 && s.p95Ms <= 2000).at(-1)?.concorrencia || 0;
+  report.sobrecargaCaracterizada = stress;
   if (!report.aprovado) process.exitCode = 1;
 } catch (error) {
   report.aprovado = false;
