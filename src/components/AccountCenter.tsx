@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { requestApi } from '../services/http';
+import React, { useEffect, useRef, useState } from 'react';
+import { ApiError, requestApi } from '../services/http';
 import { UserInvitations } from './UserInvitations';
 import { LicenseUsage } from './LicenseUsage';
 import { CompanyExport } from './CompanyExport';
@@ -20,17 +20,46 @@ export function AccountCenter({ admin }: { admin: boolean }) {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
+  const [page, setPage] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [status, setStatus] = useState('');
+  const [category, setCategory] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [revision, setRevision] = useState(0);
+  const ticketRequest = useRef(0);
+  const size = 20;
   const load = async () => {
-    const [s, t] = await Promise.all([
-      requestApi<Session[]>('/v1/workspace/minhas-sessoes'),
-      requestApi<Ticket[]>('/v1/workspace/atendimento'),
-    ]);
-    setSessions(s);
-    setTickets(t);
+    setSessions(await requestApi<Session[]>('/v1/workspace/minhas-sessoes'));
+    setRevision((value) => value + 1);
   };
   useEffect(() => {
-    load().catch((e) => setMessage(e.message));
+    requestApi<Session[]>('/v1/workspace/minhas-sessoes').then(setSessions).catch((e) => setMessage(e.message));
   }, []);
+  useEffect(() => {
+    const sequence = ++ticketRequest.current;
+    const controller = new AbortController();
+    setLoading(true);
+    setTickets([]);
+    const params = new URLSearchParams({ page: String(page), size: String(size) });
+    if (status) params.set('status', status);
+    if (category) params.set('categoria', category);
+    requestApi<{ items: Ticket[]; total: number; page: number; size: number }>(
+      `/v1/workspace/atendimento/pagina?${params}`, { signal: controller.signal },
+    ).then((result) => {
+      if (sequence !== ticketRequest.current || controller.signal.aborted) return;
+      if (page > 0 && page * size >= result.total) {
+        setPage(Math.max(0, Math.ceil(result.total / size) - 1));
+        return;
+      }
+      setTickets(result.items);
+      setTotal(result.total);
+    }).catch((error) => {
+      if (sequence === ticketRequest.current && !controller.signal.aborted) setMessage(error.message);
+    }).finally(() => {
+      if (sequence === ticketRequest.current && !controller.signal.aborted) setLoading(false);
+    });
+    return () => { controller.abort(); };
+  }, [page, status, category, revision, admin]);
   const run = async (action: () => Promise<void>) => {
     setBusy(true);
     setMessage('');
@@ -39,6 +68,7 @@ export function AccountCenter({ admin }: { admin: boolean }) {
       await load();
     } catch (e) {
       setMessage((e as Error).message);
+      if (e instanceof ApiError && e.status === 409) setRevision((value) => value + 1);
     } finally {
       setBusy(false);
     }
@@ -129,7 +159,28 @@ export function AccountCenter({ admin }: { admin: boolean }) {
         </button>
       </form>
       <h2>{admin ? 'Solicitações da empresa' : 'Minhas solicitações'}</h2>
-      {!tickets.length && <p>Nenhuma solicitação registrada.</p>}
+      <div>
+        <label>Situação das solicitações
+          <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(0); }}>
+            <option value="">Todas</option><option value="ABERTO">Aberto</option>
+            <option value="EM_ANALISE">Em análise</option><option value="CONCLUIDO">Concluído</option>
+          </select>
+        </label>
+        <label>Categoria das solicitações
+          <select value={category} onChange={(e) => { setCategory(e.target.value); setPage(0); }}>
+            <option value="">Todas</option><option value="SUPORTE">Suporte</option>
+            <option value="PRIVACIDADE">Privacidade</option><option value="EXPORTACAO">Exportação</option>
+            <option value="EXCLUSAO">Exclusão</option><option value="CANCELAMENTO">Cancelamento</option>
+          </select>
+        </label>
+      </div>
+      {loading && <p role="status">Carregando solicitações…</p>}
+      {!loading && !tickets.length && <p>Nenhuma solicitação encontrada.</p>}
+      <nav aria-label="Paginação das solicitações">
+        <button disabled={loading || page === 0} onClick={() => setPage((value) => value - 1)}>Anterior</button>
+        <span> Página {page + 1} de {Math.max(1, Math.ceil(total / size))} · {total} solicitações </span>
+        <button disabled={loading || (page + 1) * size >= total} onClick={() => setPage((value) => value + 1)}>Próxima</button>
+      </nav>
       {tickets.map((t) => (
         <article key={t.id} className="ws-service-panel">
           <h3>

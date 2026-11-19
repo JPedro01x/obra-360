@@ -19,12 +19,16 @@ public class OperatorCommand implements CommandLineRunner {
             System.out.println(retention.clean(Long.valueOf(required("OP_COMPANY_ID")),Integer.parseInt(env.getProperty("OP_RETENTION_DAYS","90")),Boolean.parseBoolean(env.getProperty("OP_APPLY","false"))));
             SpringApplication.exit(context,()->0);return;
         }
+        if("limpar-mensageria".equals(action)){
+            System.out.println(retention.cleanMessaging(Long.valueOf(required("OP_COMPANY_ID")),Integer.parseInt(env.getProperty("OP_RETENTION_DAYS","90")),Boolean.parseBoolean(env.getProperty("OP_APPLY","false"))));
+            SpringApplication.exit(context,()->0);return;
+        }
         int users=Integer.parseInt(required("OP_LIMIT_USERS")),projects=Integer.parseInt(required("OP_LIMIT_PROJECTS")),models=Integer.parseInt(required("OP_LIMIT_MODELS"));
         if("criar-empresa".equals(action)){
             Long id=service.create(required("OP_COMPANY_NAME"),required("OP_LEGAL_NAME"),required("OP_CNPJ"),required("OP_ADMIN_NAME"),required("OP_ADMIN_EMAIL"),required("OP_ADMIN_PASSWORD"),required("OP_DATA_ENVIRONMENT"),users,projects,models);
             System.out.println("Empresa provisionada. ID="+id+". Cadastro informado pelo operador; veracidade não atestada automaticamente.");
         }else if("ajustar-limites".equals(action)){service.license(Long.valueOf(required("OP_COMPANY_ID")),users,projects,models,required("OP_PLAN"));System.out.println("Limites atualizados.");}
-        else throw new IllegalArgumentException("OP_ACTION deve ser criar-empresa, ajustar-limites ou limpar-expirados.");
+        else throw new IllegalArgumentException("OP_ACTION deve ser criar-empresa, ajustar-limites, limpar-expirados ou limpar-mensageria.");
         SpringApplication.exit(context,()->0);
     }
 }

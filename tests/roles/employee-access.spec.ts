@@ -36,7 +36,6 @@ test('COLABORADOR: first password, personal portal, restricted access and logout
   const initialPassword = employee.acessoInicial.senha;
   const personalPassword = 'SenhaPessoalAuditoria@12345';
   async function enter(password: string) {
-    await page.locator('input[type=radio][value="COLABORADOR"]').check();
     await page.getByLabel('E-mail corporativo', { exact: true }).fill(email);
     await page.getByLabel('Senha', { exact: true }).fill(password);
     await page.getByRole('button', { name: 'Entrar na plataforma', exact: true }).click();

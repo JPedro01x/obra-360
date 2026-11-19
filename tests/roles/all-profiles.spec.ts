@@ -290,7 +290,6 @@ for (const role of roles)
         issues.push(`${r.request().method()} ${new URL(r.url()).pathname}: ${r.status()}`);
     });
     await page.goto('/');
-    await page.locator(`input[type=radio][value="${role}"]`).check();
     await page.getByLabel('E-mail corporativo', { exact: true }).fill(email(role));
     await page.getByLabel('Senha', { exact: true }).fill(password);
     await page.getByRole('button', { name: 'Entrar na plataforma', exact: true }).click();
@@ -305,7 +304,19 @@ for (const role of roles)
       await page.locator('.ws-sidebar nav').getByRole('button', { name, exact: true }).click();
       await page.waitForLoadState('networkidle');
       await expect(page.locator('main h1').first()).toBeVisible();
-      await expect(page.locator('main [role=alert]')).toHaveCount(0);
+      if (name === 'Integrações' && ['SUPER_ADMIN', 'GERENTE_OBRA', 'AUDITOR'].includes(role)) {
+        const currentToken = await page.evaluate(() => sessionStorage.getItem('obra360_access_token'));
+        const statusResponse = await page.request.get(base + '/workspace/mensageria', {
+          headers: { Authorization: `Bearer ${currentToken}` },
+        });
+        expect(statusResponse.status()).toBe(200);
+        const status = await statusResponse.json();
+        await expect(page.getByRole('region', { name: 'Mensageria operacional' })
+          .getByText('A mensageria requer atenção.', { exact: true }))
+          .toHaveCount(status.requerAtencao ? 1 : 0);
+        // Queued fixtures with Kafka disabled require an operational warning, not an API error.
+        await expect(page.locator('main [role=alert]').filter({ hasNotText: /^A mensageria requer atenção\.$/ })).toHaveCount(0);
+      } else await expect(page.locator('main [role=alert]')).toHaveCount(0);
       visited.push(name);
       if (name === 'Recursos humanos') {
         const tabs = (

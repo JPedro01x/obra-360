@@ -7,6 +7,7 @@
     "node": "^20.19.0 || >=22.12.0"
   },
   "scripts": {
+    "kafka:local": "node scripts/kafka-local.mjs",
     "acessos:homologacao": "node scripts/acessos-homologacao.mjs",
     "verificar:producao": "node scripts/production-check.mjs",
     "monitorar:producao": "node scripts/production-health.mjs",
@@ -17,7 +18,7 @@
     "test:system": "node scripts/validate-system.mjs",
     "test:stress": "node scripts/validate-system.mjs --stress",
     "audit:java": "node scripts/audit-java-dependencies.mjs",
-    "test:delivery-policy": "node --test scripts/dependency-audit-policy.test.mjs scripts/pilot-acceptance.test.mjs scripts/operations-local.test.mjs",
+    "test:delivery-policy": "node --test scripts/dependency-audit-policy.test.mjs scripts/pilot-acceptance.test.mjs scripts/operations-local.test.mjs scripts/kafka-autostart.test.mjs",
     "backup": "node scripts/backup.mjs create",
     "backup:restore": "node scripts/backup.mjs restore",
     "backup:production": "node scripts/backup-production.mjs",

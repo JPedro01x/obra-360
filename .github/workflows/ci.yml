@@ -18,6 +18,11 @@ jobs:
     name: Test production Compose, HTTPS and backup restoration
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    strategy:
+      matrix:
+        messaging: [false, true]
+    env:
+      OBRA360_COMPOSE_MESSAGING: ${{ matrix.messaging }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -89,11 +94,14 @@ jobs:
       - name: Run Playwright End-to-End Tests
         run: npx playwright test
 
+      - name: Verify Support Pagination and Messaging Panel
+        run: npx playwright test --config playwright.atendimento.config.ts
+
       - name: Verify Backup and Restore
         run: npm run test:backup
 
       - name: Verify Protected Test Credentials
-        run: node --test scripts/homologacao-credentials.test.mjs scripts/pilot-acceptance.test.mjs scripts/operations-local.test.mjs scripts/dependency-audit-policy.test.mjs
+        run: node --test scripts/homologacao-credentials.test.mjs scripts/pilot-acceptance.test.mjs scripts/operations-local.test.mjs scripts/dependency-audit-policy.test.mjs scripts/kafka-autostart.test.mjs
 
       - name: Set up Java for Integrated Browser Journey
         uses: actions/setup-java@v4

@@ -8,6 +8,16 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.jupiter.api.Assertions.*;
 
 class RateLimitingFilterTest {
+    @Test void sharedModeFailsClosedAndPreservesRetryAfter() throws Exception {
+        var limits=org.mockito.Mockito.mock(br.com.obra360.application.service.SharedUsageLimits.class);
+        org.mockito.Mockito.when(limits.enabled()).thenReturn(true);
+        var filter=new RateLimitingFilter();ReflectionTestUtils.setField(filter,"sharedLimits",limits);
+        var request=new MockHttpServletRequest();request.setRemoteAddr("192.0.2.1");
+        var response=new MockHttpServletResponse();filter.doFilter(request,response,(req,res)->fail("Must reject"));
+        assertEquals(429,response.getStatus());assertNotNull(response.getHeader("Retry-After"));
+        org.mockito.Mockito.when(limits.allow("http","192.0.2.1",100)).thenThrow(new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE));
+        response=new MockHttpServletResponse();filter.doFilter(request,response,(req,res)->fail("Must fail closed"));assertEquals(503,response.getStatus());
+    }
     @Test void forwardedHeadersCannotEvadeLimitAndResponseHasRetryAfter() throws Exception {
         var filter=new RateLimitingFilter();ReflectionTestUtils.setField(filter,"limit",2);
         for(int i=0;i<3;i++) {

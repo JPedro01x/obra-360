@@ -12,6 +12,7 @@ import static org.junit.jupiter.api.Assertions.*;
 /** Real embedded server: MockMvc alone cannot catch missing runtime persistence beans. */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
     "spring.profiles.active=dev",
+    "obra360.storage.directory=${java.io.tmpdir}/obra360-runtime-startup-${random.uuid}",
     "spring.datasource.url=jdbc:h2:mem:runtime_startup;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
     "spring.datasource.username=sa", "spring.datasource.password=",
     "spring.datasource.driver-class-name=org.h2.Driver",

@@ -30,6 +30,7 @@ const rootFiles = new Set([
   'playwright.demo.config.ts',
   'playwright.integrated.config.ts',
   'playwright.roles.config.ts',
+  'playwright.atendimento.config.ts',
 ]);
 const isSource = (name) =>
   rootFiles.has(name) ||

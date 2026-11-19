@@ -1,0 +1,24 @@
+package br.com.obra360.application.service;
+
+import br.com.obra360.infrastructure.security.TenantContext;
+import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.io.TempDir;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.*;
+import org.springframework.transaction.support.TransactionTemplate;
+import java.nio.file.*;
+import static org.junit.jupiter.api.Assertions.*;
+class TenantStorageQuotaTest {
+ @TempDir Path dir; JdbcTemplate jdbc; TenantStorageQuota quota; DataSourceTransactionManager manager;
+ @BeforeEach void setup(){var ds=new DriverManagerDataSource("jdbc:h2:mem:"+java.util.UUID.randomUUID()+";DB_CLOSE_DELAY=-1","sa","");jdbc=new JdbcTemplate(ds);manager=new DataSourceTransactionManager(ds);new org.springframework.jdbc.datasource.init.ResourceDatabasePopulator(new org.springframework.core.io.ClassPathResource("db/migration/V32__shared_usage_limits.sql"),new org.springframework.core.io.ClassPathResource("db/migration/V33__tenant_storage_ledger.sql")).execute(ds);quota=new TenantStorageQuota(jdbc,manager,10);}
+ @AfterEach void clear(){TenantContext.clear();}
+ DocumentStorage storage(){var s=new DocumentStorage(dir.toString());org.springframework.test.util.ReflectionTestUtils.setField(s,"tenantQuota",quota);return s;}
+ @Test void tenantsHaveIndependentBudgetsAndDeletionReleasesBytes() throws Exception {var s=storage();TenantContext.setCurrentTenant(1L);String a=s.put(new byte[8]);assertThrows(org.springframework.web.server.ResponseStatusException.class,()->s.putRh(new byte[3]));TenantContext.setCurrentTenant(2L);String b=s.putRh(new byte[10]);assertThrows(org.springframework.web.server.ResponseStatusException.class,()->s.read(a));TenantContext.setCurrentTenant(1L);s.delete(a);assertEquals(10,s.read(s.put(new byte[10])).length);TenantContext.setCurrentTenant(2L);assertEquals(10,s.readRh(b).length);}
+ @Test void alternateUuidCaseCannotBypassLedgerOwner() throws Exception {var s=storage();TenantContext.setCurrentTenant(1L);String ref=s.put(new byte[2]);TenantContext.setCurrentTenant(2L);assertThrows(org.springframework.web.server.ResponseStatusException.class,()->s.read(ref.toUpperCase(java.util.Locale.ROOT)));assertThrows(org.springframework.web.server.ResponseStatusException.class,()->s.delete(ref.toUpperCase(java.util.Locale.ROOT)));}
+ @Test void rollbackRemovesNewFileAndReservation() {var s=storage();TenantContext.setCurrentTenant(1L);new TransactionTemplate(manager).execute(status->{try{s.put(new byte[10]);}catch(Exception e){throw new RuntimeException(e);}status.setRollbackOnly();return null;});assertEquals(0,jdbc.queryForObject("select count(*) from storage_ledger",Integer.class));try(var files=Files.list(dir)){assertEquals(0,files.count());}catch(Exception e){throw new RuntimeException(e);}}
+ @Test void rollbackOfDeletionPreservesOriginalFileAndCharge() throws Exception {var s=storage();TenantContext.setCurrentTenant(1L);String key=s.put(new byte[10]);new TransactionTemplate(manager).execute(status->{try{s.delete(key);}catch(Exception e){throw new RuntimeException(e);}status.setRollbackOnly();return null;});assertEquals(10,s.read(key).length);assertEquals(10,jdbc.queryForObject("select used_bytes from storage_usage where tenant_id=1",Long.class));}
+ @Test void explicitTenantBudgetOverridesDefault(){jdbc.update("insert into storage_usage values(?,?,?)",1,0,3);quota.reserve("first",1L,3);assertThrows(org.springframework.web.server.ResponseStatusException.class,()->quota.reserve("second",1L,1));quota.reserve("other",2L,10);}
+ @Test void unavailableLedgerNeverWritesFile() throws Exception {TenantContext.setCurrentTenant(1L);jdbc.execute("drop table storage_ledger");assertThrows(org.springframework.web.server.ResponseStatusException.class,()->storage().put(new byte[2]));try(var files=Files.list(dir)){assertEquals(0,files.count());}}
+ @Test void reservationsCannotRacePastBudget() throws Exception {var pool=java.util.concurrent.Executors.newFixedThreadPool(8);try{var calls=new java.util.ArrayList<java.util.concurrent.Callable<Boolean>>();for(int i=0;i<20;i++){String key=java.util.UUID.randomUUID().toString();calls.add(()->{try{quota.reserve(key,1L,2);return true;}catch(org.springframework.web.server.ResponseStatusException e){return false;}});}int successes=0;for(var f:pool.invokeAll(calls))if(f.get())successes++;assertEquals(5,successes);assertEquals(10,jdbc.queryForObject("select used_bytes from storage_usage where tenant_id=1",Long.class));}finally{pool.shutdownNow();}}
+ @Test void historicalFilesRemainReadableAndAreNotAssignedToCurrentTenant() throws Exception {var old=new DocumentStorage(dir.toString());String legacy=old.put(new byte[9]);TenantContext.setCurrentTenant(1L);var s=storage();assertEquals(9,s.read(legacy).length);s.put(new byte[10]);assertEquals(1,jdbc.queryForObject("select count(*) from storage_ledger",Integer.class));}
+}

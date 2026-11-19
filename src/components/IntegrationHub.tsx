@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { requestApi } from '../services/http';
+import { MensageriaPanel } from './MensageriaPanel';
 import type { IfcReadResult } from '../services/RealIfcParser';
 interface Status {
   armazenamento: string;
@@ -81,6 +82,7 @@ export function IntegrationHub({ role }: { role: string }) {
           {error}
         </div>
       )}
+      {['SUPER_ADMIN', 'GERENTE_OBRA', 'AUDITOR'].includes(role) && <MensageriaPanel role={role} />}
       <div className="ws-service-grid">
         {[
           ['Documentos', 'Armazenamento local'],

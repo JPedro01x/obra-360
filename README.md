@@ -24,6 +24,8 @@ No primeiro acesso, cadastre os dados reais da empresa e a conta de administrado
 
 O banco H2 persistente é criado em `obra360-backend/data/obra360.mv.db`. Esse diretório não entra no Git. Faça cópias de segurança com a aplicação encerrada. Não apague o diretório para reiniciar a aplicação: isso apaga os cadastros. O perfil `dev` usa H2 em memória e destina-se aos testes; o perfil `local` usa arquivo e é iniciado por `npm run dev`.
 
+A mensageria de ordens de serviço utiliza Apache Kafka com outbox persistida: uma nova OS gera uma notificação para o encarregado da equipe, com reenvio e proteção contra duplicação. Configure `MESSAGING_ENABLED=true` e `KAFKA_BOOTSTRAP_SERVERS=127.0.0.1:9092` no arquivo local `obra360-backend/.env`. Nesse modo, `npm run dev` também inicia o broker local se a porta 9092 estiver livre. Veja os procedimentos e limites em [docs/MENSAGERIA.md](docs/MENSAGERIA.md).
+
 Após entrar, abra **Usuários**, cadastre um usuário com perfil **ENGENHEIRO** ou **GERENTE OBRA** e crie o empreendimento selecionando esse responsável. O cadastro de usuários pertence sempre à empresa autenticada.
 
 A tela de acesso oferece escolha de perfil por nível, e-mail, senha e Google. O perfil escolhido deve corresponder ao cadastro. A opção automática identifica o perfil da conta. Use o ícone de olho para mostrar ou ocultar a senha. O login por Google requer GOOGLE_CLIENT_ID configurado e uma conta vinculada.
@@ -124,3 +126,7 @@ Orçamentos revisados, contas a pagar/receber, baixas, estornos, conciliação C
 A atualização para Spring Boot 4 e os bloqueios de entrega estão registrados na [validação corporativa atualizada](docs/VALIDACAO-CORPORATIVA-2026-11-15.md). Para preparar uma instalação, siga [o procedimento de entrega](docs/ENTREGA-CORPORATIVA.md).
 
 Consulte [os resultados e as pendências conhecidas](docs/AUDITORIA-2026-11-15.md). Execute `npm run test:stress` para o laboratório isolado de carga e `npm run audit:java` para consultar avisos das dependências do JAR compilado. A auditoria Java retorna erro enquanto houver avisos; os testes não certificam funcionamento perfeito nem substituem o aceite operacional.
+
+## Consolidação operacional
+
+Consulte os guias de [mensageria e recuperação](docs/MENSAGERIA.md), [painel de falhas](docs/MENSAGERIA-PAINEL.md), [atendimento paginado](docs/ATENDIMENTO-PAGINACAO.md), [limites de uso e armazenamento por empresa](docs/LIMITES-DE-USO.md) e [exportações recuperáveis](docs/EXPORTACAO-RECUPERAVEL.md). Os controles mantêm o armazenamento local; a instalação suporta um escritor por diretório de arquivos. Integrações externas continuam dependendo de configuração e homologação próprias.

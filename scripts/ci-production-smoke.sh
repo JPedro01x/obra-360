@@ -18,9 +18,13 @@ touch "$OBRA360_COMPOSE_ENV"
 export APP_DOMAIN=localhost
 export POSTGRES_PASSWORD=$(openssl rand -hex 24)
 export JWT_SECRET=$(openssl rand -hex 48)
+export SHARED_USAGE_LIMITS_SECRET=$(openssl rand -hex 48)
 export EMAIL_ENABLED=false
 
 compose=(docker compose --env-file "$OBRA360_COMPOSE_ENV" -f deploy/compose.production.yml)
+if [[ ${OBRA360_COMPOSE_MESSAGING:-false} == true ]]; then
+  compose+=(-f deploy/compose.production.messaging.yml)
+fi
 active=$COMPOSE_PROJECT_NAME
 cleanup() {
   local result=$?
@@ -45,7 +49,7 @@ for name in OP_ACTION OP_DATA_ENVIRONMENT OP_COMPANY_NAME OP_LEGAL_NAME OP_CNPJ 
   OP_ADMIN_EMAIL OP_ADMIN_PASSWORD OP_LIMIT_USERS OP_LIMIT_PROJECTS OP_LIMIT_MODELS; do
   options+=(-e "$name")
 done
-stack run --rm --no-deps -T "${options[@]}" app --spring.profiles.active=prod,operador --spring.main.web-application-type=none
+stack run --rm --no-deps -T -e MESSAGING_ENABLED=false "${options[@]}" app --spring.profiles.active=prod,operador --spring.main.web-application-type=none
 
 https() {
   curl --silent --show-error --fail --max-time 10 --noproxy localhost \
@@ -79,10 +83,29 @@ grep -q '/assets/' "$work/index.html"
 https "$api/instalacao" | jq -e '.necessaria == false' >/dev/null
 token=$(login)
 auth=(-H "Authorization: Bearer $token")
-engineer=$(json auth/cadastrar "$(jq -nc --arg senha "$(openssl rand -hex 24)" \
+engineer_password=$(openssl rand -hex 24)
+engineer=$(json auth/cadastrar "$(jq -nc --arg senha "$engineer_password" \
   '{nome:"Engenheiro de teste",email:"engenheiro@compose.example.invalid",senhaHash:$senha,perfil:"ENGENHEIRO",ativo:true}')" "${auth[@]}" | jq -er .id)
-project=$(json workspace/projetos "$(jq -nc --argjson engineer "$engineer" \
-  '{nome:"Obra de teste",engenheiroResponsavelId:$engineer,vgvEstimado:10000,areaTotalM2:75,dataInicio:"2026-01-01",dataPrevisaoFim:"2027-01-01"}')" "${auth[@]}" | jq -er .id)
+today=$(TZ=America/Sao_Paulo date +%F)
+deadline=$(TZ=America/Sao_Paulo date -d '+90 days' +%F)
+project=$(json workspace/projetos "$(jq -nc --argjson engineer "$engineer" --arg today "$today" --arg deadline "$deadline" \
+  '{nome:"Obra de teste",engenheiroResponsavelId:$engineer,vgvEstimado:10000,areaTotalM2:75,dataInicio:$today,dataPrevisaoFim:$deadline}')" "${auth[@]}" | jq -er .id)
+if [[ ${OBRA360_COMPOSE_MESSAGING:-false} == true ]]; then
+  supplier=$(json workspace/fornecedores '{"cnpj":"12345678000190","razaoSocial":"Fornecedor de teste","categoriaFornecimento":"INSUMOS"}' "${auth[@]}" | jq -er .id)
+  team=$(json workspace/equipes "$(jq -nc --argjson project "$project" --argjson engineer "$engineer" \
+    '{projetoObraId:$project,liderEncarregadoId:$engineer,nomeEquipe:"Equipe do ensaio",especialidade:"Teste",quantidadeOperarios:1}')" "${auth[@]}" | jq -er .id)
+  contract=$(json workspace/contratos "$(jq -nc --argjson project "$project" --argjson supplier "$supplier" --arg today "$today" --arg deadline "$deadline" \
+    '{projetoObraId:$project,fornecedorB2bId:$supplier,numeroContrato:"CI-OS-1",valorTotal:100,retencaoTecnicaPct:0,tempoLimiteSlaHoras:24,dataInicio:$today,dataTermino:$deadline}')" "${auth[@]}" | jq -er .id)
+  json workspace/ordens "$(jq -nc --argjson contract "$contract" --argjson team "$team" \
+    '{contratoServicoId:$contract,equipeTrabalhoId:$team,descricao:"Notificacao do ensaio",prioridade:"MEDIA",exigeMaterial:false}')" "${auth[@]}" >/dev/null
+  engineer_token=$(json auth/login "$(jq -nc --arg password "$engineer_password" '{email:"engenheiro@compose.example.invalid",senha:$password}')" | jq -er .token)
+  notified=false
+  for (( attempt=0; attempt<30; attempt++ )); do
+    if https -H "Authorization: Bearer $engineer_token" "$api/workspace/notificacoes" | jq -e '.items | length > 0' >/dev/null; then notified=true; break; fi
+    sleep 1
+  done
+  [[ $notified == true ]] || { echo 'Notificação Kafka não persistida.' >&2; exit 1; }
+fi
 printf 'Arquivo do ensaio de restauração\n' > "$work/original.txt"
 document=$(https "${auth[@]}" -F "projetoObraId=$project" -F titulo=Restauracao -F tipoDocumento=RELATORIO \
   -F "arquivo=@$work/original.txt" "$api/workspace/documentos" | jq -er .id)

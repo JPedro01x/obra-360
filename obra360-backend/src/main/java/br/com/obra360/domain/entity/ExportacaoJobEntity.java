@@ -12,4 +12,6 @@ public class ExportacaoJobEntity {
  @Column(name="expira_em",nullable=false) private OffsetDateTime expiraEm;
  @Column(nullable=false,length=250) private String mensagem;
  @Column(nullable=false) private long tamanho;
+ @Column(nullable=false) private int tentativas;
+ @Column(name="proxima_tentativa_em") private OffsetDateTime proximaTentativaEm;
 }

@@ -1,8 +1,10 @@
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { createConnection } from 'node:net';
 import { loadProjectEnv } from './load-env.mjs';
 import { useLocalJava21 } from './local-java.mjs';
+import { shouldStartLocalKafka } from './kafka-autostart.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 Object.assign(process.env, await loadProjectEnv(root));
@@ -46,6 +48,27 @@ try {
   );
   process.exit(1);
 } catch {}
+
+if (shouldStartLocalKafka(process.env)) {
+  const kafkaReady = () => new Promise(resolve => {
+    const socket = createConnection({ host: '127.0.0.1', port: 9092 });
+    socket.setTimeout(1000);
+    socket.once('connect', () => { socket.destroy(); resolve(true); });
+    socket.once('error', () => resolve(false));
+    socket.once('timeout', () => { socket.destroy(); resolve(false); });
+  });
+  if (!await kafkaReady()) {
+    console.log('Iniciando broker Kafka local persistente.');
+    launch(process.execPath, [path.join(root, 'scripts/kafka-local.mjs')], root);
+    let connected = false;
+    for (let attempt = 0; attempt < 180 && !stopping; attempt++) {
+      if (await kafkaReady()) { connected = true; break; }
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    if (!connected) { console.error('Kafka não iniciou. Confira os erros acima.'); stop(1); }
+  }
+  if (stopping) process.exit(1);
+}
 
 console.log(
   'Iniciando API e banco local persistente. Primeiro início pode demorar para compilar o Java.',

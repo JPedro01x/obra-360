@@ -14,10 +14,12 @@ import java.util.concurrent.ConcurrentHashMap;
 public class AiAssistantService {
     private final IntegrationConfig config;private final ObjectMapper json;
     private final HttpClient http=HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).followRedirects(HttpClient.Redirect.NEVER).build();
+    @org.springframework.beans.factory.annotation.Autowired(required=false)
+    private SharedUsageLimits sharedLimits;
     private final Map<Long,ArrayDeque<Long>> requests=new ConcurrentHashMap<>();
     public boolean available(){return config.enabled("AI_ENABLED")&&config.has("OPENAI_API_KEY","AI_MODEL");}
     public String ask(Long user,String question){
-        config.require(available(),"Assistente de IA");var queue=requests.computeIfAbsent(user,k->new ArrayDeque<>());long now=System.currentTimeMillis();synchronized(queue){while(!queue.isEmpty()&&queue.peek()<now-60000)queue.remove();if(queue.size()>=5)throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,"Limite de cinco perguntas por minuto.");queue.add(now);}
+        config.require(available(),"Assistente de IA");if(sharedLimits!=null && sharedLimits.enabled()){if(!sharedLimits.allow("ai",String.valueOf(java.util.Objects.requireNonNull(user)),5))throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,"Limite de cinco perguntas por minuto.");}else {var queue=requests.computeIfAbsent(user,k->new ArrayDeque<>());long now=System.currentTimeMillis();synchronized(queue){while(!queue.isEmpty()&&queue.peek()<now-60000)queue.remove();if(queue.size()>=5)throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,"Limite de cinco perguntas por minuto.");queue.add(now);}}
         try {
             int limit=Math.max(128,Math.min(2048,Integer.parseInt(config.get("AI_MAX_OUTPUT_TOKENS","800"))));
             String body=json.writeValueAsString(Map.of("model",config.get("AI_MODEL"),"store",false,"max_output_tokens",limit,"instructions","Responda em português com base apenas nas informações fornecidas. Você auxilia na organização de obras. Não invente registros, valores, normas ou resultados de serviços. Não execute ações nem prometa gravações. Distingua sugestões de informações verificadas.","input",question));

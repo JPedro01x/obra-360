@@ -16,6 +16,7 @@ import java.util.*;
 public class OperacaoService {
     private final EntityManager em;
     private final PlanningDates dates;
+    private final MensageriaOrdensService mensageria;
     private Long tenant() { return Objects.requireNonNull(TenantContext.getCurrentTenant()); }
     public void audit(String action,String entity,Long id,Long actor) {
         em.persist(LogAuditoriaEntity.builder().empresaId(tenant()).usuarioId(actor).acao(action)
@@ -104,7 +105,8 @@ public class OperacaoService {
         var o=SolicitacaoServicoEntity.builder().contratoServicoId(contractId).equipeTrabalhoId(teamId).descricao(description.trim())
             .codigoProtocolo("OS-"+UUID.randomUUID().toString().replace("-","").substring(0,24).toUpperCase(Locale.ROOT))
             .prioridade(priority).statusOs("ABERTO").dataAbertura(now).dataLimiteSla(deadline).exigeMaterial(requiresMaterial).build();
-        em.persist(o);audit("CRIAR_ORDEM","solicitacao_servico",o.getId(),actor);return o;
+        em.persist(o);audit("CRIAR_ORDEM","solicitacao_servico",o.getId(),actor);
+        mensageria.registrar(tenant(),t.getLiderEncarregadoId(),o);return o;
     }
     public SolicitacaoServicoEntity changeOrder(Long id,String status,Long actor) {
         var o=order(id,true);String old=o.getStatusOs();

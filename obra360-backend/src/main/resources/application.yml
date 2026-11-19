@@ -67,6 +67,14 @@ spring:
         spring.json.trusted.packages: "br.com.obra360.*"
 
 obra360:
+  messaging:
+    enabled: ${MESSAGING_ENABLED:false}
+    retry-delay-ms: ${MESSAGING_RETRY_DELAY_MS:2000}
+    retry-attempts: ${MESSAGING_RETRY_ATTEMPTS:3}
+    receipt-timeout-ms: ${MESSAGING_RECEIPT_TIMEOUT_MS:300000}
+  limits:
+    shared-enabled: ${SHARED_USAGE_LIMITS_ENABLED:false}
+    key-secret: ${SHARED_USAGE_LIMITS_SECRET:}
   setup:
     enabled: ${SETUP_ENABLED:false}
   jwt:

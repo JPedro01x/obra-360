@@ -13,6 +13,8 @@ public class DocumentStorage {
     @Value("${DOCUMENT_STORAGE_MAX_BYTES:10737418240}")
     private long maxBytes=10L*1024*1024*1024;
     private long reservedBytes;
+    @org.springframework.beans.factory.annotation.Autowired(required=false)
+    private TenantStorageQuota tenantQuota;
     @jakarta.annotation.PostConstruct void validateQuota(){if(maxBytes<1)throw new IllegalArgumentException("DOCUMENT_STORAGE_MAX_BYTES deve ser positivo.");}
     public DocumentStorage(@Value("${obra360.storage.directory:./data/documentos}") String directory) {
         root=Path.of(directory).toAbsolutePath().normalize();
@@ -21,7 +23,7 @@ public class DocumentStorage {
         String key=UUID.randomUUID().toString();
         Files.createDirectories(root);
         checkQuota(bytes.length);
-        write(root.resolve(key),bytes);
+        writeAccounted(root.resolve(key),key,bytes);
         return key;
     }
     public synchronized String putRh(byte[] bytes) throws IOException {
@@ -29,8 +31,30 @@ public class DocumentStorage {
         Path directory=root.resolve("rh");
         Files.createDirectories(directory);
         checkQuota(bytes.length);
-        write(directory.resolve(key),bytes);
+        writeAccounted(directory.resolve(key),"rh:"+key,bytes);
         return "rh:"+key;
+    }
+    private Long tenant(){return br.com.obra360.infrastructure.security.TenantContext.getCurrentTenant();}
+    private void writeAccounted(Path file,String reference,byte[] bytes)throws IOException {
+        if(tenantQuota!=null)tenantQuota.reserve(reference,tenant(),bytes.length);
+        try {write(file,bytes);}
+        catch(IOException|RuntimeException ex){if(tenantQuota!=null && Files.notExists(file,LinkOption.NOFOLLOW_LINKS))tenantQuota.release(reference);throw ex;}
+        if(org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive())
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(new org.springframework.transaction.support.TransactionSynchronization(){
+                @Override public void afterCompletion(int status){if(status!=STATUS_COMMITTED)synchronized(DocumentStorage.this){try{Files.deleteIfExists(file);if(tenantQuota!=null)tenantQuota.release(reference);}catch(IOException|RuntimeException ex){org.slf4j.LoggerFactory.getLogger(DocumentStorage.class).warn("Storage rollback cleanup incomplete; reconcile retained reservation.");}}}
+            });
+    }
+    private void authorize(String reference){if(tenantQuota!=null)tenantQuota.authorize(reference,tenant());}
+    private synchronized void remove(Path file,String reference)throws IOException {
+        authorize(reference);
+        if(org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive() && org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()) {
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(new org.springframework.transaction.support.TransactionSynchronization(){
+                @Override public void afterCommit(){try{removeNow(file,reference);}catch(IOException|RuntimeException ex){org.slf4j.LoggerFactory.getLogger(DocumentStorage.class).warn("Storage deletion cleanup incomplete; reconcile retained reservation.");}}
+            });
+        }else removeNow(file,reference);
+    }
+    private synchronized void removeNow(Path file,String reference)throws IOException {
+        Files.deleteIfExists(file);if(tenantQuota!=null)tenantQuota.release(reference);
     }
     private void write(Path file,byte[] bytes)throws IOException{
         try{Files.write(file,bytes,StandardOpenOption.CREATE_NEW);}
@@ -64,10 +88,10 @@ public class DocumentStorage {
         String key=hr ? reference.substring(3) : reference;
         try {if(!UUID.fromString(key).toString().equalsIgnoreCase(key))throw new IllegalArgumentException();}
         catch(IllegalArgumentException ex){throw new IllegalArgumentException("Referência de arquivo inválida.");}
-        return key;
+        return key.toLowerCase(java.util.Locale.ROOT);
     }
-    public byte[] read(String reference) throws IOException {return Files.readAllBytes(root.resolve(key(reference,false)));}
-    public void delete(String reference) throws IOException {Files.deleteIfExists(root.resolve(key(reference,false)));}
-    public byte[] readRh(String reference) throws IOException {return Files.readAllBytes(root.resolve("rh").resolve(key(reference,true)));}
-    public void deleteRh(String reference) throws IOException {Files.deleteIfExists(root.resolve("rh").resolve(key(reference,true)));}
+    public byte[] read(String reference) throws IOException {String id=key(reference,false);authorize(id);return Files.readAllBytes(root.resolve(id));}
+    public void delete(String reference) throws IOException {String id=key(reference,false);remove(root.resolve(id),id);}
+    public byte[] readRh(String reference) throws IOException {String id=key(reference,true);authorize("rh:"+id);return Files.readAllBytes(root.resolve("rh").resolve(id));}
+    public void deleteRh(String reference) throws IOException {String id=key(reference,true);remove(root.resolve("rh").resolve(id),"rh:"+id);}
 }

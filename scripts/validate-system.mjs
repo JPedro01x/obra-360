@@ -67,6 +67,7 @@ const report = {
     threadsHttp: 50,
     registrosEstoque: 1001,
     limitadorNoLaboratorio: 100000,
+    limitadorCompartilhado: true,
   },
   seguranca: [],
   integridade: [],
@@ -172,6 +173,8 @@ try {
           JWT_SECRET: randomBytes(48).toString('hex'),
           OBRA360_SETUP_ENABLED: 'true',
           OBRA360_SECURITY_REQUESTS_PER_MINUTE: '100000',
+          SHARED_USAGE_LIMITS_ENABLED: 'true',
+          SHARED_USAGE_LIMITS_SECRET: randomBytes(48).toString('hex'),
           OBRA360_STORAGE_DIRECTORY: path.join(lab, 'documentos'),
 
           AI_ENABLED: 'false',

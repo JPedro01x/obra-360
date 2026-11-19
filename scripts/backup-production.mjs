@@ -4,11 +4,12 @@ import { createReadStream } from 'node:fs';
 import { lstat, mkdir, open, readFile, rmdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { productionComposeArgs } from './production-compose.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const backups = path.resolve(root, process.env.OBRA360_BACKUP_DIR || 'backups/production');
 const envFile = path.resolve(root, process.env.OBRA360_COMPOSE_ENV || '.env.production');
-const compose = ['compose', '--env-file', envFile, '-f', path.join(root, 'deploy/compose.production.yml')];
+const compose = productionComposeArgs(root, envFile, process.env.OBRA360_COMPOSE_MESSAGING || 'false');
 
 async function command(program, args, { input, output, capture = false, quiet = false } = {}) {
   const source = input && await open(input, 'r');
