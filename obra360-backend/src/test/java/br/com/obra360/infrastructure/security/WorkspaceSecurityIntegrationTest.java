@@ -14,6 +14,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.Clock;
+import java.time.ZoneId;
 import java.util.Map;
 import java.util.List;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -64,6 +66,12 @@ class WorkspaceSecurityIntegrationTest {
         em.persist(ProjetoObraEntity.builder().empresaId(company).engenheiroResponsavelId(engineer).nome(name)
             .vgvEstimado(BigDecimal.TEN).areaTotalM2(BigDecimal.TEN).dataInicio(LocalDate.now()).dataPrevisaoFim(LocalDate.now().plusDays(10)).build());
     }
+    // Financial effective dates follow the service business day, even on UTC CI runners.
+    static LocalDate financialToday(Clock clock) {
+        return LocalDate.now(clock.withZone(ZoneId.of("America/Sao_Paulo")));
+    }
+    private LocalDate financialToday() { return financialToday(Clock.systemUTC()); }
+
     private String token(UsuarioEntity user) { return "Bearer " + jwt.issue(user); }
 
     private com.fasterxml.jackson.databind.JsonNode gestion(String path,Object body,UsuarioEntity actor,int expected) throws Exception {
@@ -74,11 +82,11 @@ class WorkspaceSecurityIntegrationTest {
         Long project=ownProject();
         Long budget=gestion("/orcamentos",Map.of("projetoObraId",project,"valorAprovado",1000,"justificativa","Investimento inicial conferido"),admin,201).get("id").asLong();
         gestion("/orcamentos/"+budget+"/aprovar",Map.of("versao",0),admin,200);
-        Long title=gestion("/titulos",Map.of("projetoObraId",project,"tipo","PAGAR","categoria","SERVICOS","descricao","Serviço contratado","contraparte","Fornecedor teste","valor",300,"vencimento",LocalDate.now()),admin,201).get("id").asLong();
-        var payload=Map.of("versao",0,"valor",100,"data",LocalDate.now(),"conta","CAIXA-01","observacao","Comprovante conferido","chave",java.util.UUID.randomUUID().toString());
+        Long title=gestion("/titulos",Map.of("projetoObraId",project,"tipo","PAGAR","categoria","SERVICOS","descricao","Serviço contratado","contraparte","Fornecedor teste","valor",300,"vencimento",financialToday()),admin,201).get("id").asLong();
+        var payload=Map.of("versao",0,"valor",100,"data",financialToday(),"conta","CAIXA-01","observacao","Comprovante conferido","chave",java.util.UUID.randomUUID().toString());
         Long payment=gestion("/titulos/"+title+"/baixar",payload,admin,200).get("id").asLong();
         Long repeated=gestion("/titulos/"+title+"/baixar",payload,admin,200).get("id").asLong();org.junit.jupiter.api.Assertions.assertEquals(payment,repeated);
-        var line=Map.of("identificador","BANCO-01","data",LocalDate.now(),"descricao","Pagamento conferido","valor",-100);
+        var line=Map.of("identificador","BANCO-01","data",financialToday(),"descricao","Pagamento conferido","valor",-100);
         gestion("/extrato/importar",Map.of("projetoObraId",project,"conta","CAIXA-01","linhas",List.of(line)),admin,200);
         gestion("/extrato/importar",Map.of("projetoObraId",project,"conta","CAIXA-01","linhas",List.of(line)),admin,200);
         var bank=em.createQuery("select e from ExtratoBancarioEntity e where e.empresaId=:t",ExtratoBancarioEntity.class).setParameter("t",admin.getEmpresaId()).getSingleResult();
@@ -93,11 +101,11 @@ class WorkspaceSecurityIntegrationTest {
     }
     @Test void financialApiRejectsUnauthorizedForeignOverpaymentsAndFutureActualDates() throws Exception {
         var finance=user(admin.getEmpresaId(),"financial-ledger@test.invalid","FINANCEIRO");var outsideAdmin=user(outsider.getEmpresaId(),"outside-ledger@test.invalid","SUPER_ADMIN");
-        var payload=Map.of("projetoObraId",ownProject(),"tipo","PAGAR","categoria","TAXAS","descricao","Taxa de teste","contraparte","Prestador","valor",50,"vencimento",LocalDate.now());
+        var payload=Map.of("projetoObraId",ownProject(),"tipo","PAGAR","categoria","TAXAS","descricao","Taxa de teste","contraparte","Prestador","valor",50,"vencimento",financialToday());
         gestion("/titulos",payload,engineer,403);gestion("/titulos",payload,outsideAdmin,404);
         Long id=gestion("/titulos",payload,finance,201).get("id").asLong();
-        var payment=new java.util.HashMap<String,Object>(Map.of("versao",0,"valor",51,"data",LocalDate.now(),"conta","BANCO","observacao","Comprovante teste","chave",java.util.UUID.randomUUID().toString()));
-        gestion("/titulos/"+id+"/baixar",payment,finance,409);payment.put("valor",20);payment.put("data",LocalDate.now().plusDays(1));gestion("/titulos/"+id+"/baixar",payment,finance,400);
+        var payment=new java.util.HashMap<String,Object>(Map.of("versao",0,"valor",51,"data",financialToday(),"conta","BANCO","observacao","Comprovante teste","chave",java.util.UUID.randomUUID().toString()));
+        gestion("/titulos/"+id+"/baixar",payment,finance,409);payment.put("valor",20);payment.put("data",financialToday().plusDays(1));gestion("/titulos/"+id+"/baixar",payment,finance,400);
         mvc.perform(get("/api/v1/workspace/gestao/registros/titulos").header("Authorization",token(engineer))).andExpect(status().isForbidden());
         var warehouse=user(admin.getEmpresaId(),"warehouse-ledger@test.invalid","ALMOXARIFE");
         mvc.perform(get("/api/v1/workspace/gestao/registros/titulos").header("Authorization",token(warehouse))).andExpect(status().isForbidden());

@@ -130,3 +130,5 @@ Consulte [os resultados e as pendências conhecidas](docs/AUDITORIA-2026-11-15.m
 ## Consolidação operacional
 
 Consulte os guias de [mensageria e recuperação](docs/MENSAGERIA.md), [painel de falhas](docs/MENSAGERIA-PAINEL.md), [atendimento paginado](docs/ATENDIMENTO-PAGINACAO.md), [limites de uso e armazenamento por empresa](docs/LIMITES-DE-USO.md) e [exportações recuperáveis](docs/EXPORTACAO-RECUPERAVEL.md). Os controles mantêm o armazenamento local; a instalação suporta um escritor por diretório de arquivos. Integrações externas continuam dependendo de configuração e homologação próprias.
+
+O [roteiro de preparação local](docs/PREPARACAO-LOCAL-2026-11-20.md) reúne os cenários do piloto, responsáveis por papel, operação e critérios de homologação dos provedores. A [revisão interna de segurança](docs/REVISAO-SEGURANCA-LOCAL-2026-11-20.md) registra as correções e os limites da avaliação; o aceite real e a avaliação independente permanecem etapas externas.

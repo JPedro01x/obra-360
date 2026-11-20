@@ -32,18 +32,31 @@ public class AuthController {
     private final BruteForceProtectionService bruteForce;
     private final br.com.obra360.application.service.OperacaoService operation;
     private final br.com.obra360.application.service.LicencaService licenca;
+    private final jakarta.persistence.EntityManager em;
 
     @PostMapping("/login")
+    @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request, HttpServletRequest servletRequest) {
         String clientIp = servletRequest.getRemoteAddr();
         if (bruteForce.isIpBloqueado(clientIp)) return ResponseEntity.status(429).build();
         Optional<UsuarioEntity> optUser = usuarioRepository.findByEmailIgnoreCase(request.getEmail().trim());
         if (optUser.isPresent()) {
             UsuarioEntity user = optUser.get();
-            if (Boolean.TRUE.equals(user.getAtivo()) && user.getEmpresaId() != null &&
-                (user.getBloqueadoAte() == null || !user.getBloqueadoAte().isAfter(java.time.OffsetDateTime.now())) &&
+            // Reload under the row lock: competing requests may have changed the
+            // failure budget after the email lookup. Keep that budget per account,
+            // so another account's valid login cannot erase it or IP rotation bypass it.
+            em.refresh(user, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+            var now = java.time.OffsetDateTime.now();
+            boolean blocked = user.getBloqueadoAte() != null && user.getBloqueadoAte().isAfter(now);
+            if (!blocked && user.getBloqueadoAte() != null) {
+                user.setBloqueadoAte(null);
+                user.setTentativasLoginFalhas(0);
+            }
+            if (!blocked && Boolean.TRUE.equals(user.getAtivo()) && user.getEmpresaId() != null &&
                 user.getSenhaHash() != null && passwordEncoder.matches(request.getSenha(), user.getSenhaHash()) &&
                 (request.getPerfil()==null || request.getPerfil().isBlank() || user.getPerfil().equals(request.getPerfil()))) {
+                user.setTentativasLoginFalhas(0);
+                user.setBloqueadoAte(null);
                 String token = jwtService.issue(user);
                 bruteForce.registrarSucessoLogin(clientIp);
                 return ResponseEntity.ok(LoginResponse.builder()
@@ -54,6 +67,11 @@ public class AuthController {
                         .email(user.getEmail())
                         .perfil(user.getPerfil())
                         .build());
+            }
+            if (!blocked && Boolean.TRUE.equals(user.getAtivo())) {
+                int failures = Math.min(5, (user.getTentativasLoginFalhas() == null ? 0 : user.getTentativasLoginFalhas()) + 1);
+                user.setTentativasLoginFalhas(failures);
+                if (failures >= 5) user.setBloqueadoAte(now.plusMinutes(15));
             }
         }
         bruteForce.registrarFalhaLogin(clientIp);

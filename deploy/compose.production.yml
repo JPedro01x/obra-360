@@ -46,7 +46,10 @@ services:
       SPRING_APPLICATION_JSON: '{"server":{"forward-headers-strategy":"native","tomcat":{"remoteip":{"internal-proxies":"172[.]30[.]86[.]2","protocol-header":"X-Forwarded-Proto"}}}}'
     volumes:
       - documents:/app/data
-    networks: [edge, database]
+    networks:
+      edge:
+        ipv4_address: 172.30.86.3
+      database: {}
     depends_on:
       db:
         condition: service_healthy

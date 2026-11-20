@@ -31,7 +31,7 @@ public class SefazConsultaService {
             SSLContext ssl=SSLContext.getInstance("TLS");ssl.init(keys.getKeyManagers(),null,new SecureRandom());
             var client=HttpClient.newBuilder().sslContext(ssl).connectTimeout(Duration.ofSeconds(8)).followRedirects(HttpClient.Redirect.NEVER).build();
             var request=HttpRequest.newBuilder(config.endpoint(config.get("SEFAZ_URL"))).timeout(Duration.ofSeconds(25)).header("Content-Type","application/soap+xml; charset=utf-8; action=\"http://www.portalfiscal.inf.br/nfe/wsdl/NFeConsultaProtocolo4/nfeConsultaNF\"").POST(HttpRequest.BodyPublishers.ofString(envelope(key,environment))).build();
-            var response=client.send(request,HttpResponse.BodyHandlers.ofString());if(response.statusCode()!=200||response.body().length()>2000000)throw new IllegalStateException();return parse(response.body(),key,environment);
+            var response=client.send(request,BoundedHttpBody.handler());if(response.statusCode()!=200)throw new IllegalStateException();return parse(response.body(),key,environment);
         }catch(InterruptedException ex){Thread.currentThread().interrupt();throw unavailable();}catch(Exception ex){throw unavailable();}
     }
     public static String envelope(String key,String environment){if(!key.matches("[0-9]{44}")||!Set.of("1","2").contains(environment))throw new IllegalArgumentException();return "<soap12:Envelope xmlns:soap12=\"http://www.w3.org/2003/05/soap-envelope\"><soap12:Body><nfeDadosMsg xmlns=\"http://www.portalfiscal.inf.br/nfe/wsdl/NFeConsultaProtocolo4\"><consSitNFe xmlns=\"http://www.portalfiscal.inf.br/nfe\" versao=\"4.00\"><tpAmb>"+environment+"</tpAmb><xServ>CONSULTAR</xServ><chNFe>"+key+"</chNFe></consSitNFe></nfeDadosMsg></soap12:Body></soap12:Envelope>";}

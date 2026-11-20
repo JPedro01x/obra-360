@@ -57,8 +57,8 @@ try {
   const command = process.platform === 'win32' ? process.env.ComSpec || 'cmd.exe' : 'mvn';
   const args =
     process.platform === 'win32'
-      ? ['/d', '/s', '/c', 'mvn test --batch-mode -Dtest=PostgresWorkflowIntegrationTest,PostgresGestaoAtomicIntegrationTest,PostgresOperationalLimitsIntegrationTest']
-      : ['test', '--batch-mode', '-Dtest=PostgresWorkflowIntegrationTest,PostgresGestaoAtomicIntegrationTest,PostgresOperationalLimitsIntegrationTest'];
+      ? ['/d', '/s', '/c', 'mvn test --batch-mode -Dtest=PostgresWorkflowIntegrationTest,PostgresGestaoAtomicIntegrationTest,PostgresOperationalLimitsIntegrationTest,PostgresAccountLoginProtectionIntegrationTest']
+      : ['test', '--batch-mode', '-Dtest=PostgresWorkflowIntegrationTest,PostgresGestaoAtomicIntegrationTest,PostgresOperationalLimitsIntegrationTest,PostgresAccountLoginProtectionIntegrationTest'];
   const code = await new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd: path.join(root, 'obra360-backend'),

@@ -31,6 +31,22 @@ class ExternalAdaptersTest {
         server.createContext("/responses",exchange->{body.set(new String(exchange.getRequestBody().readAllBytes(),StandardCharsets.UTF_8));authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));byte[] bytes="{\"output\":[{\"type\":\"message\",\"content\":[{\"type\":\"output_text\",\"text\":\"Resposta do servidor de teste\"}]}]}".getBytes(StandardCharsets.UTF_8);exchange.getResponseHeaders().add("Content-Type","application/json");exchange.sendResponseHeaders(200,bytes.length);exchange.getResponseBody().write(bytes);exchange.close();});server.start();
         try {var env=new MockEnvironment().withProperty("AI_ENABLED","true").withProperty("OPENAI_API_KEY","test-only").withProperty("AI_MODEL","configured-model").withProperty("AI_API_URL","http://127.0.0.1:"+server.getAddress().getPort()+"/responses");var service=new AiAssistantService(new IntegrationConfig(env),new ObjectMapper());assertEquals("Resposta do servidor de teste",service.ask(1L,"Organize minha lista de tarefas"));var payload=new ObjectMapper().readTree(body.get());assertFalse(payload.get("store").asBoolean());assertEquals("configured-model",payload.get("model").asText());assertEquals("Bearer test-only",authorization.get());assertFalse(payload.has("empresa"));}finally{server.stop(0);}
     }
+    @Test void aiRejectsOversizedHttpBodyWithGenericUnavailableMessage() throws Exception {
+        HttpServer server=HttpServer.create(new InetSocketAddress("127.0.0.1",0),0);
+        server.createContext("/responses",exchange->{
+            byte[] bytes=("{\"secret-provider-error\":\""+"x".repeat(2_000_000)+"\"}").getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200,0);
+            try { exchange.getResponseBody().write(bytes); } finally { exchange.close(); }
+        });
+        server.start();
+        try {
+            var env=new MockEnvironment().withProperty("AI_ENABLED","true").withProperty("OPENAI_API_KEY","test-only").withProperty("AI_MODEL","configured-model").withProperty("AI_API_URL","http://127.0.0.1:"+server.getAddress().getPort()+"/responses");
+            var service=new AiAssistantService(new IntegrationConfig(env),new ObjectMapper());
+            var error=assertThrows(ResponseStatusException.class,()->service.ask(1L,"Pergunta fictícia"));
+            assertEquals(503,error.getStatusCode().value());
+            assertEquals("O provedor de IA não concluiu a resposta. Nenhum registro foi alterado.",error.getReason());
+        } finally { server.stop(0); }
+    }
     @Test void googleChecksSignatureAudienceExpiryAndNonce() throws Exception {
         var generator=KeyPairGenerator.getInstance("RSA");generator.initialize(2048);var pair=generator.generateKeyPair();var key=new RSAKey.Builder((RSAPublicKey)pair.getPublic()).privateKey((RSAPrivateKey)pair.getPrivate()).keyID("test-key").build();
         HttpServer server=HttpServer.create(new InetSocketAddress("127.0.0.1",0),0);server.createContext("/jwks",exchange->{byte[] bytes=new JWKSet(key.toPublicJWK()).toString().getBytes(StandardCharsets.UTF_8);exchange.getResponseHeaders().add("Content-Type","application/json");exchange.sendResponseHeaders(200,bytes.length);exchange.getResponseBody().write(bytes);exchange.close();});server.start();
