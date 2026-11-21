@@ -48,3 +48,6 @@ Thumbs.db
 *.zip
 scratch/
 atividade avaliativa/
+
+# Generated documentation previews and intermediate exports
+/output/
