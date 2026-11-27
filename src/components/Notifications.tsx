@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { requestApi } from '../services/http';
+import { useWorkspaceRefresh } from '../hooks/useWorkspaceRefresh';
 type Notification = { id: number; mensagem: string; criadoEm: string; lidoEm: string | null };
 export function Notifications() {
+  const workspaceRevision = useWorkspaceRefresh();
   const [data, setData] = useState<{
     items: Notification[];
     total: number;
@@ -23,7 +25,7 @@ export function Notifications() {
         if (!controller.signal.aborted) setError(e.message);
       });
     return () => controller.abort();
-  }, [page, revision]);
+  }, [page, revision, workspaceRevision]);
   async function read(id: number) {
     setBusy(true);
     setError('');

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { requestApi } from '../services/http';
+import { useWorkspaceRefresh } from '../hooks/useWorkspaceRefresh';
 import { OperationForm, type OperationDefinition } from './OperationForms';
 import { localCalendarDate } from '../utils/planningDates';
 import './recordDetails.css';
@@ -88,6 +89,7 @@ export function BusinessManagement({
   role: string;
   ordersOnly?: boolean;
 }) {
+  const workspaceRevision = useWorkspaceRefresh();
   const [view, setView] = useState<View>(ordersOnly ? 'pedidos' : 'orcamentos');
   const [project, setProject] = useState('');
   const [revision, setRevision] = useState(0),
@@ -133,7 +135,7 @@ export function BusinessManagement({
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [project, view, page, revision, readFinance]);
+  }, [project, view, page, revision, readFinance, workspaceRevision]);
   function saved() {
     setOperation(null);
     setCreatingOrder(false);

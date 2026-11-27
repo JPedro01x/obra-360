@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { CheckCircle2, Circle, ExternalLink, RefreshCw, X } from 'lucide-react';
 import { requestApi } from '../services/http';
+import { useWorkspaceRefresh } from '../hooks/useWorkspaceRefresh';
 
 type StepKey = 'responsaveis' | 'equipe' | 'materiais' | 'cronograma' | 'planta2d' | 'cliente';
 type Step = { etapa: StepKey; status: 'PENDENTE' | 'CONCLUIDA' | 'NAO_SE_APLICA'; quantidade: number; motivoDispensa?: string };
@@ -19,6 +20,7 @@ export function ProjectSetupWizard({ projectId, role, onClose, onNavigate, onOpe
   projectId: number; role: string; onClose: () => void; onNavigate: (page: string) => void;
   onOpenModeler: (projectId: number, modelId: number) => void; onChanged: () => void;
 }) {
+  const workspaceRevision = useWorkspaceRefresh();
   const [summary, setSummary] = useState<Summary | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -40,12 +42,12 @@ export function ProjectSetupWizard({ projectId, role, onClose, onNavigate, onOpe
     try { setSummary(await requestApi<Summary>(`/v1/workspace/projetos/${projectId}/configuracao`)); }
     catch (e) { setError((e as Error).message); }
     finally { setLoading(false); }
-  }, [projectId]);
+  }, [projectId, workspaceRevision]);
   useEffect(() => { void load(); }, [load]);
   useEffect(() => {
     if (!canManage) return;
     requestApi<SetupOptions>(`/v1/workspace/projetos/${projectId}/configuracao/opcoes`).then(setOptions).catch((e) => setError((e as Error).message));
-  }, [canManage, projectId]);
+  }, [canManage, projectId, workspaceRevision]);
   const saveAssignments = async () => {
     if (!selectedEmployees.length || reason.trim().length < 5) return;
     setSavingAssignment(true); setError('');

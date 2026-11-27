@@ -3,6 +3,7 @@ import { ApiError, requestApi } from '../services/http';
 import { UserInvitations } from './UserInvitations';
 import { LicenseUsage } from './LicenseUsage';
 import { CompanyExport } from './CompanyExport';
+import { useWorkspaceRefresh } from '../hooks/useWorkspaceRefresh';
 
 type Session = { id: string; criadoEm: string; expiraEm: string; atual: boolean };
 type Ticket = {
@@ -16,6 +17,7 @@ type Ticket = {
 };
 
 export function AccountCenter({ admin }: { admin: boolean }) {
+  const workspaceRevision = useWorkspaceRefresh();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [message, setMessage] = useState('');
@@ -34,7 +36,7 @@ export function AccountCenter({ admin }: { admin: boolean }) {
   };
   useEffect(() => {
     requestApi<Session[]>('/v1/workspace/minhas-sessoes').then(setSessions).catch((e) => setMessage(e.message));
-  }, []);
+  }, [workspaceRevision]);
   useEffect(() => {
     const sequence = ++ticketRequest.current;
     const controller = new AbortController();
@@ -59,7 +61,7 @@ export function AccountCenter({ admin }: { admin: boolean }) {
       if (sequence === ticketRequest.current && !controller.signal.aborted) setLoading(false);
     });
     return () => { controller.abort(); };
-  }, [page, status, category, revision, admin]);
+  }, [page, status, category, revision, admin, workspaceRevision]);
   const run = async (action: () => Promise<void>) => {
     setBusy(true);
     setMessage('');

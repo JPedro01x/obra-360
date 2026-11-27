@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { requestApi } from '../services/http';
+import { useWorkspaceRefresh } from '../hooks/useWorkspaceRefresh';
 
 type Summary = { habilitada: boolean; pendentesPublicacao: number; aguardandoProcessamento: number; processados: number; falhasConsumo: number; atrasados: number; requerAtencao: boolean };
 type Failure = { id: number; eventoId: string | null; criadoEm: string; tipoErro: string; resolvidoEm: string | null };
@@ -10,6 +11,7 @@ export function MensageriaPanel({ role }: { role: string }) {
   return readers.includes(role) ? <MessagingStatus role={role} /> : null;
 }
 function MessagingStatus({ role }: { role: string }) {
+  const workspaceRevision = useWorkspaceRefresh();
   const [summary, setSummary] = useState<Summary>();
   const [data, setData] = useState<FailurePage>();
   const [page, setPage] = useState(0);
@@ -41,7 +43,7 @@ function MessagingStatus({ role }: { role: string }) {
       if (!controller.signal.aborted && sequence === request.current) setLoading(false);
     });
     return () => controller.abort();
-  }, [page, revision, role]);
+  }, [page, revision, role, workspaceRevision]);
   async function replay(item: Failure) {
     if (!canReplay || writing.current || !item.eventoId || item.resolvidoEm) return;
     writing.current = true;

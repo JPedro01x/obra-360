@@ -24,7 +24,9 @@ import {
   ShieldCheck,
   X,
 } from 'lucide-react';
-import { ApiError, requestApi } from '../services/http';
+import { ApiError, DEMO_MODE, requestApi } from '../services/http';
+import { connectWorkspaceRealtime } from '../services/realtime';
+import { useWorkspaceRefresh } from '../hooks/useWorkspaceRefresh';
 import './workspace.css';
 import './responsive.css';
 import { modelRoles } from '../services/modelGeometry';
@@ -121,6 +123,7 @@ function WorkspaceContent() {
   const [data, setData] = useState<Page | null>(null);
   const [loading, setLoading] = useState(false);
   const [revision, setRevision] = useState(0);
+  const remoteRevision = useWorkspaceRefresh();
   const [search, setSearch] = useState('');
   const [collapsedRecords, setCollapsedRecords] = useState<Record<string, boolean>>({});
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
@@ -150,6 +153,17 @@ function WorkspaceContent() {
     window.addEventListener('hashchange', detect);
     return () => window.removeEventListener('hashchange', detect);
   }, []);
+
+  useEffect(() => {
+    if (!session || session.exigeTrocaSenha || DEMO_MODE) return;
+    const controller = new AbortController();
+    void connectWorkspaceRealtime(controller.signal);
+    return () => controller.abort();
+  }, [session]);
+
+  useEffect(() => {
+    if (remoteRevision > 0) setRevision((value) => value + 1);
+  }, [remoteRevision]);
   const [recovery, setRecovery] = useState<{ token?: string } | null>(() => {
     const match = location.hash.match(/^#recuperar=([A-Za-z0-9_-]{43})$/);
     return match ? { token: match[1] } : location.hash === '#recuperar' ? {} : null;

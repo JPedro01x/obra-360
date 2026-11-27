@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { requestApi } from '../services/http';
+import { useWorkspaceRefresh } from '../hooks/useWorkspaceRefresh';
 type Diagnosis = {
   geradoEm: string;
   ambienteDados: string;
@@ -21,6 +22,7 @@ const names: Record<string, string> = {
   folhas: 'Folhas',
 };
 export function DataQuality() {
+  const workspaceRevision = useWorkspaceRefresh();
   const [data, setData] = useState<Diagnosis | null>(null),
     [error, setError] = useState(''),
     [revision, setRevision] = useState(0);
@@ -35,7 +37,7 @@ export function DataQuality() {
         if (!c.signal.aborted) setError(e.message);
       });
     return () => c.abort();
-  }, [revision]);
+  }, [revision, workspaceRevision]);
   return (
     <div className="rh-module">
       <div className="ws-title-row">

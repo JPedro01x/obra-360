@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { requestApi } from '../services/http';
+import { useWorkspaceRefresh } from '../hooks/useWorkspaceRefresh';
 import type { ModelDraft } from '../services/modelGeometry';
 import { ModelPreview } from './ModelPreview';
 
@@ -11,6 +12,7 @@ export function ClientPlans({ unitId, unitName, projectName }: {
   unitName: string;
   projectName?: string;
 }) {
+  const workspaceRevision = useWorkspaceRefresh();
   const endpoint = `/v1/portal/unidades/${unitId}/plantas`;
   const [plans, setPlans] = useState<Summary[]>();
   const [selected, setSelected] = useState('');
@@ -28,7 +30,7 @@ export function ClientPlans({ unitId, unitName, projectName }: {
         if (!controller.signal.aborted) setError(failure.message);
       });
     return () => controller.abort();
-  }, [endpoint, retry]);
+  }, [endpoint, retry, workspaceRevision]);
 
   useEffect(() => {
     if (!selected) return;
@@ -41,7 +43,7 @@ export function ClientPlans({ unitId, unitName, projectName }: {
         if (!controller.signal.aborted) setError(failure.message);
       });
     return () => controller.abort();
-  }, [endpoint, selected, retry]);
+  }, [endpoint, selected, retry, workspaceRevision]);
 
   return (
     <section className="ws-service-panel model-module" aria-label={`Plantas da unidade ${unitName}`}>

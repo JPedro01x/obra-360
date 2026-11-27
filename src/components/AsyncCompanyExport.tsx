@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { requestApi } from '../services/http';
+import { useWorkspaceRefresh } from '../hooks/useWorkspaceRefresh';
 type Job = { id: string; situacao: string; mensagem: string; tamanho: number; expiraEm: string };
 export function AsyncCompanyExport() {
+  const workspaceRevision = useWorkspaceRefresh();
   const [jobs, setJobs] = useState<Job[]>([]),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false),
@@ -21,7 +23,7 @@ export function AsyncCompanyExport() {
       c.abort();
       clearTimeout(timer);
     };
-  }, [refresh, active]);
+  }, [refresh, active, workspaceRevision]);
   async function download(job: Job) {
     setBusy(true);
     setError('');

@@ -47,6 +47,7 @@ import {
 } from '../services/planReference';
 import './model-editor.css';
 import type { IfcReadResult } from '../services/RealIfcParser';
+import { useWorkspaceRefresh } from '../hooks/useWorkspaceRefresh';
 
 type ModelSummary = Omit<SavedModel, 'documento'>;
 type LocalDraft = { draft: ModelDraft; version: number; raw: string };
@@ -109,6 +110,7 @@ export function ModelEditor({
   onDirtyChange: (dirty: boolean) => void;
   initialTarget?: { project: string; model: number } | null;
 }) {
+  const workspaceRevision = useWorkspaceRefresh();
   const canEdit = editableRoles.includes(role);
   const [projects, setProjects] = useState<{ id: number; nome: string }[]>([]),
     [projectQuery, setProjectQuery] = useState(''),
@@ -163,6 +165,7 @@ export function ModelEditor({
     ifcImportInput = useRef<HTMLInputElement>(null),
     ifcWorker = useRef<Worker | null>(null);
   const [ifcImporting, setIfcImporting] = useState(false);
+  const [remoteUpdatePending, setRemoteUpdatePending] = useState(false);
   const editViewportRef = useRef<HTMLDivElement>(null);
   const maximizeButtonRef = useRef<HTMLButtonElement>(null);
   const importGeneration = useRef(0);
@@ -172,6 +175,11 @@ export function ModelEditor({
     !!saved &&
     JSON.stringify(draft) !== JSON.stringify({ nome: saved.nome, documento: saved.documento });
   const dirty = geometryDirty || referenceChanged;
+  const dirtyRef = useRef(dirty);
+  dirtyRef.current = dirty;
+  const savedRef = useRef(saved);
+  savedRef.current = saved;
+  const latestLoadRef = useRef<(id: number) => Promise<void>>(async () => {});
   const [recoverable, setRecoverable] = useState<LocalDraft | null>(null);
   const [draftStored, setDraftStored] = useState(false);
   const writtenDraft = useRef<{ key: string; raw: string } | null>(null);
@@ -420,6 +428,22 @@ export function ModelEditor({
       setBusy(false);
     }
   }
+  latestLoadRef.current = load;
+  useEffect(() => {
+    if (!workspaceRevision) return;
+    const timer = window.setTimeout(() => {
+      if (dirtyRef.current) {
+        setRemoteUpdatePending(true);
+        setNotice('Outro usuário atualizou este modelo. Salve ou descarte sua edição para carregar a nova revisão.');
+        return;
+      }
+      setRemoteUpdatePending(false);
+      const current = savedRef.current;
+      if (current) void latestLoadRef.current(current.id);
+      else setRefresh((value) => value + 1);
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [workspaceRevision, dirty]);
   function switchProject(id: string) {
     if (!discard()) return;
     generation.current++;
@@ -1339,6 +1363,12 @@ export function ModelEditor({
           >
           {error && <div className="ws-alert" role="alert">{error}</div>}
           {notice && <p className="model-notice" role="status">{notice}</p>}
+          {remoteUpdatePending && <button className="ws-secondary" type="button" onClick={() => {
+            if (!discard()) return;
+            setRemoteUpdatePending(false);
+            if (saved) void load(saved.id);
+            else setRefresh((value) => value + 1);
+          }}>Carregar revisão atual</button>}
           <section className="model-savebar">
             <label>
               Nome do modelo

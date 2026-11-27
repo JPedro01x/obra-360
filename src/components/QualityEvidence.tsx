@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { requestApi } from '../services/http';
+import { useWorkspaceRefresh } from '../hooks/useWorkspaceRefresh';
 type Evidence = { id: number; mime: string; tamanho: number; dataCriacao: string };
 export function QualityEvidence({ id, onClose }: { id: string; onClose: () => void }) {
+  const workspaceRevision = useWorkspaceRefresh();
   const dialog = useRef<HTMLDialogElement>(null);
   const [rows, setRows] = useState<Evidence[]>([]);
   const [error, setError] = useState('');
@@ -24,7 +26,7 @@ export function QualityEvidence({ id, onClose }: { id: string; onClose: () => vo
       controller.abort();
       dialog.current?.close();
     };
-  }, [id]);
+  }, [id, workspaceRevision]);
   async function download(row: Evidence) {
     setBusy(true);
     setError('');

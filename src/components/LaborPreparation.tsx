@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { requestApi } from '../services/http';
 import { RhSelect } from './RhSelect';
+import { useWorkspaceRefresh } from '../hooks/useWorkspaceRefresh';
 export function LaborPreparation() {
+  const workspaceRevision = useWorkspaceRefresh();
   const [data, setData] = useState<{
     calculosLegaisAtivos: boolean;
     envioEsocialAtivo: boolean;
@@ -25,7 +27,7 @@ export function LaborPreparation() {
         if (!c.signal.aborted) setError(e.message);
       });
     return () => c.abort();
-  }, []);
+  }, [workspaceRevision]);
   async function download(e: React.FormEvent) {
     e.preventDefault();
     if (busy) return;

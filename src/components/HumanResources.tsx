@@ -11,6 +11,7 @@ import {
   EyeOff,
 } from 'lucide-react';
 import { requestApi } from '../services/http';
+import { useWorkspaceRefresh } from '../hooks/useWorkspaceRefresh';
 import './rh.css';
 import { RhSelect } from './RhSelect';
 import { RhDossie } from './RhDossie';
@@ -579,6 +580,7 @@ type Statement = {
   liquido: number;
 };
 export function HumanResources() {
+  const workspaceRevision = useWorkspaceRefresh();
   const [initialAccess, setInitialAccess] = useState<InitialAccess | null>(null);
   const [sectionId, setSectionId] = useState('funcionarios');
   const section = sections.find((s) => s.id === sectionId) || sections[0];
@@ -631,7 +633,7 @@ export function HumanResources() {
       clearTimeout(timer);
       c.abort();
     };
-  }, [sectionId, page, query, employeeFilter, payrollFilter, revision]);
+  }, [sectionId, page, query, employeeFilter, payrollFilter, revision, workspaceRevision]);
   useEffect(() => {
     const c = new AbortController();
     api<Record<string, number>>('/resumo', { signal: c.signal })
@@ -644,7 +646,7 @@ export function HumanResources() {
         })
         .catch(() => {});
     return () => c.abort();
-  }, [revision]);
+  }, [revision, workspaceRevision]);
   function change(id: string) {
     setSectionId(id);
     setPage(0);

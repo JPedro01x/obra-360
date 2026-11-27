@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { requestApi } from '../services/http';
+import { useWorkspaceRefresh } from '../hooks/useWorkspaceRefresh';
 type Invitation = {
   id: string;
   email: string;
@@ -9,24 +10,14 @@ type Invitation = {
   revogado: boolean;
 };
 const roles = [
-  'COLABORADOR',
-  'ENGENHEIRO',
-  'ARQUITETO',
-  'RH',
-  'GERENTE_OBRA',
-  'MESTRE_OBRA',
-  'ALMOXARIFE',
-  'FINANCEIRO',
-  'AUDITOR',
-  'INCORPORADOR',
   'CLIENTE',
   'FORNECEDOR',
   'CORRETOR',
   'LOCADOR_MAQUINAS',
   'INVESTIDOR',
-  'SUPER_ADMIN',
 ];
 export function UserInvitations() {
+  const workspaceRevision = useWorkspaceRefresh();
   const [items, setItems] = useState<Invitation[]>([]),
     [link, setLink] = useState(''),
     [message, setMessage] = useState(''),
@@ -34,13 +25,14 @@ export function UserInvitations() {
   const load = () => requestApi<Invitation[]>('/v1/workspace/convites').then(setItems);
   useEffect(() => {
     load().catch((e) => setMessage(e.message));
-  }, []);
+  }, [workspaceRevision]);
   return (
     <section>
       <h2>Convidar usuários</h2>
       <p>
-        O convidado define a própria senha. O convite vale por 48 horas, é de uso único e deve ser
-        compartilhado por um canal privado.
+        Use este fluxo para clientes e parceiros externos. Funcionários e perfis internos são
+        cadastrados em Recursos humanos. O convidado define a própria senha; o convite vale por
+        48 horas, é de uso único e deve ser compartilhado por um canal privado.
       </p>
       {message && <p role="status">{message}</p>}
       <form
@@ -102,7 +94,9 @@ export function UserInvitations() {
                 ? 'Revogado'
                 : new Date(i.expiraEm).getTime() < Date.now()
                   ? 'Expirado'
-                  : 'Pendente'}{' '}
+                  : roles.includes(i.perfil)
+                    ? 'Pendente'
+                    : 'Convite interno antigo — cadastrar pelo RH'}{' '}
             {!i.usado && !i.revogado && (
               <button
                 disabled={busy}

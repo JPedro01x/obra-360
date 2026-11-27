@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { requestApi } from '../services/http';
+import { useWorkspaceRefresh } from '../hooks/useWorkspaceRefresh';
 import type { ModelDraft, SavedModel } from '../services/modelGeometry';
 import { ModelPreview } from './ModelPreview';
 
@@ -15,6 +16,7 @@ type PublicationEvent = {
 type RevisionPreview = ModelDraft & { numero: number; motivo: string };
 
 function PublicationHistory({ endpoint, version }: { endpoint: string; version: number }) {
+  const workspaceRevision = useWorkspaceRefresh();
   const [page, setPage] = useState(0);
   const [result, setResult] = useState<{ items: PublicationEvent[]; total: number }>();
   const [error, setError] = useState('');
@@ -33,7 +35,7 @@ function PublicationHistory({ endpoint, version }: { endpoint: string; version: 
         if (!controller.signal.aborted) setError(failure.message);
       });
     return () => controller.abort();
-  }, [endpoint, version, page]);
+  }, [endpoint, version, page, workspaceRevision]);
   return (
     <section className="ws-service-panel" aria-label="Histórico de publicação">
       {!result && !error && <p role="status">Carregando histórico…</p>}
@@ -80,6 +82,7 @@ export function ModelPublication({
   onPublished: (model: SavedModel) => void;
   disabled: boolean;
 }) {
+  const workspaceRevision = useWorkspaceRefresh();
   const [search, setSearch] = useState('');
   const [unitId, setUnitId] = useState(String(model.unidadePublicadaId ?? ''));
   const [revision, setRevision] = useState(String(model.revisaoPublicada ?? model.revisao));
@@ -120,7 +123,7 @@ export function ModelPublication({
         if (!controller.signal.aborted) setPreviewError(failure.message);
       });
     return () => controller.abort();
-  }, [endpoint, previewOpen, selectedRevision, validRevision]);
+  }, [endpoint, previewOpen, selectedRevision, validRevision, workspaceRevision]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -140,7 +143,7 @@ export function ModelPublication({
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [endpoint, search]);
+  }, [endpoint, search, workspaceRevision]);
 
   async function publish() {
     if (disabled || busy || unchanged || (unitId && (model.arquivado || !validRevision))) return;

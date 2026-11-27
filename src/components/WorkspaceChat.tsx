@@ -1,6 +1,7 @@
 import React, { FormEvent, useEffect, useState } from 'react';
 import { MessageCircle, RefreshCw, Send } from 'lucide-react';
 import { requestApi } from '../services/http';
+import { useWorkspaceRefresh } from '../hooks/useWorkspaceRefresh';
 
 type Contact = { id: number; nome: string; perfil: string };
 type Message = {
@@ -13,6 +14,7 @@ type Message = {
 };
 
 export function WorkspaceChat({ currentUserId }: { currentUserId: number }) {
+  const workspaceRevision = useWorkspaceRefresh();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -32,7 +34,7 @@ export function WorkspaceChat({ currentUserId }: { currentUserId: number }) {
         if (!controller.signal.aborted) setError((e as Error).message);
       });
     return () => controller.abort();
-  }, []);
+  }, [workspaceRevision]);
 
   useEffect(() => {
     if (selected === null) {
@@ -57,7 +59,7 @@ export function WorkspaceChat({ currentUserId }: { currentUserId: number }) {
         if (!controller.signal.aborted) setBusy(false);
       });
     return () => controller.abort();
-  }, [selected, refresh]);
+  }, [selected, refresh, workspaceRevision]);
 
   async function send(event: FormEvent) {
     event.preventDefault();

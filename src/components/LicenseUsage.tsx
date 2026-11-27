@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { requestApi } from '../services/http';
+import { useWorkspaceRefresh } from '../hooks/useWorkspaceRefresh';
 type Usage = {
   plano: string;
   usuariosAtivos: number;
@@ -11,13 +12,14 @@ type Usage = {
   limiteModelos: number;
 };
 export function LicenseUsage() {
+  const workspaceRevision = useWorkspaceRefresh();
   const [data, setData] = useState<Usage>(),
     [error, setError] = useState('');
   useEffect(() => {
     requestApi<Usage>('/v1/workspace/licenca')
       .then(setData)
       .catch((e) => setError(e.message));
-  }, []);
+  }, [workspaceRevision]);
   return (
     <section>
       <h2>Plano e utilização</h2>

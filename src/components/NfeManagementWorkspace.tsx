@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertCircle, CheckCircle2, FilePlus2, Plus, RefreshCw, Search, Trash2 } from 'lucide-react';
 import { requestApi } from '../services/http';
+import { useWorkspaceRefresh } from '../hooks/useWorkspaceRefresh';
 import { localCalendarDate } from '../utils/planningDates';
 
 type Option = { id: number; nome: string };
@@ -22,6 +23,7 @@ const currency = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'cur
 const newDraftLine = (): DraftLine => ({ draftId: crypto.randomUUID(), itemEstoqueId: '', quantidade: '1', valorUnitario: '0' });
 
 export function NfeManagementWorkspace({ role }: { role: string }) {
+  const workspaceRevision = useWorkspaceRefresh();
   const [page, setPage] = useState<Page | null>(null);
   const [pageNumber, setPageNumber] = useState(0);
   const [query, setQuery] = useState('');
@@ -56,7 +58,7 @@ export function NfeManagementWorkspace({ role }: { role: string }) {
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
-  }, [pageNumber, query]);
+  }, [pageNumber, query, workspaceRevision]);
 
   useEffect(() => {
     const controller = new AbortController();

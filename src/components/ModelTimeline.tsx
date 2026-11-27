@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { requestApi } from '../services/http';
+import { useWorkspaceRefresh } from '../hooks/useWorkspaceRefresh';
 import type { ModelDraft } from '../services/modelGeometry';
 import type { SavedPlanReference } from '../services/planReference';
 import { ModelPreview } from './ModelPreview';
@@ -7,6 +8,7 @@ import { ModelPreview } from './ModelPreview';
 type Frame = ModelDraft & { numero: number; motivo: string; criadoEm: string; referencia?: SavedPlanReference | null };
 
 export function ModelTimeline({ modelId, last }: { modelId: number; last: number }) {
+  const workspaceRevision = useWorkspaceRefresh();
   const [number, setNumber] = useState(1);
   const [playing, setPlaying] = useState(false);
   const [frame, setFrame] = useState<Frame>();
@@ -27,7 +29,7 @@ export function ModelTimeline({ modelId, last }: { modelId: number; last: number
         setPlaying(false);
       });
     return () => controller.abort();
-  }, [modelId, number, retry]);
+  }, [modelId, number, retry, workspaceRevision]);
 
   useEffect(() => {
     if (!playing || frame?.numero !== number || number >= last) return;

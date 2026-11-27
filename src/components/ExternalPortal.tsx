@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { requestApi } from '../services/http';
+import { useWorkspaceRefresh } from '../hooks/useWorkspaceRefresh';
 import { OperationForm, OperationDefinition } from './OperationForms';
 const ClientPlans = React.lazy(() => import('./ClientPlans').then((module) => ({ default: module.ClientPlans })));
 interface Snapshot {
@@ -32,6 +33,7 @@ interface Snapshot {
   }[];
 }
 export function ExternalPortal() {
+  const workspaceRevision = useWorkspaceRefresh();
   const [data, setData] = useState<Snapshot | null>(null),
     [error, setError] = useState(''),
     [revision, setRevision] = useState(0),
@@ -53,7 +55,7 @@ export function ExternalPortal() {
     return () => {
       current = false;
     };
-  }, [revision]);
+  }, [revision, workspaceRevision]);
   async function reserve(id: number) {
     setError('');
     try {

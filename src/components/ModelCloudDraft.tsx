@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { requestApi } from '../services/http';
 import type { ModelDraft, SavedModel } from '../services/modelGeometry';
+import { useWorkspaceRefresh } from '../hooks/useWorkspaceRefresh';
 
 type ServerDraft = ModelDraft & { versaoBase: number; token: string; atualizadoEm: string };
 
@@ -25,11 +26,13 @@ export function ModelCloudDraft({
   onCompare: (draft: ModelDraft) => void;
   onDownload: (draft: ModelDraft) => void;
 }) {
+  const workspaceRevision = useWorkspaceRefresh();
   const [remote, setRemote] = useState<ServerDraft>();
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [remoteUpdatePending, setRemoteUpdatePending] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const mounted = useRef(false);
   const endpoint = `/v1/workspace/modelador/modelos/${model.id}/rascunho`;
@@ -57,6 +60,12 @@ export function ModelCloudDraft({
     return () => controller.abort();
   }, [endpoint, model, refresh]);
 
+  useEffect(() => {
+    if (!workspaceRevision) return;
+    if (hasLocalChanges) setRemoteUpdatePending(true);
+    else setRefresh((value) => value + 1);
+  }, [workspaceRevision, hasLocalChanges]);
+
   async function store() {
     if (!ready || !canStore || busy || disabled) return;
     if (remote && !window.confirm('Substituir o rascunho que está guardado no servidor?')) return;
@@ -78,6 +87,7 @@ export function ModelCloudDraft({
       );
       if (!mounted.current) return;
       setRemote(result);
+      setRemoteUpdatePending(false);
       onAssociate(result.token);
       setNotice('Rascunho guardado no servidor para esta conta.');
     } catch (failure) {
@@ -105,6 +115,7 @@ export function ModelCloudDraft({
       });
       if (!mounted.current) return;
       setRemote(undefined);
+      setRemoteUpdatePending(false);
       onAssociate(null);
       setNotice('Rascunho removido do servidor.');
     } catch (failure) {
@@ -137,6 +148,7 @@ export function ModelCloudDraft({
     <details className="model-plan-tools">
       <summary>Rascunho privado no servidor {ready && remote ? '· disponível' : ''}</summary>
       <p>Guarde as alterações para continuar em outro computador com a mesma conta.</p>
+      {remoteUpdatePending && <p role="status">O rascunho pode ter uma revisão nova. Salve ou descarte suas alterações locais e atualize o rascunho.<button type="button" onClick={() => { setRemoteUpdatePending(false); setRefresh((value) => value + 1); }}>Atualizar rascunho</button></p>}
       {!ready && !error && <p role="status">Consultando o rascunho…</p>}
       {ready && remote && (
         <p>

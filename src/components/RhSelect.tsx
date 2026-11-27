@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { requestApi } from '../services/http';
+import { useWorkspaceRefresh } from '../hooks/useWorkspaceRefresh';
 type Option = { id: number; nome: string };
 const api = <T,>(path: string, options?: RequestInit) =>
   requestApi<T>(`/v1/workspace/rh${path}`, options);
@@ -16,6 +17,7 @@ export function RhSelect({
   disabled?: boolean;
   context?: { param: string; value: string; label: string };
 }) {
+  const workspaceRevision = useWorkspaceRefresh();
   const [options, setOptions] = useState<Option[]>([]);
   const [query, setQuery] = useState('');
   const [error, setError] = useState('');
@@ -56,7 +58,7 @@ export function RhSelect({
       clearTimeout(timer);
       c.abort();
     };
-  }, [field.source, query, context?.param, context?.value, waiting]);
+  }, [field.source, query, context?.param, context?.value, waiting, workspaceRevision]);
   return (
     <div className="rh-select">
       <input

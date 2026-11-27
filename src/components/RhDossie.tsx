@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, FileLock2, RefreshCw, Upload } from 'lucide-react';
 import { requestApi } from '../services/http';
+import { useWorkspaceRefresh } from '../hooks/useWorkspaceRefresh';
 import { RhSelect } from './RhSelect';
 
 type PrivateDocument = {
@@ -88,6 +89,7 @@ function value(snapshot: Snapshot | null, key: string) {
 }
 
 export function RhDossie({ mode }: { mode: 'documentos' | 'historico' }) {
+  const workspaceRevision = useWorkspaceRefresh();
   const [employee, setEmployee] = useState('');
   const [archived, setArchived] = useState(false);
   const [page, setPage] = useState(0);
@@ -132,14 +134,14 @@ export function RhDossie({ mode }: { mode: 'documentos' | 'historico' }) {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [mode, employee, page, archived, revision]);
+  }, [mode, employee, page, archived, revision, workspaceRevision]);
   useEffect(() => {
     const c = new AbortController();
     api<{ id: number; nome: string }[]>('/opcoes/funcionarios', { signal: c.signal })
       .then(setNames)
       .catch(() => {});
     return () => c.abort();
-  }, [revision]);
+  }, [revision, workspaceRevision]);
   function openUpload(doc: PrivateDocument | null) {
     setPrevious(doc);
     setUploadEmployee(doc ? String(doc.funcionarioId) : employee);

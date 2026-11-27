@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { requestApi } from '../services/http';
+import { useWorkspaceRefresh } from '../hooks/useWorkspaceRefresh';
 import './recordDetails.css';
 
 type Value = string | number | boolean | null;
@@ -47,6 +48,7 @@ export function RecordDetails({
   onDocument: (id: string, filename: string) => Promise<void>;
   canDownload: boolean;
 }) {
+  const workspaceRevision = useWorkspaceRefresh();
   const dialog = useRef<HTMLDialogElement>(null);
   const [history, setHistory] = useState<DetailTarget[]>([target]);
   const current = history[history.length - 1];
@@ -82,7 +84,7 @@ export function RecordDetails({
       });
     heading.current?.focus();
     return () => controller.abort();
-  }, [current.resource, current.id, reload]);
+  }, [current.resource, current.id, reload, workspaceRevision]);
   async function changePage(section: Section, page: number) {
     const token = generation.current;
     setBusy(true);

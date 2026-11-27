@@ -1,6 +1,7 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { API_BASE_URL, requestApi } from '../services/http';
+import { useWorkspaceRefresh } from '../hooks/useWorkspaceRefresh';
 import { planningError, planningMinimum, localCalendarDate } from '../utils/planningDates';
 
 type Field = {
@@ -804,6 +805,7 @@ function Lookup({
   context?: string;
   onValueChange: (name: string, value: string) => void;
 }) {
+  const workspaceRevision = useWorkspaceRefresh();
   const [query, setQuery] = useState('');
   const [options, setOptions] = useState<LookupOption[]>([]);
   const [selected, setSelected] = useState<{ id: string; nome: string } | null>(null);
@@ -846,7 +848,7 @@ function Lookup({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [field.source, query, context, field.contextParam, waitingForContext]);
+  }, [field.source, query, context, field.contextParam, waitingForContext, workspaceRevision]);
   return (
     <div className="ws-lookup">
       <label htmlFor={id}>{field.label}</label>
@@ -1150,6 +1152,7 @@ export async function downloadDocument(id: string, name: string) {
 }
 
 export function OperationalOverview({ revision }: { revision: number }) {
+  const workspaceRevision = useWorkspaceRefresh();
   const [data, setData] = useState<{
     ordensAbertas: number;
     ordensAtrasadas: number;
@@ -1172,7 +1175,7 @@ export function OperationalOverview({ revision }: { revision: number }) {
     return () => {
       current = false;
     };
-  }, [revision]);
+  }, [revision, workspaceRevision]);
   if (error)
     return (
       <div role="alert" className="ws-alert">

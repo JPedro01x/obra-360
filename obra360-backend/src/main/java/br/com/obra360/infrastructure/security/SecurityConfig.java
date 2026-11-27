@@ -14,6 +14,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
+import br.com.obra360.infrastructure.realtime.WorkspaceMutationEventFilter;
 
 @Configuration
 @org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication(type=org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication.Type.SERVLET)
@@ -29,12 +30,23 @@ public class SecurityConfig {
         return registration;
     }
 
+    @Bean
+    public org.springframework.boot.web.servlet.FilterRegistrationBean<WorkspaceMutationEventFilter> workspaceMutationEventServletRegistration(
+            WorkspaceMutationEventFilter filter) {
+        var registration = new org.springframework.boot.web.servlet.FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
+    }
+
     private final JwtAuthenticationFilter jwtFilter;
     private final RateLimitingFilter rateLimitingFilter;
+    private final WorkspaceMutationEventFilter workspaceMutationEventFilter;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtFilter, RateLimitingFilter rateLimitingFilter) {
+    public SecurityConfig(JwtAuthenticationFilter jwtFilter, RateLimitingFilter rateLimitingFilter,
+                          WorkspaceMutationEventFilter workspaceMutationEventFilter) {
         this.jwtFilter = jwtFilter;
         this.rateLimitingFilter = rateLimitingFilter;
+        this.workspaceMutationEventFilter = workspaceMutationEventFilter;
     }
 
     @Bean
@@ -62,7 +74,8 @@ public class SecurityConfig {
                 .authenticationEntryPoint((request, response, exception) -> response.sendError(401))
                 .accessDeniedHandler((request, response, exception) -> response.sendError(403)))
             .addFilterBefore(rateLimitingFilter, UsernamePasswordAuthenticationFilter.class)
-            .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+            .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterAfter(workspaceMutationEventFilter, JwtAuthenticationFilter.class);
 
         return http.build();
     }

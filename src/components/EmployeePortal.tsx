@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { requestApi } from '../services/http';
+import { useWorkspaceRefresh } from '../hooks/useWorkspaceRefresh';
 
 type Profile = {
   nome: string;
@@ -34,6 +35,7 @@ const money = (value: number) =>
 const date = (value: string) => value.split('-').reverse().join('/');
 
 export function EmployeePortal() {
+  const workspaceRevision = useWorkspaceRefresh();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [payrolls, setPayrolls] = useState<Payroll[]>([]);
   const [attendance, setAttendance] = useState<{ items: Attendance[]; total: number }>({
@@ -58,7 +60,7 @@ export function EmployeePortal() {
         if (!controller.signal.aborted) setError(e.message);
       });
     return () => controller.abort();
-  }, []);
+  }, [workspaceRevision]);
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
@@ -72,7 +74,7 @@ export function EmployeePortal() {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [page]);
+  }, [page, workspaceRevision]);
   useEffect(() => {
     setStatement(null);
     setStatementError('');
@@ -84,7 +86,7 @@ export function EmployeePortal() {
         if (!controller.signal.aborted) setStatementError(e.message);
       });
     return () => controller.abort();
-  }, [selected]);
+  }, [selected, workspaceRevision]);
   return (
     <div>
       <h1>Meu cadastro</h1>

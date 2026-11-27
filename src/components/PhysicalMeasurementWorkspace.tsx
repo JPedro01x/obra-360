@@ -1,5 +1,6 @@
 import React, { FormEvent, useEffect, useState } from 'react';
 import { requestApi } from '../services/http';
+import { useWorkspaceRefresh } from '../hooks/useWorkspaceRefresh';
 
 type Row = Record<string, string | number | boolean | null>;
 type Page<T> = { items: T[]; total: number; page: number; size: number };
@@ -14,6 +15,7 @@ type MeasurementEvent = { id: number; usuarioId: number; usuario: string; acao: 
 type MeasurementAttachment = { id: number; nomeArquivo: string; mime: string; tamanho: number; sha256: string; usuarioId: number; criadoEm: string };
 
 export function PhysicalMeasurementWorkspace({ role }: { role: string }) {
+  const workspaceRevision = useWorkspaceRefresh();
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectId, setProjectId] = useState('');
   const [stages, setStages] = useState<Stage[]>([]);
@@ -28,6 +30,8 @@ export function PhysicalMeasurementWorkspace({ role }: { role: string }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [revision, setRevision] = useState(0);
+  const [remoteUpdatePending, setRemoteUpdatePending] = useState(false);
+  const [draftChanged, setDraftChanged] = useState(false);
   const [historyId, setHistoryId] = useState<number | null>(null);
   const [history, setHistory] = useState<MeasurementEvent[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -37,12 +41,19 @@ export function PhysicalMeasurementWorkspace({ role }: { role: string }) {
   const canCreate = ['SUPER_ADMIN','GERENTE_OBRA','ENGENHEIRO','INCORPORADOR'].includes(role);
 
   useEffect(() => {
+    if (!workspaceRevision) return;
+    const draftDirty = editingId !== null || draftChanged || attachmentFile !== null;
+    if (draftDirty) setRemoteUpdatePending(true);
+    else setRevision((value) => value + 1);
+  }, [workspaceRevision]);
+
+  useEffect(() => {
     const controller = new AbortController();
     requestApi<Page<Project>>('/v1/workspace/registros/projetos?page=0&size=100', { signal: controller.signal })
       .then((result) => { setProjects(result.items); setProjectId((current) => current || String(result.items[0]?.id || '')); })
       .catch((e) => { if (!controller.signal.aborted) setError(e.message); });
     return () => controller.abort();
-  }, []);
+  }, [workspaceRevision]);
 
   useEffect(() => {
     if (!projectId) return;
@@ -72,7 +83,7 @@ export function PhysicalMeasurementWorkspace({ role }: { role: string }) {
         ...(editingId === null ? { projetoObraId: Number(projectId), etapaCronogramaId: Number(stageId), competencia } : {}),
         descricao, quantidade: Number(quantidade), unidade, percentualMedido: Number(percentual), valorMedido: Number(valor),
       }) });
-      setDescricao(''); setEditingId(null); setRevision((n) => n + 1);
+      setDescricao(''); setEditingId(null); setDraftChanged(false); setRemoteUpdatePending(false); setRevision((n) => n + 1);
     } catch (e) { setError((e as Error).message); }
     finally { setBusy(false); }
   }
@@ -118,6 +129,7 @@ export function PhysicalMeasurementWorkspace({ role }: { role: string }) {
   }
 
   function edit(m: Measurement) {
+    setDraftChanged(false);
     setEditingId(m.id); setDescricao(m.descricao); setQuantidade(String(m.quantidade));
     setUnidade(m.unidade); setPercentual(String(m.percentualMedido)); setValor(String(m.valorMedido));
     setStageId(String(m.etapaCronogramaId)); setCompetencia(m.competencia); setError('');
@@ -127,26 +139,28 @@ export function PhysicalMeasurementWorkspace({ role }: { role: string }) {
     <p className="ws-eyebrow">OBRAS E PROJETOS</p>
     <h1 id="physical-measurements-title">Medições físico-financeiras</h1>
     <p>Registre o avanço de uma etapa; engenharia aprova o percentual e financeiro libera o valor. Cada mudança fica no histórico.</p>
+    {remoteUpdatePending && <p className="model-notice" role="status">Há dados atualizados por outro usuário. Salve ou descarte sua edição e aplique a atualização.<button className="ws-secondary" type="button" onClick={() => { setRemoteUpdatePending(false); setRevision((value) => value + 1); }}>Aplicar atualização</button></p>}
     {error && <p role="alert" className="ws-alert">{error}</p>}
     <label>Empreendimento<select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
       {projects.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
     </select></label>
     {canCreate && <form className="ws-form-grid" onSubmit={create}>
       <h2>{editingId === null ? 'Nova medição' : `Editar medição ${editingId}`}</h2>
-      <label>Etapa<select value={stageId} disabled={editingId !== null} onChange={(e) => {
+    <label>Etapa<select value={stageId} disabled={editingId !== null} onChange={(e) => {
+        setDraftChanged(true);
         const chosen = stages.find((stage) => String(stage.id) === e.target.value);
         setStageId(e.target.value); setPercentual(String(chosen?.percentualExecutado ?? 0));
       }} required>
         {stages.map((s) => <option key={s.id} value={s.id}>{s.nomeEtapa} · atual {Number(s.percentualExecutado).toFixed(1)}%</option>)}
       </select></label>
-      <label>Competência<input type="date" value={competencia} disabled={editingId !== null} onChange={(e) => setCompetencia(e.target.value)} required /></label>
-      <label>Descrição<input maxLength={2000} value={descricao} onChange={(e) => setDescricao(e.target.value)} required /></label>
-      <label>Quantidade<input type="number" min="0.0001" step="0.0001" value={quantidade} onChange={(e) => setQuantidade(e.target.value)} required /></label>
-      <label>Unidade<select value={unidade} onChange={(e) => setUnidade(e.target.value)}>{['m','m2','m3','un','kg','t','h'].map((u) => <option key={u}>{u}</option>)}</select></label>
-      <label>Avanço acumulado (%)<input type="number" min="0" max="100" step="0.01" value={percentual} onChange={(e) => setPercentual(e.target.value)} required /></label>
-      <label>Valor medido (R$)<input type="number" min="0" step="0.01" value={valor} onChange={(e) => setValor(e.target.value)} required /></label>
+      <label>Competência<input type="date" value={competencia} disabled={editingId !== null} onChange={(e) => { setDraftChanged(true); setCompetencia(e.target.value); }} required /></label>
+      <label>Descrição<input maxLength={2000} value={descricao} onChange={(e) => { setDraftChanged(true); setDescricao(e.target.value); }} required /></label>
+      <label>Quantidade<input type="number" min="0.0001" step="0.0001" value={quantidade} onChange={(e) => { setDraftChanged(true); setQuantidade(e.target.value); }} required /></label>
+      <label>Unidade<select value={unidade} onChange={(e) => { setDraftChanged(true); setUnidade(e.target.value); }}>{['m','m2','m3','un','kg','t','h'].map((u) => <option key={u}>{u}</option>)}</select></label>
+      <label>Avanço acumulado (%)<input type="number" min="0" max="100" step="0.01" value={percentual} onChange={(e) => { setDraftChanged(true); setPercentual(e.target.value); }} required /></label>
+      <label>Valor medido (R$)<input type="number" min="0" step="0.01" value={valor} onChange={(e) => { setDraftChanged(true); setValor(e.target.value); }} required /></label>
       <button className="ws-primary" disabled={busy || !stages.length}>{editingId === null ? 'Registrar medição' : 'Salvar edição'}</button>
-      {editingId !== null && <button type="button" className="ws-secondary" onClick={() => { setEditingId(null); setDescricao(''); }}>Cancelar edição</button>}
+      {editingId !== null && <button type="button" className="ws-secondary" onClick={() => { setEditingId(null); setDescricao(''); setDraftChanged(false); }}>Cancelar edição</button>}
     </form>}
     <div className="ws-table-wrap"><table><thead><tr><th>Competência</th><th>Etapa</th><th>Avanço</th><th>Valor</th><th>Status</th><th>Ação</th></tr></thead>
       <tbody>{rows.map((m) => <React.Fragment key={m.id}><tr><td>{m.competencia}</td><td>{stages.find((s) => s.id === m.etapaCronogramaId)?.nomeEtapa || `Etapa ${m.etapaCronogramaId}`}</td>

@@ -2,6 +2,7 @@ package br.com.obra360.infrastructure.security;
 
 import br.com.obra360.domain.entity.*;
 import br.com.obra360.domain.repository.*;
+import br.com.obra360.infrastructure.realtime.WorkspaceChangeStream;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.*;
@@ -39,6 +40,7 @@ class WorkspaceSecurityIntegrationTest {
     @Autowired ObjectMapper json;
     @Autowired PasswordEncoder encoder;
     @Autowired JwtService jwt;
+    @Autowired WorkspaceChangeStream workspaceChanges;
     @Autowired BruteForceProtectionService bruteForce;
     @Autowired br.com.obra360.application.service.RetencaoOperacionalService retention;
     private UsuarioEntity admin;
@@ -1192,6 +1194,39 @@ class WorkspaceSecurityIntegrationTest {
             .andExpect(jsonPath("$.documento.elementos[0].malhaIfc.sourceGlobalId").value("0J$5eUQxP8w8mO7sQyG7xA"))
             .andExpect(jsonPath("$.documento.elementos[0].malhaIfc.indicesBase64").value(java.util.Base64.getEncoder().encodeToString(indices)));
     }
+
+    @Test void workspaceRealtimeStreamRequiresAuthentication() throws Exception {
+        mvc.perform(get("/api/v1/workspace/eventos"))
+            .andExpect(status().isUnauthorized());
+
+        mvc.perform(get("/api/v1/workspace/eventos").header("Authorization", token(admin)))
+            .andExpect(request().asyncStarted());
+    }
+
+    @Test void successfulWorkspaceWritePublishesOnlyToItsCompanyAndFailedWritePublishesNothing() throws Exception {
+        var adminEvents = new java.util.ArrayList<WorkspaceChangeStream.Change>();
+        var otherCompanyEvents = new java.util.ArrayList<WorkspaceChangeStream.Change>();
+        try (var adminSubscription = workspaceChanges.subscribe(admin.getEmpresaId(), adminEvents::add);
+             var otherSubscription = workspaceChanges.subscribe(outsider.getEmpresaId(), otherCompanyEvents::add)) {
+            create("/modelador/modelos", Map.of("projetoObraId", ownProject(), "nome", "Modelo em tempo real"));
+
+            org.junit.jupiter.api.Assertions.assertEquals(1, adminEvents.size());
+            org.junit.jupiter.api.Assertions.assertEquals("workspace", adminEvents.get(0).module());
+            org.junit.jupiter.api.Assertions.assertTrue(otherCompanyEvents.isEmpty());
+
+            mvc.perform(post("/api/v1/workspace/modelador/modelos")
+                    .header("Authorization", token(admin)).contentType("application/json")
+                    .content(json.writeValueAsString(Map.of("projetoObraId", 999999999L, "nome", "Modelo inválido"))))
+                .andExpect(status().isNotFound());
+
+            org.junit.jupiter.api.Assertions.assertEquals(1, adminEvents.size());
+            mvc.perform(get("/api/v1/workspace/modelador/modelos").param("projetoObraId", ownProject().toString())
+                    .header("Authorization", token(admin)))
+                .andExpect(status().isOk());
+            org.junit.jupiter.api.Assertions.assertEquals(1, adminEvents.size());
+        }
+    }
+
     @Test void modelEditorRejectsDetachedAndOverlappingOpenings() throws Exception {
         Long id=create("/modelador/modelos",Map.of("projetoObraId",ownProject(),"nome","Modelo teste")).get("id").asLong();
         var wall=modelElement("wall-1","PAREDE");var a=modelElement("window-1","JANELA");var b=modelElement("window-2","JANELA");

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { requestApi } from '../services/http';
+import { useWorkspaceRefresh } from '../hooks/useWorkspaceRefresh';
 import { MensageriaPanel } from './MensageriaPanel';
 import type { IfcReadResult } from '../services/RealIfcParser';
 interface Status {
@@ -10,6 +11,7 @@ interface Status {
   sefazConfigurada: boolean;
 }
 export function IntegrationHub({ role }: { role: string }) {
+  const workspaceRevision = useWorkspaceRefresh();
   const [status, setStatus] = useState<Status | null>(null),
     [error, setError] = useState(''),
     [question, setQuestion] = useState(''),
@@ -30,7 +32,7 @@ export function IntegrationHub({ role }: { role: string }) {
     return () => {
       active = false;
     };
-  }, []);
+  }, [workspaceRevision]);
   async function ask(e: React.FormEvent) {
     e.preventDefault();
     if (busy || !status?.iaConfigurada || !consent || !question.trim()) return;
