@@ -1,13 +1,16 @@
 import { spawn, spawnSync } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { createSmtpCapture } from './test-smtp.mjs';
+import { integratedApiPort } from './integrated-ports.mjs';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const vite = path.join(root, 'node_modules/vite/bin/vite.js');
 const output = path.join(root, 'test-results/integrated-dist');
+const apiPort = integratedApiPort();
 const frontendEnvironment = {
   ...process.env,
-  OBRA360_PROXY_TARGET: 'http://127.0.0.1:8081',
+  OBRA360_PROXY_TARGET: `http://127.0.0.1:${apiPort}`,
   VITE_USE_MOCK: 'false',
   VITE_API_URL: '/api',
 };
@@ -42,8 +45,8 @@ function start(command, args, cwd, env = process.env) {
   });
 }
 try {
-  await fetch('http://127.0.0.1:8081/actuator/health', { signal: AbortSignal.timeout(1000) });
-  console.error('A porta de teste 8081 já está em uso.');
+  await fetch(`http://127.0.0.1:${apiPort}/actuator/health`, { signal: AbortSignal.timeout(1000) });
+  console.error(`A porta de teste ${apiPort} já está em uso.`);
   process.exit(1);
 } catch {}
 const build = spawnSync(process.execPath, [vite, 'build', '--outDir', output], {
@@ -53,7 +56,8 @@ if (build.error) throw build.error;
 if (build.status !== 0) process.exit(build.status ?? 1);
 const testEnvironment = {
   ...process.env,
-  SERVER_PORT: '8081',
+  PORT: String(apiPort),
+  SERVER_PORT: String(apiPort),
   SERVER_ADDRESS: '127.0.0.1',
   SPRING_PROFILES_ACTIVE: 'dev',
   SPRING_DATASOURCE_URL: 'jdbc:h2:mem:obra360_e2e;DB_CLOSE_DELAY=-1;MODE=PostgreSQL',
@@ -63,7 +67,7 @@ const testEnvironment = {
   SPRING_JPA_HIBERNATE_DDL_AUTO: 'update',
   OBRA360_STORAGE_DIRECTORY: './target/e2e-documents',
   OBRA360_SETUP_ENABLED: 'true',
-  JWT_SECRET: 'e2e-only-secret-not-for-production-1234567890',
+  JWT_SECRET: randomBytes(32).toString('hex'),
 };
 Object.assign(testEnvironment, {
   EMAIL_ENABLED: 'true',
@@ -101,7 +105,7 @@ let ready = false;
 for (let i = 0; i < 120 && !stopping; i++) {
   try {
     // Readiness includes the actual installation query used by the first screen.
-    const response = await fetch('http://127.0.0.1:8081/api/v1/instalacao', {
+    const response = await fetch(`http://127.0.0.1:${apiPort}/api/v1/instalacao`, {
       signal: AbortSignal.timeout(5000),
     });
     if (response.ok) {
