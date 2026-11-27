@@ -5,7 +5,9 @@ import {
   ArrowRight,
   Building2,
   Bell,
+  ChevronDown,
   ChevronRight,
+  ChevronUp,
   Database,
   Eye,
   EyeOff,
@@ -120,6 +122,7 @@ function WorkspaceContent() {
   const [loading, setLoading] = useState(false);
   const [revision, setRevision] = useState(0);
   const [search, setSearch] = useState('');
+  const [collapsedRecords, setCollapsedRecords] = useState<Record<string, boolean>>({});
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   const [creating, setCreating] = useState(false);
   const [setupProjectId, setSetupProjectId] = useState<number | null>(null);
@@ -130,6 +133,7 @@ function WorkspaceContent() {
   const [modelTarget, setModelTarget] = useState<{ project: string; model: number } | null>(null);
   const resource =
     resources.find((r) => r.id === active) || resources.find((r) => r.id === 'projetos')!;
+  const recordsCollapsed = Boolean(collapsedRecords[active]);
   const [authConfiguration, setAuthConfiguration] = useState({
     googleClientId: '',
     emailRecovery: false,
@@ -809,7 +813,29 @@ function WorkspaceContent() {
               )}
               <section className="ws-table-card">
                 <div className="ws-table-toolbar">
-                  <h2>Todos os registros</h2>
+                  <div className="ws-table-heading">
+                    <h2 id="workspace-records-heading">Todos os registros</h2>
+                    <button
+                      type="button"
+                      className="ws-records-toggle"
+                      aria-label={recordsCollapsed ? 'Mostrar registros' : 'Ocultar registros'}
+                      aria-expanded={!recordsCollapsed}
+                      aria-controls="workspace-records-content"
+                      title={recordsCollapsed ? 'Mostrar registros' : 'Ocultar registros'}
+                      onClick={() =>
+                        setCollapsedRecords((current) => ({
+                          ...current,
+                          [active]: !current[active],
+                        }))
+                      }
+                    >
+                      {recordsCollapsed ? (
+                        <ChevronDown size={18} aria-hidden="true" />
+                      ) : (
+                        <ChevronUp size={18} aria-hidden="true" />
+                      )}
+                    </button>
+                  </div>
                   <div>
                     <label className="ws-search">
                       <Search size={17} />
@@ -831,153 +857,159 @@ function WorkspaceContent() {
                     </button>
                   </div>
                 </div>
-                {loading ? (
-                  <div className="ws-empty" role="status">
-                    <RefreshCw className="ws-spin" size={26} />
-                    <p>Consultando os registros…</p>
-                  </div>
-                ) : data && rows.length > 0 ? (
-                  <div
-                    className="ws-table-scroll"
-                    tabIndex={0}
-                    role="region"
-                    aria-label="Tabela de registros"
-                  >
-                    <table>
-                      <caption className="sr-only">{resource.title} da empresa</caption>
-                      <thead>
-                        <tr>
-                          {resource.columns.map(([key, label]) => (
-                            <th key={key} scope="col">
-                              {label}
-                            </th>
-                          ))}
-                          <th scope="col">Ações</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {rows.map((row) => (
-                          <tr key={String(row.id)}>
-                            {resource.columns.map(([key, , type], i) => (
-                              <td key={key} className={i === 0 ? 'ws-cell-title' : ''}>
-                                {i === 0 ? (
+                <div
+                  id="workspace-records-content"
+                  className="ws-records-content"
+                  hidden={recordsCollapsed}
+                >
+                  {loading ? (
+                    <div className="ws-empty" role="status">
+                      <RefreshCw className="ws-spin" size={26} />
+                      <p>Consultando os registros…</p>
+                    </div>
+                  ) : data && rows.length > 0 ? (
+                    <div
+                      className="ws-table-scroll"
+                      tabIndex={0}
+                      role="region"
+                      aria-label="Tabela de registros"
+                    >
+                      <table>
+                        <caption className="sr-only">{resource.title} da empresa</caption>
+                        <thead>
+                          <tr>
+                            {resource.columns.map(([key, label]) => (
+                              <th key={key} scope="col">
+                                {label}
+                              </th>
+                            ))}
+                            <th scope="col">Ações</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rows.map((row) => (
+                            <tr key={String(row.id)}>
+                              {resource.columns.map(([key, , type], i) => (
+                                <td key={key} className={i === 0 ? 'ws-cell-title' : ''}>
+                                  {i === 0 ? (
+                                    <button
+                                      className="ws-record-link"
+                                      onClick={() =>
+                                        setDetailTarget({ resource: active, id: String(row.id) })
+                                      }
+                                    >
+                                      {format(row[key], type)}
+                                    </button>
+                                  ) : (
+                                    format(row[key], type)
+                                  )}
+                                </td>
+                              ))}
+                              <td>
+                                <div className="ws-row-actions">
                                   <button
-                                    className="ws-record-link"
+                                    className="ws-secondary"
                                     onClick={() =>
                                       setDetailTarget({ resource: active, id: String(row.id) })
                                     }
                                   >
-                                    {format(row[key], type)}
+                                    Ver detalhes
                                   </button>
-                                ) : (
-                                  format(row[key], type)
-                                )}
+                                  {active === 'qualidade' &&
+                                    ['SUPER_ADMIN', 'GERENTE_OBRA', 'ENGENHEIRO', 'AUDITOR'].includes(
+                                      session.perfil,
+                                    ) && (
+                                      <button
+                                        className="ws-secondary"
+                                        onClick={() => setEvidenceId(String(row.id))}
+                                      >
+                                        Ver evidências
+                                      </button>
+                                    )}
+                                  {active === 'projetos' && ['SUPER_ADMIN', 'GERENTE_OBRA', 'ENGENHEIRO', 'INCORPORADOR'].includes(session.perfil) && (
+                                    <button className="ws-secondary" onClick={() => setSetupProjectId(Number(row.id))}>
+                                      Configurar obra
+                                    </button>
+                                  )}
+                                  {rowOperations(active, row, session.perfil).map((action) => (
+                                    <button
+                                      className="ws-secondary"
+                                      key={action.title}
+                                      onClick={() => setOperation(action)}
+                                    >
+                                      {action.title}
+                                    </button>
+                                  ))}
+                                  {active === 'documentos' &&
+                                    [
+                                      'SUPER_ADMIN',
+                                      'GERENTE_OBRA',
+                                      'ENGENHEIRO',
+                                      'ARQUITETO',
+                                      'AUDITOR',
+                                    ].includes(session.perfil) && (
+                                      <button
+                                        className="ws-secondary"
+                                        onClick={() =>
+                                          downloadDocument(
+                                            String(row.id),
+                                            String(row.nomeArquivo),
+                                          ).catch((e) => setError(e.message))
+                                        }
+                                      >
+                                        Baixar arquivo
+                                      </button>
+                                    )}
+                                </div>
                               </td>
-                            ))}
-                            <td>
-                              <div className="ws-row-actions">
-                                <button
-                                  className="ws-secondary"
-                                  onClick={() =>
-                                    setDetailTarget({ resource: active, id: String(row.id) })
-                                  }
-                                >
-                                  Ver detalhes
-                                </button>
-                                {active === 'qualidade' &&
-                                  ['SUPER_ADMIN', 'GERENTE_OBRA', 'ENGENHEIRO', 'AUDITOR'].includes(
-                                    session.perfil,
-                                  ) && (
-                                    <button
-                                      className="ws-secondary"
-                                      onClick={() => setEvidenceId(String(row.id))}
-                                    >
-                                      Ver evidências
-                                    </button>
-                                  )}
-                                {active === 'projetos' && ['SUPER_ADMIN', 'GERENTE_OBRA', 'ENGENHEIRO', 'INCORPORADOR'].includes(session.perfil) && (
-                                  <button className="ws-secondary" onClick={() => setSetupProjectId(Number(row.id))}>
-                                    Configurar obra
-                                  </button>
-                                )}
-                                {rowOperations(active, row, session.perfil).map((action) => (
-                                  <button
-                                    className="ws-secondary"
-                                    key={action.title}
-                                    onClick={() => setOperation(action)}
-                                  >
-                                    {action.title}
-                                  </button>
-                                ))}
-                                {active === 'documentos' &&
-                                  [
-                                    'SUPER_ADMIN',
-                                    'GERENTE_OBRA',
-                                    'ENGENHEIRO',
-                                    'ARQUITETO',
-                                    'AUDITOR',
-                                  ].includes(session.perfil) && (
-                                    <button
-                                      className="ws-secondary"
-                                      onClick={() =>
-                                        downloadDocument(
-                                          String(row.id),
-                                          String(row.nomeArquivo),
-                                        ).catch((e) => setError(e.message))
-                                      }
-                                    >
-                                      Baixar arquivo
-                                    </button>
-                                  )}
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="ws-empty">
-                    <FolderKanban size={32} />
-                    <h3>
-                      {error
-                        ? 'Consulta indisponível'
-                        : search
-                          ? 'Nenhum resultado nesta página'
-                          : 'Nenhum registro cadastrado'}
-                    </h3>
-                    <p>
-                      {error
-                        ? 'Tente novamente para carregar as informações.'
-                        : search
-                          ? 'Experimente outro termo ou consulte as próximas páginas.'
-                          : 'Os registros aparecerão aqui após o cadastro na sua empresa.'}
-                    </p>
-                  </div>
-                )}
-                <footer className="ws-table-footer">
-                  <span>
-                    {data
-                      ? `${data.total} registro(s) · Página ${page + 1} de ${Math.max(1, Math.ceil(data.total / 25))}`
-                      : 'Sem consulta concluída'}
-                  </span>
-                  <div>
-                    <button
-                      aria-label="Página anterior"
-                      disabled={!data || page === 0 || loading}
-                      onClick={() => setPage((v) => v - 1)}
-                    >
-                      <ArrowLeft size={16} />
-                    </button>
-                    <button
-                      aria-label="Próxima página"
-                      disabled={!data || (page + 1) * 25 >= data.total || loading}
-                      onClick={() => setPage((v) => v + 1)}
-                    >
-                      <ArrowRight size={16} />
-                    </button>
-                  </div>
-                </footer>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="ws-empty">
+                      <FolderKanban size={32} />
+                      <h3>
+                        {error
+                          ? 'Consulta indisponível'
+                          : search
+                            ? 'Nenhum resultado nesta página'
+                            : 'Nenhum registro cadastrado'}
+                      </h3>
+                      <p>
+                        {error
+                          ? 'Tente novamente para carregar as informações.'
+                          : search
+                            ? 'Experimente outro termo ou consulte as próximas páginas.'
+                            : 'Os registros aparecerão aqui após o cadastro na sua empresa.'}
+                      </p>
+                    </div>
+                  )}
+                  <footer className="ws-table-footer">
+                    <span>
+                      {data
+                        ? `${data.total} registro(s) · Página ${page + 1} de ${Math.max(1, Math.ceil(data.total / 25))}`
+                        : 'Sem consulta concluída'}
+                    </span>
+                    <div>
+                      <button
+                        aria-label="Página anterior"
+                        disabled={!data || page === 0 || loading}
+                        onClick={() => setPage((v) => v - 1)}
+                      >
+                        <ArrowLeft size={16} />
+                      </button>
+                      <button
+                        aria-label="Próxima página"
+                        disabled={!data || (page + 1) * 25 >= data.total || loading}
+                        onClick={() => setPage((v) => v + 1)}
+                      >
+                        <ArrowRight size={16} />
+                      </button>
+                    </div>
+                  </footer>
+                </div>
               </section>
               <p className="ws-footnote">
                 Informações ausentes são exibidas como “Não informado”. As operações disponíveis
