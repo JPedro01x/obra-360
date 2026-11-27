@@ -26,9 +26,12 @@ public class SefazConsultaService {
         if(!validator.validarChaveNfe44Digitos(key))throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Chave NF-e inválida.");
         String environment=config.get("SEFAZ_AMBIENTE","2");if(!Set.of("1","2").contains(environment))throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"Ambiente SEFAZ inválido.");
         try {
-            char[] password=config.secret("SEFAZ_A1_PASSWORD").toCharArray();KeyStore store=KeyStore.getInstance("PKCS12");try(var file=Files.newInputStream(Path.of(config.get("SEFAZ_A1_PATH")))){store.load(file,password);}
-            KeyManagerFactory keys=KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());keys.init(store,password);Arrays.fill(password,'\0');
-            SSLContext ssl=SSLContext.getInstance("TLS");ssl.init(keys.getKeyManagers(),null,new SecureRandom());
+            char[] password=config.secret("SEFAZ_A1_PASSWORD").toCharArray();SSLContext ssl=SSLContext.getInstance("TLS");
+            try {
+                KeyStore store=KeyStore.getInstance("PKCS12");try(var file=Files.newInputStream(Path.of(config.get("SEFAZ_A1_PATH")))){store.load(file,password);}
+                KeyManagerFactory keys=KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());keys.init(store,password);
+                ssl.init(keys.getKeyManagers(),null,new SecureRandom());
+            } finally {Arrays.fill(password,'\0');}
             var client=HttpClient.newBuilder().sslContext(ssl).connectTimeout(Duration.ofSeconds(8)).followRedirects(HttpClient.Redirect.NEVER).build();
             var request=HttpRequest.newBuilder(config.endpoint(config.get("SEFAZ_URL"))).timeout(Duration.ofSeconds(25)).header("Content-Type","application/soap+xml; charset=utf-8; action=\"http://www.portalfiscal.inf.br/nfe/wsdl/NFeConsultaProtocolo4/nfeConsultaNF\"").POST(HttpRequest.BodyPublishers.ofString(envelope(key,environment))).build();
             var response=client.send(request,BoundedHttpBody.handler());if(response.statusCode()!=200)throw new IllegalStateException();return parse(response.body(),key,environment);

@@ -14,6 +14,7 @@ import {
   Layers3,
   LogOut,
   Menu,
+  MessageCircle,
   Package,
   Plus,
   RefreshCw,
@@ -24,23 +25,14 @@ import {
 import { ApiError, requestApi } from '../services/http';
 import './workspace.css';
 import './responsive.css';
-import { IntegrationHub, IfcInspector } from './IntegrationHub';
 import { modelRoles } from '../services/modelGeometry';
-import { DataQuality } from './DataQuality';
 import { AppearanceProvider, AppearanceToggle, PublicAppearance } from './Appearance';
 import './minimal-login.css';
 import { LoginScene } from './LoginScene';
-import { AccountCenter } from './AccountCenter';
-import { AcceptInvitation } from './UserInvitations';
-import { HumanResources } from './HumanResources';
-import { EmployeePortal } from './EmployeePortal';
-import { QualityEvidence } from './QualityEvidence';
-import { RecordDetails, type DetailTarget } from './RecordDetails';
-import { BusinessManagement } from './BusinessManagement';
-import { Notifications } from './Notifications';
+import type { DetailTarget } from './RecordDetails';
 import { localCalendarDate, planningError } from '../utils/planningDates';
-import { ExternalPortal } from './ExternalPortal';
 import { GoogleSignIn, PasswordRecoveryPanel } from './ConnectedAuth';
+import { ProjectSetupWizard } from './ProjectSetupWizard';
 import {
   createOperations,
   rowOperations,
@@ -56,12 +48,32 @@ const ModelEditor = React.lazy(() =>
 );
 import type { Row, Session, Page, Resource } from './workspace/types';
 import { resources, privileged, internal, navigationGroups } from './workspace/resources';
+import { canAccessWorkspacePage } from './workspace/access';
 import { format } from './workspace/formatting';
+
+const IntegrationHub = React.lazy(() => import('./IntegrationHub').then((m) => ({ default: m.IntegrationHub })));
+const IfcInspector = React.lazy(() => import('./IntegrationHub').then((m) => ({ default: m.IfcInspector })));
+const DataQuality = React.lazy(() => import('./DataQuality').then((m) => ({ default: m.DataQuality })));
+const AccountCenter = React.lazy(() => import('./AccountCenter').then((m) => ({ default: m.AccountCenter })));
+const HumanResources = React.lazy(() => import('./HumanResources').then((m) => ({ default: m.HumanResources })));
+const SpreadsheetCadastros = React.lazy(() => import('./SpreadsheetCadastros'));
+const EmployeePortal = React.lazy(() => import('./EmployeePortal').then((m) => ({ default: m.EmployeePortal })));
+const QualityEvidence = React.lazy(() => import('./QualityEvidence').then((m) => ({ default: m.QualityEvidence })));
+const RecordDetails = React.lazy(() => import('./RecordDetails').then((m) => ({ default: m.RecordDetails })));
+const BusinessManagement = React.lazy(() => import('./BusinessManagement').then((m) => ({ default: m.BusinessManagement })));
+const Notifications = React.lazy(() => import('./Notifications').then((m) => ({ default: m.Notifications })));
+const ExternalPortal = React.lazy(() => import('./ExternalPortal').then((m) => ({ default: m.ExternalPortal })));
+const AcceptInvitation = React.lazy(() => import('./UserInvitations').then((m) => ({ default: m.AcceptInvitation })));
+const WorkspaceChat = React.lazy(() => import('./WorkspaceChat').then((m) => ({ default: m.WorkspaceChat })));
+const PhysicalMeasurementWorkspace = React.lazy(() => import('./PhysicalMeasurementWorkspace').then((m) => ({ default: m.PhysicalMeasurementWorkspace })));
+const NfeManagementWorkspace = React.lazy(() => import('./NfeManagementWorkspace').then((m) => ({ default: m.NfeManagementWorkspace })));
 
 export function Workspace() {
   return (
     <AppearanceProvider>
-      <WorkspaceContent />
+      <React.Suspense fallback={<main className="ws ws-center" role="status">Carregando módulo…</main>}>
+        <WorkspaceContent />
+      </React.Suspense>
     </AppearanceProvider>
   );
 }
@@ -85,6 +97,7 @@ function WorkspaceContent() {
     modelDirty.current = dirty;
   }, []);
   const setActive = (next: string) => {
+    if (session && !canAccessWorkspacePage(session.perfil, next)) return false;
     if (
       next !== active &&
       modelDirty.current &&
@@ -109,7 +122,7 @@ function WorkspaceContent() {
   const [search, setSearch] = useState('');
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   const [creating, setCreating] = useState(false);
-  const [creatingUser, setCreatingUser] = useState(false);
+  const [setupProjectId, setSetupProjectId] = useState<number | null>(null);
   const [notice, setNotice] = useState('');
   const [operation, setOperation] = useState<OperationDefinition | null>(null);
   const [evidenceId, setEvidenceId] = useState<string | null>(null);
@@ -175,18 +188,20 @@ function WorkspaceContent() {
     setData(null);
     setError('');
     setCreating(false);
-    setCreatingUser(false);
     setOperation(null);
     setEvidenceId(null);
+    setDetailTarget(null);
+    setModelTarget(null);
   };
   useEffect(() => {
     const expired = () => {
       setSession(null);
       setData(null);
       setCreating(false);
-      setCreatingUser(false);
       setOperation(null);
       setEvidenceId(null);
+      setDetailTarget(null);
+      setModelTarget(null);
       setError('Sua sessão expirou. Entre novamente para continuar.');
     };
     window.addEventListener('obra360:session-expired', expired);
@@ -212,12 +227,16 @@ function WorkspaceContent() {
         'integracoes',
         'ifc',
         'rh',
+        'planilhas',
         'modelador',
         'dados',
         'conta',
         'notificacoes',
         'financeiro',
         'pedidosmateriais',
+        'chat',
+        'medicoes',
+        'notasfiscais',
       ].includes(active) ||
       session.perfil === 'RH'
     )
@@ -480,12 +499,7 @@ function WorkspaceContent() {
         </main>
       </PublicAppearance>
     );
-  const available = resources.filter(
-    (r) =>
-      (r.id !== 'compras' || [...privileged, 'ALMOXARIFE'].includes(session.perfil)) &&
-      (!r.restricted || privileged.includes(session.perfil)) &&
-      (!r.adminOnly || session.perfil === 'SUPER_ADMIN'),
-  );
+  const available = resources.filter((r) => canAccessWorkspacePage(session.perfil, r.id));
   const rows =
     data?.items.filter(
       (row) =>
@@ -524,12 +538,18 @@ function WorkspaceContent() {
     links.set('dados', { title: 'Qualidade dos dados', icon: Database });
   if (['SUPER_ADMIN', 'RH'].includes(session.perfil))
     links.set('rh', { title: 'Recursos humanos', icon: Building2 });
+  if (['SUPER_ADMIN', 'RH', 'GERENTE_OBRA', 'INCORPORADOR'].includes(session.perfil))
+    links.set('planilhas', { title: 'Importar e exportar planilhas', icon: FileText });
   if (session.perfil === 'COLABORADOR')
     links.set('colaborador', { title: 'Meu cadastro', icon: Building2 });
+  if (internal.includes(session.perfil) || session.perfil === 'COLABORADOR')
+    links.set('chat', { title: 'Mensagens da equipe', icon: MessageCircle });
+  if (['SUPER_ADMIN','GERENTE_OBRA','ENGENHEIRO','FINANCEIRO','INCORPORADOR','AUDITOR'].includes(session.perfil))
+    links.set('medicoes', { title: 'Medições físico-financeiras', icon: Building2 });
   const currentPage =
-    !['conta', 'notificacoes'].includes(active) && session.perfil === 'RH'
+    !['conta', 'notificacoes', 'planilhas', 'chat'].includes(active) && session.perfil === 'RH'
       ? 'rh'
-      : !['conta', 'notificacoes'].includes(active) && session.perfil === 'COLABORADOR'
+      : !['conta', 'notificacoes', 'chat'].includes(active) && session.perfil === 'COLABORADOR'
         ? 'colaborador'
         : active;
   const currentPageTitle =
@@ -673,6 +693,14 @@ function WorkspaceContent() {
             <Notifications />
           ) : active === 'conta' ? (
             <AccountCenter admin={session.perfil === 'SUPER_ADMIN'} />
+          ) : active === 'chat' ? (
+            <WorkspaceChat currentUserId={session.id} />
+          ) : active === 'medicoes' ? (
+            <PhysicalMeasurementWorkspace role={session.perfil} />
+          ) : active === 'notasfiscais' ? (
+            <NfeManagementWorkspace role={session.perfil} />
+          ) : active === 'planilhas' ? (
+            <SpreadsheetCadastros role={session.perfil} />
           ) : session.perfil === 'COLABORADOR' ? (
             <EmployeePortal />
           ) : session.perfil === 'RH' || (active === 'rh' && session.perfil === 'SUPER_ADMIN') ? (
@@ -715,14 +743,14 @@ function WorkspaceContent() {
                 {active === 'projetos' && mayCreate && (
                   <button className="ws-primary" onClick={() => setCreating(true)}>
                     <Plus size={18} />
-                    Novo empreendimento
+                    Novo projeto
                   </button>
                 )}
                 {active === 'usuarios' && session.perfil === 'SUPER_ADMIN' && (
-                  <button className="ws-primary" onClick={() => setCreatingUser(true)}>
-                    <Plus size={18} />
-                    Novo usuário
-                  </button>
+                  <p className="ws-help">
+                    Cadastre funcionários em Recursos humanos para criar uma conta interna vinculada.
+                    Convide clientes e parceiros em Conta e atendimento → Convidar usuários.
+                  </p>
                 )}
                 {createOperations[active]?.roles.includes(session.perfil) && (
                   <button
@@ -867,6 +895,11 @@ function WorkspaceContent() {
                                       Ver evidências
                                     </button>
                                   )}
+                                {active === 'projetos' && ['SUPER_ADMIN', 'GERENTE_OBRA', 'ENGENHEIRO', 'INCORPORADOR'].includes(session.perfil) && (
+                                  <button className="ws-secondary" onClick={() => setSetupProjectId(Number(row.id))}>
+                                    Configurar obra
+                                  </button>
+                                )}
                                 {rowOperations(active, row, session.perfil).map((action) => (
                                   <button
                                     className="ws-secondary"
@@ -957,22 +990,30 @@ function WorkspaceContent() {
       {creating && (
         <ProjectForm
           onClose={() => setCreating(false)}
-          onSaved={() => {
+          onSaved={(projectId) => {
             setCreating(false);
             setPage(0);
             setRevision((v) => v + 1);
             setNotice('Empreendimento cadastrado com sucesso.');
+            setSetupProjectId(projectId);
           }}
         />
       )}
-      {creatingUser && (
-        <UserForm
-          onClose={() => setCreatingUser(false)}
-          onSaved={() => {
-            setCreatingUser(false);
+      {setupProjectId !== null && active === 'projetos' && (
+        <ProjectSetupWizard
+          projectId={setupProjectId}
+          role={session.perfil}
+          onClose={() => setSetupProjectId(null)}
+          onChanged={() => setRevision((v) => v + 1)}
+          onNavigate={(target) => {
+            setSetupProjectId(null);
+            setActive(target);
             setPage(0);
             setRevision((v) => v + 1);
-            setNotice('Usuário cadastrado com sucesso.');
+          }}
+          onOpenModeler={(projectId, modelId) => {
+            setModelTarget({ project: String(projectId), model: modelId });
+            setActive('modelador');
           }}
         />
       )}
@@ -1132,148 +1173,7 @@ function SetupForm({ onComplete }: { onComplete: () => void }) {
   );
 }
 
-function UserForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
-  const [error, setError] = useState('');
-  const [saving, setSaving] = useState(false);
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSaving(true);
-    setError('');
-    const fields = Object.fromEntries(new FormData(event.currentTarget).entries());
-    try {
-      await requestApi('/v1/auth/cadastrar', {
-        method: 'POST',
-        body: JSON.stringify({ ...fields, ativo: true }),
-      });
-      onSaved();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setSaving(false);
-    }
-  }
-  useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null;
-    const dialog = document.getElementById('ws-user-dialog')!;
-    const focusables = () =>
-      Array.from(
-        dialog.querySelectorAll<HTMLElement>(
-          'button:not(:disabled),input:not(:disabled),select:not(:disabled)',
-        ),
-      );
-    focusables()[0]?.focus();
-    const keydown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !saving) onClose();
-      if (e.key === 'Tab') {
-        const items = focusables();
-        const first = items[0];
-        const last = items[items.length - 1];
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last?.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first?.focus();
-        }
-      }
-    };
-    document.addEventListener('keydown', keydown);
-    return () => {
-      document.removeEventListener('keydown', keydown);
-      previous?.focus();
-    };
-  }, [onClose, saving]);
-  return (
-    <div className="ws-modal-backdrop">
-      <section
-        id="ws-user-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="ws-user-title"
-        className="ws-modal"
-      >
-        <header>
-          <h2 id="ws-user-title">Novo usuário</h2>
-          <button
-            className="ws-icon-button"
-            aria-label="Fechar cadastro"
-            onClick={onClose}
-            disabled={saving}
-          >
-            <X size={20} />
-          </button>
-        </header>
-        <form onSubmit={submit}>
-          {error && (
-            <div role="alert" className="ws-alert">
-              {error}
-            </div>
-          )}
-          <label>
-            Nome completo
-            <input name="nome" required maxLength={100} />
-          </label>
-          <label>
-            E-mail do usuário
-            <input name="email" type="email" required maxLength={120} autoComplete="off" />
-          </label>
-          <label>
-            Perfil de acesso
-            <select name="perfil" defaultValue="ENGENHEIRO">
-              {[
-                'ENGENHEIRO',
-                'GERENTE_OBRA',
-                'ARQUITETO',
-                'MESTRE_OBRA',
-                'ALMOXARIFE',
-                'FINANCEIRO',
-                'RH',
-                'AUDITOR',
-                'INCORPORADOR',
-                'SUPER_ADMIN',
-                'CLIENTE',
-                'CORRETOR',
-                'INVESTIDOR',
-                'COLABORADOR',
-                'FORNECEDOR',
-                'LOCADOR_MAQUINAS',
-              ].map((role) => (
-                <option key={role} value={role}>
-                  {role.replace(/_/g, ' ')}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Senha inicial (mínimo de 12 caracteres)
-            <input
-              name="senhaHash"
-              type="password"
-              required
-              minLength={12}
-              maxLength={72}
-              autoComplete="new-password"
-            />
-          </label>
-          <p className="ws-help">
-            Compartilhe o acesso por um canal privado. Administradores podem criar contas e
-            consultar os registros da empresa.
-          </p>
-          <footer>
-            <button type="button" className="ws-secondary" onClick={onClose} disabled={saving}>
-              Cancelar
-            </button>
-            <button className="ws-primary" disabled={saving}>
-              {saving ? 'Salvando…' : 'Cadastrar usuário'}
-            </button>
-          </footer>
-        </form>
-      </section>
-    </div>
-  );
-}
-
-function ProjectForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+function ProjectForm({ onClose, onSaved }: { onClose: () => void; onSaved: (projectId: number) => void }) {
   const [startDate, setStartDate] = useState('');
   const [engineers, setEngineers] = useState<{ id: number; nome: string }[]>([]);
   const [error, setError] = useState('');
@@ -1344,8 +1244,8 @@ function ProjectForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
     setSaving(true);
     setError('');
     try {
-      await requestApi('/v1/workspace/projetos', { method: 'POST', body: JSON.stringify(body) });
-      onSaved();
+      const project = await requestApi<{ id: number }>('/v1/workspace/projetos', { method: 'POST', body: JSON.stringify(body) });
+      onSaved(project.id);
     } catch (e) {
       setError(
         e instanceof ApiError && e.status === 400
@@ -1368,7 +1268,7 @@ function ProjectForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
         <header>
           <div>
             <p className="ws-eyebrow">NOVO CADASTRO</p>
-            <h2 id="ws-form-title">Novo empreendimento</h2>
+            <h2 id="ws-form-title">Novo projeto</h2>
           </div>
           <button
             className="ws-icon-button"

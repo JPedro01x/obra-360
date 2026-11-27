@@ -28,16 +28,39 @@ public class GestaoComplementarController {
     @PostMapping("/cronograma") @ResponseStatus(HttpStatus.CREATED)
     public EtapaCronogramaEntity stage(@Valid @RequestBody StageRequest r,Authentication a) {
         operation.project(r.projetoObraId());
+        Long duplicate=em.createQuery("select count(e) from EtapaCronogramaEntity e where e.projetoObraId=:project and e.ordemExecucao=:order",Long.class)
+            .setParameter("project",r.projetoObraId()).setParameter("order",r.ordemExecucao()).getSingleResult();
+        if(duplicate>0)throw new ResponseStatusException(HttpStatus.CONFLICT,"Já existe uma etapa com esta ordem neste empreendimento.");
         dates.newPeriod(r.dataInicioPrevista(),r.dataFimPrevista());
         var e=EtapaCronogramaEntity.builder().projetoObraId(r.projetoObraId()).nomeEtapa(r.nomeEtapa().trim()).ordemExecucao(r.ordemExecucao())
             .dataInicioPrevista(r.dataInicioPrevista()).dataFimPrevista(r.dataFimPrevista()).percentualExecutado(BigDecimal.ZERO).build();
         em.persist(e);audit("CRIAR_ETAPA","etapa_cronograma",e.getId(),a);return e;
     }
+    @PatchMapping("/cronograma/{id}")
+    public EtapaCronogramaEntity updateStage(@PathVariable Long id,@Valid @RequestBody StageUpdate r,Authentication a) {
+        var e=em.find(EtapaCronogramaEntity.class,id,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        if(e==null)throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        operation.project(e.getProjetoObraId());
+        Long measurements=em.createQuery("select count(m) from MedicaoFisicaEntity m where m.etapaCronogramaId=:stage",Long.class)
+            .setParameter("stage",id).getSingleResult();
+        if(e.getPercentualExecutado().compareTo(BigDecimal.ZERO)>0||measurements>0)
+            throw new ResponseStatusException(HttpStatus.CONFLICT,"Etapas com avanço ou medições vinculadas não podem ser editadas; preserve o histórico e cadastre uma nova etapa.");
+        dates.changedPeriod(r.dataInicioPrevista(),r.dataFimPrevista(),e.getDataInicioPrevista(),e.getDataFimPrevista());
+        Long duplicate=em.createQuery("select count(other) from EtapaCronogramaEntity other where other.projetoObraId=:project and other.ordemExecucao=:order and other.id<>:id",Long.class)
+            .setParameter("project",e.getProjetoObraId()).setParameter("order",r.ordemExecucao()).setParameter("id",id).getSingleResult();
+        if(duplicate>0)throw new ResponseStatusException(HttpStatus.CONFLICT,"Já existe uma etapa com esta ordem neste empreendimento.");
+        e.setNomeEtapa(r.nomeEtapa().trim());e.setOrdemExecucao(r.ordemExecucao());
+        e.setDataInicioPrevista(r.dataInicioPrevista());e.setDataFimPrevista(r.dataFimPrevista());
+        audit("ATUALIZAR_ETAPA","etapa_cronograma",id,a);return e;
+    }
     @PatchMapping("/cronograma/{id}/progresso")
     public EtapaCronogramaEntity progress(@PathVariable Long id,@Valid @RequestBody ProgressRequest r,Authentication a) {
         var e=em.find(EtapaCronogramaEntity.class,id,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
         if(e==null) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
-        operation.project(e.getProjetoObraId());e.setPercentualExecutado(r.percentualExecutado());audit("ATUALIZAR_PROGRESSO","etapa_cronograma",id,a);return e;
+        operation.project(e.getProjetoObraId());
+        if(r.percentualExecutado().compareTo(e.getPercentualExecutado())<0)
+            throw new ResponseStatusException(HttpStatus.CONFLICT,"O avanço da etapa não pode regredir. Registre uma revisão antes de corrigir um percentual aprovado.");
+        e.setPercentualExecutado(r.percentualExecutado());audit("ATUALIZAR_PROGRESSO","etapa_cronograma",id,a);return e;
     }
     @PostMapping(value="/qualidade",consumes="application/json") @ResponseStatus(HttpStatus.CREATED)
     public OcorrenciaQualidadeEntity quality(@Valid @RequestBody QualityRequest r,Authentication a) {
@@ -86,7 +109,8 @@ public class GestaoComplementarController {
     public GarantiaPosVendaEntity warrantyStatus(@PathVariable Long id,@Valid @RequestBody WarrantyStatusRequest r,Authentication a) {
         return warrantyService.state(id,r.status(),Long.valueOf(a.getName()));
     }
-    public record StageRequest(@NotNull @Positive Long projetoObraId,@NotBlank @Size(max=200) String nomeEtapa,@Min(1) int ordemExecucao,@NotNull LocalDate dataInicioPrevista,@NotNull LocalDate dataFimPrevista) {}
+    public record StageRequest(@NotNull @Positive Long projetoObraId,@NotBlank @Size(max=200) String nomeEtapa,@Min(1) @Max(100000) int ordemExecucao,@NotNull LocalDate dataInicioPrevista,@NotNull LocalDate dataFimPrevista) {}
+    public record StageUpdate(@NotBlank @Size(max=200) String nomeEtapa,@Min(1) @Max(100000) int ordemExecucao,@NotNull LocalDate dataInicioPrevista,@NotNull LocalDate dataFimPrevista) {}
     public record ProgressRequest(@NotNull @DecimalMin("0") @DecimalMax("100") @Digits(integer=3,fraction=2) BigDecimal percentualExecutado) {}
     public record QualityRequest(@NotNull @Positive Long projetoObraId,@NotNull @Positive Long responsavelId,@NotBlank @Size(max=200) String titulo,@NotBlank @Size(max=30) String normaRegulamentadora,@NotBlank @Pattern(regexp="BAIXA|MEDIA|ALTA|CRITICA") String grauSeveridade) {}
     public record QualityStatusRequest(@NotBlank @Pattern(regexp="PENDENTE|EM_ANDAMENTO|RESOLVIDO") String status) {}

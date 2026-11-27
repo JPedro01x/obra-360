@@ -17,6 +17,13 @@ interface Snapshot {
   }[];
   contratos: { numero: string; valor: number; termino: string }[];
   cotacoes: { codigo: string; valor: number; prazo: number; situacao: string }[];
+  requisicoes: {
+    id: number;
+    acessoId: number;
+    material: string;
+    quantidade: number;
+    projetoObraId: number;
+  }[];
   chamados: {
     id: number;
     codigoChamado: string;
@@ -181,43 +188,26 @@ export function ExternalPortal() {
           )}
           {['FORNECEDOR', 'LOCADOR_MAQUINAS'].includes(data.perfil) && data.acessos.length > 0 && (
             <article className="ws-service-panel">
-              <h2>Suas propostas</h2>
-              <button
-                className="ws-primary"
-                onClick={() =>
-                  setOperation({
-                    title: 'Enviar proposta',
+              <h2>Requisições abertas e propostas</h2>
+              <p>As requisições abaixo pertencem às obras vinculadas ao seu fornecedor.</p>
+              {data.requisicoes.length === 0 && <p>Nenhuma requisição aberta para suas obras.</p>}
+              {data.requisicoes.map((request) => (
+                <div key={request.id} className="ws-service-row">
+                  <strong>{request.material} · {request.quantidade}</strong>
+                  <p>{projectName(request.projetoObraId)}</p>
+                  <button className="ws-primary" onClick={() => setOperation({
+                    title: `Proposta para requisição #${request.id}`,
                     path: '/propostas',
                     roles: [],
+                    hidden: { acessoId: request.acessoId, requisicaoId: request.id },
                     fields: [
-                      {
-                        name: 'acessoId',
-                        label: 'Vínculo com a obra',
-                        options: data.acessos.map((access) => [
-                          String(access.id),
-                          `Vínculo #${access.id}`,
-                        ]),
-                      },
-                      {
-                        name: 'valor',
-                        label: 'Valor da proposta (R$)',
-                        type: 'number',
-                        min: 0,
-                        step: '0.01',
-                      },
-                      {
-                        name: 'prazoDias',
-                        label: 'Prazo de entrega (dias)',
-                        type: 'number',
-                        min: 0,
-                        step: '1',
-                      },
+                      { name: 'valor', label: 'Valor total da proposta (R$)', type: 'number', min: 0, step: '0.01' },
+                      { name: 'prazoDias', label: 'Prazo de entrega (dias)', type: 'number', min: 0, step: '1' },
                     ],
-                  })
-                }
-              >
-                Enviar proposta
-              </button>
+                  })}>Enviar proposta</button>
+                </div>
+              ))}
+              <h3>Propostas enviadas</h3>
               {data.cotacoes.map((quote) => (
                 <p key={quote.codigo}>
                   {quote.codigo} · {money(quote.valor)} · {quote.prazo} dias · {quote.situacao}

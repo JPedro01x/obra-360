@@ -21,6 +21,10 @@ public class OperacaoController {
     public EquipeTrabalhoEntity team(@Valid @RequestBody TeamRequest r,Authentication a) {
         return service.createTeam(r.projetoObraId(),r.liderEncarregadoId(),r.nomeEquipe(),r.especialidade(),r.quantidadeOperarios(),actor(a));
     }
+    @PatchMapping("/equipes/{id}")
+    public EquipeTrabalhoEntity updateTeam(@PathVariable Long id,@Valid @RequestBody TeamUpdate r,Authentication a) {
+        return service.updateTeam(id,r.nomeEquipe(),r.especialidade(),r.quantidadeOperarios(),actor(a));
+    }
     @PostMapping("/estoque") @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','GERENTE_OBRA','ENGENHEIRO','ALMOXARIFE')")
     public ItemEstoqueEntity stock(@Valid @RequestBody StockRequest r,Authentication a) {
@@ -36,6 +40,11 @@ public class OperacaoController {
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','GERENTE_OBRA','FINANCEIRO','INCORPORADOR')")
     public FornecedorB2BEntity supplier(@Valid @RequestBody SupplierRequest r,Authentication a) {
         return service.createSupplier(r.cnpj(),r.razaoSocial(),r.categoriaFornecimento(),actor(a));
+    }
+    @PatchMapping("/fornecedores/{id}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','GERENTE_OBRA','FINANCEIRO','INCORPORADOR')")
+    public FornecedorB2BEntity updateSupplier(@PathVariable Long id,@Valid @RequestBody SupplierUpdate r,Authentication a) {
+        return service.updateSupplier(id,r.razaoSocial(),r.categoriaFornecimento(),actor(a));
     }
     @PostMapping("/contratos") @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','GERENTE_OBRA','FINANCEIRO','INCORPORADOR')")
@@ -69,6 +78,7 @@ public class OperacaoController {
     }
     public record TeamRequest(@NotNull @Positive Long projetoObraId,@NotNull @Positive Long liderEncarregadoId,
         @NotBlank @Size(max=100) String nomeEquipe,@NotBlank @Size(max=100) String especialidade,@Min(1) @Max(10000) int quantidadeOperarios) {}
+    public record TeamUpdate(@NotBlank @Size(max=100) String nomeEquipe,@NotBlank @Size(max=100) String especialidade,@Min(1) @Max(10000) int quantidadeOperarios) {}
     public record StockUpdate(@NotBlank @Size(max=150) String nome,@NotBlank @Size(max=80) String categoria,
         @NotNull @DecimalMin("0") @Digits(integer=8,fraction=4) BigDecimal estoqueMinimo,@NotNull @DecimalMin("0") @Digits(integer=10,fraction=2) BigDecimal custoUnitarioMedio) {}
     public record StockRequest(@NotNull @Positive Long projetoObraId,@NotBlank @Size(max=50) String sku,@NotBlank @Size(max=150) String nome,
@@ -76,6 +86,8 @@ public class OperacaoController {
         @NotNull @DecimalMin("0") @Digits(integer=8,fraction=4) BigDecimal estoqueMinimo,@NotNull @DecimalMin("0") @Digits(integer=10,fraction=2) BigDecimal custoUnitarioMedio) {}
     public record SupplierRequest(@NotBlank @Pattern(regexp="[A-Za-z0-9]{12}[0-9]{2}") String cnpj,
         @NotBlank @Size(max=255) String razaoSocial,@NotBlank @Pattern(regexp="INSUMOS|FROTAS|SERVICOS") String categoriaFornecimento) {}
+    public record SupplierUpdate(@NotBlank @Size(max=255) String razaoSocial,
+        @NotBlank @Pattern(regexp="INSUMOS|FROTAS|SERVICOS") String categoriaFornecimento) {}
     public record ContractRequest(@NotNull @Positive Long projetoObraId,@NotNull @Positive Long fornecedorB2bId,
         @NotBlank @Size(max=50) String numeroContrato,@NotNull @DecimalMin("0") @Digits(integer=13,fraction=2) BigDecimal valorTotal,
         @NotNull @DecimalMin("0") @DecimalMax("100") @Digits(integer=3,fraction=2) BigDecimal retencaoTecnicaPct,

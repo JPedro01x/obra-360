@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 import java.util.*;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
 @Service @RequiredArgsConstructor
 public class ModeloDocumentoService {
@@ -23,6 +25,7 @@ public class ModeloDocumentoService {
         }
         Map<String,ModeloDocumento.Elemento> elements=new HashMap<>();Map<String,List<ModeloDocumento.Elemento>> openings=new HashMap<>();
         Map<String,ModeloDocumento.No> nodes=new HashMap<>();
+        long ifcPayloadCharacters=0;
         for(var n:doc.nos()){
             if(n==null||!floors.containsKey(n.pavimentoId())||!ids.add(n.id())||!Double.isFinite(n.x())||!Double.isFinite(n.z()))reject("Nó de parede inválido ou repetido.");nodes.put(n.id(),n);
         }
@@ -32,9 +35,16 @@ public class ModeloDocumentoService {
             for(double n:new double[]{e.x(),e.z(),e.base(),e.largura(),e.profundidade(),e.altura(),e.rotacao(),e.deslocamento()})if(!Double.isFinite(n))reject("Medidas precisam ser finitas.");
             if(!ids.add(e.id()))reject("Identificadores repetidos no modelo.");
             var floor=floors.get(e.pavimentoId());if(floor==null)reject("Elemento vinculado a pavimento inexistente.");
+            boolean ifcMesh="MALHA_IFC".equals(e.tipo());
+            if(ifcMesh){
+                if(doc.schemaVersao()!=3||e.malhaIfc()==null)reject("Malhas IFC exigem schemaVersao 3 e geometria completa.");
+                ifcPayloadCharacters+=(long)e.malhaIfc().positionsBase64().length()+e.malhaIfc().indicesBase64().length();
+                if(ifcPayloadCharacters>1_310_720L)reject("As malhas IFC excedem o limite de 1,25 MiB por modelo.");
+                validateIfcMesh(e.malhaIfc());
+            }else if(e.malhaIfc()!=null)reject("Somente elementos MALHA_IFC podem conter geometria IFC.");
             elements.put(e.id(),e);
             if(e.noInicioId()!=null||e.noFimId()!=null){
-                if(doc.schemaVersao()!=2||!e.tipo().equals("PAREDE")||e.noInicioId()==null||e.noFimId()==null||e.noInicioId().equals(e.noFimId()))reject("Conexão de parede inválida.");
+                if(doc.schemaVersao()<2||!e.tipo().equals("PAREDE")||e.noInicioId()==null||e.noFimId()==null||e.noInicioId().equals(e.noFimId()))reject("Conexão de parede inválida.");
                 var a=nodes.get(e.noInicioId());var b=nodes.get(e.noFimId());
                 if(a==null||b==null||!a.pavimentoId().equals(e.pavimentoId())||!b.pavimentoId().equals(e.pavimentoId()))reject("Parede e nós precisam estar no mesmo pavimento.");
                 double angle=Math.toRadians(e.rotacao()),half=e.largura()/2;
@@ -72,6 +82,25 @@ public class ModeloDocumentoService {
                 var a=list.get(i);var b=list.get(j);
                 if(Math.abs(a.deslocamento()-b.deslocamento())<(a.largura()+b.largura())/2-0.000001&&Math.max(a.base(),b.base())<Math.min(a.base()+a.altura(),b.base()+b.altura())-0.000001)reject("Portas ou janelas se sobrepõem na mesma parede.");
             }
+        }
+    }
+    private void validateIfcMesh(ModeloDocumento.MalhaIfc mesh){
+        try{
+            byte[] positions=Base64.getDecoder().decode(mesh.positionsBase64());
+            byte[] indices=Base64.getDecoder().decode(mesh.indicesBase64());
+            if(positions.length<36||positions.length%12!=0||positions.length>1_048_576)reject("A lista de vértices da malha IFC é inválida ou excede o limite.");
+            if(indices.length<12||indices.length%12!=0||indices.length>262_144)reject("A lista de triângulos da malha IFC é inválida ou excede o limite.");
+            int vertexCount=positions.length/12;
+            ByteBuffer coordinates=ByteBuffer.wrap(positions).order(ByteOrder.LITTLE_ENDIAN);
+            while(coordinates.hasRemaining()){
+                float coordinate=coordinates.getFloat();
+                if(!Float.isFinite(coordinate)||Math.abs(coordinate)>10_000f)reject("A malha IFC contém coordenadas fora dos limites.");
+            }
+            ByteBuffer triangles=ByteBuffer.wrap(indices).order(ByteOrder.LITTLE_ENDIAN);
+            while(triangles.hasRemaining())if(Integer.toUnsignedLong(triangles.getInt())>=vertexCount)reject("A malha IFC referencia um vértice inexistente.");
+            for(var point:mesh.plantaXZ())if(point==null||!Double.isFinite(point.x())||!Double.isFinite(point.z()))reject("A projeção 2D da malha IFC é inválida.");
+        }catch(IllegalArgumentException ex){
+            reject("A geometria IFC não está codificada em base64 válido.");
         }
     }
     public String encode(ModeloDocumento doc){validate(doc);try{String value=mapper.writeValueAsString(doc);if(value.length()>2000000)reject("Modelo excede o limite de dados.");return value;}catch(JsonProcessingException e){throw new IllegalStateException(e);}}

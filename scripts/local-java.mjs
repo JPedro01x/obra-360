@@ -15,10 +15,17 @@ export async function useLocalJava21() {
   let home = process.env.JAVA_HOME && inspect(executable(process.env.JAVA_HOME));
   if (!home) home = inspect('java');
   if (!home && process.platform === 'win32') {
-    for (const root of ['C:/Program Files/Java', 'C:/Program Files/Eclipse Adoptium', 'C:/Program Files/Microsoft']) {
+    const roots = [
+      process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, 'Programs', 'Obra360Tools'),
+      'C:/Program Files/Java', 'C:/Program Files/Eclipse Adoptium', 'C:/Program Files/Microsoft',
+    ].filter(Boolean);
+    for (const root of roots) {
       const entries = await readdir(root, { withFileTypes: true }).catch(() => []);
-      for (const entry of entries.filter(e => e.isDirectory() && /(?:jdk|java).*21/i.test(e.name))) {
-        home = inspect(executable(path.join(root, entry.name)));
+      const candidates = entries.filter(e => e.isDirectory() && /(?:jdk|java).*21/i.test(e.name))
+        .map(entry => path.join(root, entry.name));
+      if (/Obra360Tools$/i.test(root)) candidates.unshift(path.join(root, 'jdk-21'));
+      for (const candidate of candidates) {
+        home = inspect(executable(candidate));
         if (home) break;
       }
       if (home) break;

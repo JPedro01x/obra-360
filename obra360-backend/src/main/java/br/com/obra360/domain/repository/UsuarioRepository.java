@@ -12,4 +12,6 @@ public interface UsuarioRepository extends JpaRepository<UsuarioEntity, Long> {
     Optional<UsuarioEntity> findByEmail(String email);
     Optional<UsuarioEntity> findByEmailIgnoreCase(String email);
     List<UsuarioEntity> findByEmpresaId(Long empresaId);
+    java.util.Optional<UsuarioEntity> findByIdAndEmpresaId(Long id, Long empresaId);
+    List<UsuarioEntity> findByEmpresaIdAndAtivoTrueOrderByNome(Long empresaId);
 }

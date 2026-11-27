@@ -27,7 +27,8 @@ public class ComprasService {
         if(!expected.equals(r.getStatus())) throw conflict("Operação indisponível na situação atual da compra.");
     }
     public RequisicaoCompraEntity create(Long itemId,BigDecimal quantity,String reason,Long actor) {
-        operations.stock(itemId,false);
+        // Serialize the reference check against a concurrent deletion of an unused item.
+        operations.stock(itemId,true);
         var r=new RequisicaoCompraEntity();r.setEmpresaId(tenant());r.setItemEstoqueId(itemId);r.setQuantidade(quantity);
         r.setJustificativa(reason.trim());r.setSolicitanteId(actor);r.setStatus("COTACAO");r.setDataCriacao(OffsetDateTime.now());
         em.persist(r);operations.audit("CRIAR_REQUISICAO","requisicao_compra",r.getId(),actor);return r;

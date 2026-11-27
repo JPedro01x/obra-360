@@ -20,6 +20,9 @@ public class MensagemChatEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "empresa_id", nullable = false)
+    private Long empresaId;
+
     @Column(name = "remetente_id", nullable = false)
     private Long remetenteId;
 

@@ -5,6 +5,7 @@ import br.com.obra360.domain.entity.CotacaoB2BEntity;
 import br.com.obra360.domain.entity.FornecedorB2BEntity;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -14,6 +15,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/suprimentos-b2b")
 @RequiredArgsConstructor
+@PreAuthorize("denyAll()") // Legacy entity-binding routes remain disabled; use the tenant-scoped portal/workspace APIs.
 public class SuprimentosB2BController {
 
     private final SuprimentosB2BService suprimentosService;
@@ -38,7 +40,7 @@ public class SuprimentosB2BController {
 
     @GetMapping("/cotacoes/empresa/{empresaId}")
     public ResponseEntity<List<CotacaoB2BEntity>> listarCotacoesEmpresa(@PathVariable Long empresaId) {
-        List<CotacaoB2BEntity> cotacoes = suprimentosService.listarCotacoesPorEmpresa(empresaId);
+        List<CotacaoB2BEntity> cotacoes = suprimentosService.listarCotacoesPorEmpresa();
         return ResponseEntity.ok(cotacoes);
     }
 }

@@ -52,7 +52,18 @@ public class ExclusaoCadastroService {
         confirm(confirmation,supplier.getRazaoSocial());
         for(String entity:new String[]{"ContratoServicoEntity","CotacaoB2BEntity","AcessoExternoEntity","PedidoMateriaisEntity"})
             unused(entity,"fornecedorB2bId",id,"o fornecedor possui contratos, cotações ou acessos vinculados");
+        long invoices=em.createQuery("select count(n) from NfeDocumentoEntity n where n.fornecedor.id=:id",Long.class).setParameter("id",id).getSingleResult();
+        if(invoices>0)blocked("o fornecedor possui notas fiscais vinculadas");
         operations.audit("EXCLUIR_FORNECEDOR","fornecedor_b2b",id,actor);em.remove(supplier);em.flush();
+    }
+    public void stock(Long id,String confirmation,Long actor) {
+        var item=operations.stock(id,true);
+        confirm(confirmation,item.getNome());
+        if(item.getQuantidadeAtual().compareTo(java.math.BigDecimal.ZERO)!=0)
+            blocked("o material possui saldo diferente de zero");
+        for(String entity:new String[]{"MovimentacaoEstoqueEntity","ConsumoOrdemEntity","RequisicaoCompraEntity","ItemPedidoMateriaisEntity","NfeItemEntity"})
+            unused(entity,"itemEstoqueId",id,"o material possui movimentações, consumo ou pedidos vinculados");
+        operations.audit("EXCLUIR_MATERIAL","item_estoque",id,actor);em.remove(item);em.flush();
     }
     public void team(Long id,String confirmation,Long actor) {
         // All team mutations use project -> team lock order.

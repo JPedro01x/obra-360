@@ -7,7 +7,7 @@ import java.time.OffsetDateTime;
 
 @Entity
 @Table(name = "fornecedor_b2b", indexes = {
-    @Index(name = "idx_fornecedor_cnpj", columnList = "cnpj", unique = true)
+    @Index(name = "uq_fornecedor_empresa_cnpj", columnList = "empresa_id,cnpj", unique = true)
 })
 @Getter
 @Setter
@@ -23,7 +23,7 @@ public class FornecedorB2BEntity {
     @Column(name="empresa_id")
     private Long empresaId;
 
-    @Column(name = "cnpj", nullable = false, unique = true, length = 14)
+    @Column(name = "cnpj", nullable = false, length = 14)
     private String cnpj;
 
     @Column(name = "razao_social", nullable = false, length = 255)

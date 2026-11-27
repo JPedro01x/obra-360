@@ -17,6 +17,10 @@ public class GarantiaWorkflowController {
     public CoberturaGarantiaEntity coverage(@Valid @RequestBody Coverage r,Authentication a) {
         return service.coverage(r.unidadeId(),r.categoria(),r.dataInicio(),r.dataFim(),r.descricao(),r.ativo(),Long.valueOf(a.getName()));
     }
+    @PatchMapping("/coberturas/{id}")
+    public CoberturaGarantiaEntity updateCoverage(@PathVariable Long id,@Valid @RequestBody CoverageUpdate r,Authentication a) {
+        return service.updateCoverage(id,r.categoria(),r.dataInicio(),r.dataFim(),r.descricao(),r.ativo(),Long.valueOf(a.getName()));
+    }
     @PostMapping("/garantias/{id}/avaliacao")
     public GarantiaPosVendaEntity assess(@PathVariable Long id,@Valid @RequestBody Assessment r,Authentication a) {return service.assess(id,r.decisao(),r.motivo(),Long.valueOf(a.getName()));}
     @PostMapping("/garantias/{id}/vistoria")
@@ -24,6 +28,7 @@ public class GarantiaWorkflowController {
     @PostMapping("/garantias/{id}/ordem")
     public GarantiaPosVendaEntity order(@PathVariable Long id,@Valid @RequestBody Order r,Authentication a) {return service.convert(id,r.contratoServicoId(),r.equipeTrabalhoId(),r.prioridade(),r.exigeMaterial(),Long.valueOf(a.getName()));}
     public record Coverage(@NotNull @Positive Long unidadeId,@NotBlank @Size(max=50) String categoria,@NotNull LocalDate dataInicio,@NotNull LocalDate dataFim,@NotBlank @Size(max=1000) String descricao,boolean ativo) {}
+    public record CoverageUpdate(@NotBlank @Size(max=50) String categoria,@NotNull LocalDate dataInicio,@NotNull LocalDate dataFim,@NotBlank @Size(max=1000) String descricao,boolean ativo) {}
     public record Assessment(@NotBlank @Pattern(regexp="COBERTA|NAO_COBERTA") String decisao,@NotBlank @Size(min=10,max=2000) String motivo) {}
     public record Inspection(@NotNull @Positive Long responsavelId,@NotNull @Future OffsetDateTime data) {}
     public record Order(@NotNull @Positive Long contratoServicoId,@NotNull @Positive Long equipeTrabalhoId,@NotBlank @Pattern(regexp="BAIXA|MEDIA|ALTA|URGENTE") String prioridade,boolean exigeMaterial) {}

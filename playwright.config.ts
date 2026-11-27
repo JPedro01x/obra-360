@@ -3,7 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   outputDir: './test-results/ui',
   testDir: './tests/e2e',
-  testMatch: 'workspace-real.spec.ts',
+  testMatch: ['workspace-real.spec.ts', 'ifc-geometry.spec.ts'],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: 0,

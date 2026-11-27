@@ -18,6 +18,9 @@ public class ExclusaoCadastroController {
     @DeleteMapping("/fornecedores/{id}") @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','GERENTE_OBRA','FINANCEIRO','INCORPORADOR')")
     public void supplier(@PathVariable Long id,@Valid @RequestBody Confirmation r,Authentication a){service.supplier(id,r.confirmacao(),Long.valueOf(a.getName()));}
+    @DeleteMapping("/estoque/{id}") @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','GERENTE_OBRA','ENGENHEIRO','ALMOXARIFE')")
+    public void stock(@PathVariable Long id,@Valid @RequestBody Confirmation r,Authentication a){service.stock(id,r.confirmacao(),Long.valueOf(a.getName()));}
     @DeleteMapping("/equipes/{id}") @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','GERENTE_OBRA','ENGENHEIRO','MESTRE_OBRA')")
     public void team(@PathVariable Long id,@Valid @RequestBody Confirmation r,Authentication a){service.team(id,r.confirmacao(),Long.valueOf(a.getName()));}

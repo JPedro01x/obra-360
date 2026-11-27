@@ -2,6 +2,14 @@
 
 O **Modelador 2D/3D** está no modo real, ligado à API e ao banco. Os modelos são independentes por obra e empresa. Nenhum projeto de exemplo é criado automaticamente, e a geometria demonstrativa legada não foi importada.
 
+### Importar geometria IFC
+
+Com um modelo aberto e permissão de edição, use **Importar geometria IFC 3D** para ler arquivos IFC2x3/IFC4 STEP de até 20 MB. A geometria triangulada é convertida em malhas em metros, preservando as medidas, a transformação de posicionamento e a forma 3D fornecidas pelo IFC. Para evitar coordenadas geográficas enormes na vista, a origem horizontal X/Z do conjunto é centralizada; posições relativas entre elementos são preservadas, e as cotas verticais continuam compatíveis com os pavimentos. A importação **mescla** as malhas ao modelo atual; não remove nem substitui os elementos existentes. Cada elemento IFC mantém GlobalId, tipo e nome de origem. Elementos sem malha compatível são ignorados e contabilizados no aviso. GlobalIds ausentes ou inválidos bloqueiam a importação, sem aplicar parte do arquivo.
+
+O documento passa ao formato 3 quando recebe malhas IFC. Limites: 2.000 elementos no documento, soma dos buffers Base64 de até 1,25 MiB, posições de até 1 MiB e índices de até 256 KiB por elemento, além de 128 pontos no contorno 2D. O arquivo de origem continua limitado a 20 MB. A conversão ocorre em um worker dedicado, com prazo de 90 segundos; fechar ou trocar o modelo cancela o resultado pendente. A geometria só entra no rascunho depois de todas as malhas caberem nos pavimentos cadastrados. Confira as cotas/alturas antes de importar um IFC de vários pavimentos.
+
+Na vista 3D, o Obra360 desenha a malha IFC importada. Na planta 2D, mostra o **contorno convexo simplificado** de seus vértices: concavidades e vazios podem desaparecer, então essa vista não é a projeção exata do sólido. Mover, girar, reposicionar numericamente, trocar de pavimento e alterar o nome/cor são permitidos. Dimensionar a malha, editar faces/vértices, preservar materiais por face, validar regras IFC ou fazer verificação normativa/estrutural ainda não é suportado. Essa função permite visualizar e posicionar malhas persistidas, mas não é um modelador BIM completo nem um validador IFC.
+
 ## Começar um projeto
 
 1. Cadastre a obra em **Empreendimentos**, se ela ainda não existir.
@@ -15,9 +23,9 @@ Uma obra pode ter vários modelos, como alternativas de projeto. **Duplicar mode
 
 ## Traçar a partir de PDF ou imagem
 
-Com o modelo aberto, expanda **Usar planta PDF ou imagem como referência**. Selecione um PDF, PNG, JPEG ou WebP de até 20 MB. Em PDFs com mais de uma folha, escolha a página que corresponde ao pavimento. Informe uma distância conhecida em metros, clique em **Calibrar escala** e marque na imagem os dois extremos dessa distância.
+Com o modelo aberto, expanda **Usar planta PDF ou imagem como referência**. Prefira exportar a planta do CAD em PDF vetorial ou imagem nítida; selecione PDF, PNG, JPEG ou WebP de até 20 MB. Em PDFs com mais de uma folha, escolha a página do pavimento. Informe uma distância cotada em metros, clique em **Calibrar escala** e marque os dois extremos dessa distância.
 
-Arraste na planta sobre o eixo da primeira parede. O segmento vira uma parede editável e aparece na vista 3D. Use **Desenhar parede** para continuar o traçado e o painel de propriedades para ajustar espessuras, alturas e medidas. Portas, janelas e lajes podem ser acrescentadas depois. A identificação de paredes e aberturas é feita pelo usuário.
+O reconhecimento assistido sugere paredes, mas a leitura de uma imagem é aproximada e pode confundir linhas, textos e cotas. Revise a prévia e selecione somente os trechos corretos; alternativamente, arraste na planta sobre o eixo das paredes com **Desenhar parede**. Os elementos confirmados são a geometria usada na planta 2D e extrudada na vista 3D, preservando posições e comprimentos na escala calibrada. Ajuste espessuras, alturas e medidas; crie ou confira portas, janelas e lajes manualmente. A imagem de referência não vira automaticamente um modelo executivo, e a conversão não promete reconhecer todos os detalhes com precisão.
 
 **Salvar modelo** registra um arquivo de referência por revisão, com o pavimento, a página e a escala aplicada. Outro usuário interno com acesso à obra pode reabrir a planta com a referência. No histórico, use **Mostrar referência desta revisão**. Substituir ou remover o arquivo muda a nova revisão. Restaurar uma revisão recupera também sua referência. O portal do cliente recebe a planta publicada sem acesso ao PDF ou à imagem de origem.
 

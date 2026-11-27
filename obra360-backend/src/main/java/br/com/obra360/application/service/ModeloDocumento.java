@@ -5,7 +5,7 @@ import jakarta.validation.constraints.*;
 import java.util.List;
 
 /** Metres, Y vertical, rotation around Y in degrees. Openings use wall-local offset/base. */
-public record ModeloDocumento(@Min(1) @Max(2) int schemaVersao,
+public record ModeloDocumento(@Min(1) @Max(3) int schemaVersao,
     @NotNull @Size(min=1,max=50) List<@Valid Pavimento> pavimentos,
     @NotNull @Size(max=2000) List<@Valid Elemento> elementos,
     @Size(max=4000) List<@Valid No> nos,
@@ -23,12 +23,22 @@ public record ModeloDocumento(@Min(1) @Max(2) int schemaVersao,
     public record Ambiente(@NotBlank @Pattern(regexp="[A-Za-z0-9_-]{1,64}") String id,@NotBlank String pavimentoId,
         @NotBlank @Size(max=100) String nome,@NotNull @DecimalMin("-10000") @DecimalMax("10000") Double x,
         @NotNull @DecimalMin("-10000") @DecimalMax("10000") Double z,@NotNull @Size(max=200) List<@NotBlank String> paredeIds){}
+    public record PontoPlanta(@NotNull @DecimalMin("-10000") @DecimalMax("10000") Double x,
+        @NotNull @DecimalMin("-10000") @DecimalMax("10000") Double z) {}
+    /** IFC triangle mesh: little-endian float32 XYZ and uint32 triangle indices, base64 encoded. */
+    public record MalhaIfc(@NotBlank @Size(max=1310720) String positionsBase64,
+        @NotBlank @Size(max=1310720) String indicesBase64,
+        @NotNull @Size(min=3,max=128) List<@Valid PontoPlanta> plantaXZ,
+        @NotBlank @Pattern(regexp="[A-Za-z0-9_$]{22}") String sourceGlobalId,
+        @NotNull @Min(1) Integer sourceExpressId,
+        @NotBlank @Size(max=64) String sourceType,
+        @NotBlank @Size(max=100) String sourceName) {}
     public record Pavimento(@NotBlank @Pattern(regexp="[A-Za-z0-9_-]{1,64}") String id,
         @NotBlank @Size(max=100) String nome,
         @NotNull @DecimalMin("-1000") @DecimalMax("10000") Double cota,
         @NotNull @DecimalMin("0.1") @DecimalMax("100") Double altura) {}
     public record Elemento(@NotBlank @Pattern(regexp="[A-Za-z0-9_-]{1,64}") String id,
-        @NotBlank String pavimentoId,@NotBlank @Pattern(regexp="PAREDE|LAJE|PILAR|PORTA|JANELA") String tipo,
+        @NotBlank String pavimentoId,@NotBlank @Pattern(regexp="PAREDE|LAJE|PILAR|PORTA|JANELA|MALHA_IFC") String tipo,
         @NotBlank @Size(max=100) String nome,
         @NotNull @DecimalMin("-10000") @DecimalMax("10000") Double x,
         @NotNull @DecimalMin("-10000") @DecimalMax("10000") Double z,
@@ -40,5 +50,6 @@ public record ModeloDocumento(@Min(1) @Max(2) int schemaVersao,
         @NotBlank @Pattern(regexp="#[0-9a-fA-F]{6}") String cor,
         @Size(max=64) String paredeId,
         @NotNull @DecimalMin("-1000") @DecimalMax("1000") Double deslocamento,
-        @Size(max=64) String noInicioId,@Size(max=64) String noFimId) {}
+        @Size(max=64) String noInicioId,@Size(max=64) String noFimId,
+        @Valid MalhaIfc malhaIfc) {}
 }

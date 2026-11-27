@@ -5,6 +5,8 @@ import {
   Copy,
   Download,
   Layers3,
+  Maximize2,
+  Minimize2,
   Plus,
   Redo2,
   Save,
@@ -44,6 +46,7 @@ import {
   type SavedPlanReference,
 } from '../services/planReference';
 import './model-editor.css';
+import type { IfcReadResult } from '../services/RealIfcParser';
 
 type ModelSummary = Omit<SavedModel, 'documento'>;
 type LocalDraft = { draft: ModelDraft; version: number; raw: string };
@@ -83,6 +86,7 @@ const colors: Record<ElementType, string> = {
   PILAR: '#64748b',
   PORTA: '#a87846',
   JANELA: '#38bdf8',
+  MALHA_IFC: '#94a3b8',
 };
 const typeNames: Record<ElementType, string> = {
   PAREDE: 'Parede',
@@ -90,6 +94,7 @@ const typeNames: Record<ElementType, string> = {
   PILAR: 'Pilar',
   PORTA: 'Porta',
   JANELA: 'Janela',
+  MALHA_IFC: 'Elemento IFC',
 };
 const uid = () => crypto.randomUUID();
 
@@ -125,6 +130,7 @@ export function ModelEditor({
     [drawWall, setDrawWall] = useState(false);
   const [measure, setMeasure] = useState(false),
     [connect, setConnect] = useState(true);
+  const [maximized, setMaximized] = useState(false);
   const [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
     [busy, setBusy] = useState(false),
@@ -153,7 +159,12 @@ export function ModelEditor({
     [modelName, setModelName] = useState(''),
     [filter, setFilter] = useState('');
   const generation = useRef(0),
-    importInput = useRef<HTMLInputElement>(null);
+    importInput = useRef<HTMLInputElement>(null),
+    ifcImportInput = useRef<HTMLInputElement>(null),
+    ifcWorker = useRef<Worker | null>(null);
+  const [ifcImporting, setIfcImporting] = useState(false);
+  const editViewportRef = useRef<HTMLDivElement>(null);
+  const maximizeButtonRef = useRef<HTMLButtonElement>(null);
   const importGeneration = useRef(0);
   const cloudDraftToken = useRef<string | null>(null);
   const geometryDirty =
@@ -164,6 +175,47 @@ export function ModelEditor({
   const [recoverable, setRecoverable] = useState<LocalDraft | null>(null);
   const [draftStored, setDraftStored] = useState(false);
   const writtenDraft = useRef<{ key: string; raw: string } | null>(null);
+  useEffect(() => {
+    if (!maximized) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const viewport = editViewportRef.current;
+    const background = viewport?.parentElement;
+    const siblings = background
+      ? Array.from(background.children).filter((element) => element !== viewport) as HTMLElement[]
+      : [];
+    const previousInert = siblings.map((element) => element.inert);
+    siblings.forEach((element) => { element.inert = true; });
+    const containFocus = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab' || !viewport) return;
+      const focusable = Array.from(viewport.querySelectorAll<HTMLElement>(
+        'a[href],button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex]:not([tabindex="-1"])',
+      )).filter((element) => !element.hidden && element.getClientRects().length > 0);
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (!first || !last) {
+        event.preventDefault();
+        viewport.focus({ preventScroll: true });
+      } else if (!viewport.contains(document.activeElement)) {
+        event.preventDefault();
+        first.focus({ preventScroll: true });
+      } else if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus({ preventScroll: true });
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus({ preventScroll: true });
+      }
+    };
+    document.addEventListener('keydown', containFocus, true);
+    maximizeButtonRef.current?.focus({ preventScroll: true });
+    return () => {
+      document.removeEventListener('keydown', containFocus, true);
+      siblings.forEach((element, index) => { element.inert = previousInert[index]; });
+      document.body.style.overflow = previousOverflow;
+      maximizeButtonRef.current?.focus({ preventScroll: true });
+    };
+  }, [maximized]);
   const draftKey = (id: number) =>
     `obra360:model-draft:${JSON.stringify([API_BASE_URL, draftScope, id])}`;
   const storageKey = saved ? draftKey(saved.id) : null;
@@ -171,6 +223,11 @@ export function ModelEditor({
   useLayoutEffect(() => {
     return () => {
       importGeneration.current++;
+      if (ifcWorker.current) {
+        ifcWorker.current.terminate();
+        ifcWorker.current = null;
+        setIfcImporting(false);
+      }
     };
   }, [saved, draft, writable]);
   useLayoutEffect(() => {
@@ -455,6 +512,11 @@ export function ModelEditor({
   }
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && maximized) {
+        e.preventDefault();
+        setMaximized(false);
+        return;
+      }
       const target = e.target as HTMLElement;
       if (target.closest('input,textarea,select,[contenteditable]')) return;
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
@@ -765,16 +827,24 @@ export function ModelEditor({
     target.nome = String(data.get('nome') || '').trim();
     target.cor = String(data.get('cor'));
     if (!opening(target)) {
-      target.pavimentoId = String(data.get('pavimentoId'));
+      const nextFloorId = String(data.get('pavimentoId'));
+      if (target.tipo === 'MALHA_IFC' && nextFloorId !== target.pavimentoId) {
+        const oldFloor = draft.documento.pavimentos.find((candidate) => candidate.id === target.pavimentoId)!;
+        const newFloor = draft.documento.pavimentos.find((candidate) => candidate.id === nextFloorId);
+        if (!newFloor) return;
+        target.base = rounded(oldFloor.cota + target.base - newFloor.cota);
+      }
+      target.pavimentoId = nextFloorId;
       for (const child of next.documento.elementos)
         if (child.paredeId === target.id) child.pavimentoId = target.pavimentoId;
     }
-    for (const key of [
-      'largura',
-      'altura',
-      'base',
-      ...(opening(target) ? ['deslocamento'] : ['x', 'z', 'profundidade', 'rotacao']),
-    ] as (keyof ModelElement)[]) {
+    const keys = target.tipo === 'MALHA_IFC'
+      ? ['x', 'z', 'base', 'rotacao']
+      : [
+          'largura', 'altura', 'base',
+          ...(opening(target) ? ['deslocamento'] : ['x', 'z', 'profundidade', 'rotacao']),
+        ];
+    for (const key of keys as (keyof ModelElement)[]) {
       (target as unknown as Record<string, unknown>)[key] = Number(data.get(key));
     }
     if (target.tipo === 'PAREDE') writeWallNodes(next.documento, target, element.pavimentoId);
@@ -809,7 +879,7 @@ export function ModelEditor({
           noFimId: e.noFimId ? nodeIds.get(e.noFimId) : null,
         })),
       );
-      if (draft.documento.schemaVersao === 2) {
+      if (draft.documento.schemaVersao >= 2) {
         upgrade(next.documento);
         next.documento.nos!.push(
           ...(draft.documento.nos || [])
@@ -912,9 +982,9 @@ export function ModelEditor({
       const value = JSON.parse(contents);
       if (
         value.formato !== 'obra360-modelador' ||
-        ![1, 2].includes(value.versaoFormato) ||
+        ![1, 2, 3].includes(value.versaoFormato) ||
         !value.documento ||
-        ![1, 2].includes(value.documento.schemaVersao)
+        ![1, 2, 3].includes(value.documento.schemaVersao)
       )
         throw new Error('Use um JSON exportado pelo Modelador Obra360.');
       const next: ModelDraft = { nome: value.nome, documento: value.documento };
@@ -928,6 +998,95 @@ export function ModelEditor({
       }
     } catch (e) {
       if (stillCurrent()) setError(e instanceof Error ? e.message : 'Arquivo de projeto inválido.');
+    }
+  }
+  async function importIfc(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || !writable || !draft || !floor) return;
+    if (file.size > 20 * 1024 * 1024) {
+      setError('O leitor aceita arquivos IFC de até 20 MB.');
+      return;
+    }
+    const request = ++importGeneration.current;
+    const modelGeneration = generation.current;
+    const stillCurrent = () => request === importGeneration.current && modelGeneration === generation.current;
+    const worker = new Worker(new URL('../services/IfcWorker.ts', import.meta.url), { type: 'module' });
+    ifcWorker.current = worker;
+    setIfcImporting(true);
+    setError('');
+    setNotice('Convertendo a geometria IFC em malhas 3D…');
+    let timeout = 0;
+    try {
+      const result = await new Promise<IfcReadResult>((resolve, reject) => {
+        timeout = window.setTimeout(() => reject(new Error('A conversão IFC excedeu 90 segundos.')), 90_000);
+        worker.onmessage = (message: MessageEvent<{ result?: IfcReadResult; error?: string }>) => {
+          if (message.data.error) reject(new Error(message.data.error));
+          else if (message.data.result) resolve(message.data.result);
+          else reject(new Error('O leitor IFC retornou uma resposta inválida.'));
+        };
+        worker.onerror = () => reject(new Error('Falha no leitor IFC em segundo plano.'));
+        worker.postMessage({ file, includeGeometry: true });
+      });
+      if (!stillCurrent()) return;
+      const imported = result.modelMeshes || [];
+      if (!imported.length) throw new Error('Nenhuma malha 3D foi encontrada no arquivo IFC.');
+      if (draft.documento.elementos.length + imported.length > 2000)
+        throw new Error('A mescla excede o limite de 2.000 elementos do modelo.');
+      const next = copyDraft(draft);
+      next.documento.schemaVersao = 3;
+      const mapped = imported.map((mesh): ModelElement => {
+        const low = mesh.y - mesh.altura / 2;
+        const high = mesh.y + mesh.altura / 2;
+        const assignedFloor = next.documento.pavimentos.find(
+          (candidate) => low >= candidate.cota - 0.001 && high <= candidate.cota + candidate.altura + 0.001,
+        );
+        if (!assignedFloor)
+          throw new Error(`O elemento IFC “${mesh.sourceName}” não cabe em nenhum pavimento existente. Cadastre as cotas/alturas dos pavimentos antes de importar.`);
+        return {
+          id: `ifc-${mesh.sourceExpressId}-${uid()}`,
+          pavimentoId: assignedFloor.id,
+          tipo: 'MALHA_IFC',
+          nome: mesh.sourceName.slice(0, 100),
+          x: mesh.x,
+          z: mesh.z,
+          base: low - assignedFloor.cota,
+          largura: mesh.largura,
+          profundidade: mesh.profundidade,
+          altura: mesh.altura,
+          rotacao: 0,
+          cor: mesh.cor,
+          paredeId: null,
+          deslocamento: 0,
+          malhaIfc: {
+            positionsBase64: mesh.positionsBase64,
+            indicesBase64: mesh.indicesBase64,
+            plantaXZ: mesh.plantaXZ,
+            sourceGlobalId: mesh.sourceGlobalId,
+            sourceExpressId: mesh.sourceExpressId,
+            sourceType: mesh.sourceType,
+            sourceName: mesh.sourceName.slice(0, 150),
+          },
+        };
+      });
+      next.documento.elementos.push(...mapped);
+      const invalid = validation(next);
+      if (invalid) throw new Error(invalid);
+      if (commit(next)) {
+        setSelected(mapped.map((element) => element.id));
+        setFit((value) => value + 1);
+        setNotice(`IFC mesclado ao modelo: ${mapped.length} malha(s) 3D adicionada(s), sem remover elementos existentes${result.omittedGeometryCount ? `; ${result.omittedGeometryCount} sem geometria foram ignorados` : ''}. A vista 3D mantém a malha IFC; a planta 2D mostra um contorno convexo simplificado, que não representa concavidades nem vazios. Confira os pavimentos e salve uma revisão.`);
+      }
+    } catch (failure) {
+      if (stillCurrent()) {
+        setNotice('');
+        setError(failure instanceof Error ? failure.message : 'Não foi possível importar o IFC.');
+      }
+    } finally {
+      window.clearTimeout(timeout);
+      worker.terminate();
+      if (ifcWorker.current === worker) ifcWorker.current = null;
+      if (stillCurrent()) setIfcImporting(false);
     }
   }
   const floorElements = draft?.documento.elementos.filter((e) => e.pavimentoId === floor?.id) || [];
@@ -1022,12 +1181,12 @@ export function ModelEditor({
           </button>
         </form>
       )}
-      {error && (
+      {error && !(draft && saved && floor) && (
         <div className="ws-alert" role="alert">
           {error}
         </div>
       )}
-      {notice && (
+      {notice && !(draft && saved && floor) && (
         <p className="model-notice" role="status">
           {notice}
         </p>
@@ -1170,6 +1329,16 @@ export function ModelEditor({
       )}
       {draft && saved && floor ? (
         <>
+          <div
+            ref={editViewportRef}
+            className={`model-edit-viewport${maximized ? ' is-maximized' : ''}`}
+            role={maximized ? 'dialog' : 'region'}
+            aria-label="Área de trabalho da planta"
+            aria-modal={maximized || undefined}
+            tabIndex={-1}
+          >
+          {error && <div className="ws-alert" role="alert">{error}</div>}
+          {notice && <p className="model-notice" role="status">{notice}</p>}
           <section className="model-savebar">
             <label>
               Nome do modelo
@@ -1288,6 +1457,10 @@ export function ModelEditor({
               <Upload size={14} />
               Importar projeto JSON
             </button>
+            <button disabled={!writable || ifcImporting} onClick={() => ifcImportInput.current?.click()}>
+              <Upload size={14} />
+              {ifcImporting ? 'Convertendo IFC…' : 'Importar geometria IFC 3D'}
+            </button>
             <input
               type="file"
               accept=".json,application/json"
@@ -1295,6 +1468,14 @@ export function ModelEditor({
               hidden
               aria-label="Arquivo de projeto JSON"
               onChange={importModel}
+            />
+            <input
+              type="file"
+              accept=".ifc,application/x-step,text/plain"
+              ref={ifcImportInput}
+              hidden
+              aria-label="Arquivo IFC para importar geometria 3D"
+              onChange={importIfc}
             />
           </section>
           {referenceLoading && <p role="status">Carregando referência da revisão…</p>}
@@ -1430,6 +1611,17 @@ export function ModelEditor({
               Todos os pavimentos em 3D
             </label>
             <button onClick={() => setFit((n) => n + 1)}>Enquadrar modelo</button>
+            <button
+              type="button"
+              ref={maximizeButtonRef}
+              className="ws-secondary model-maximize-button"
+              aria-pressed={maximized}
+              aria-label={maximized ? 'Restaurar tamanho do editor' : 'Maximizar editor 2D/3D'}
+              onClick={() => setMaximized((value) => !value)}
+            >
+              {maximized ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+              {maximized ? 'Restaurar' : 'Maximizar'}
+            </button>
           </div>
           <PlanTools
             draft={draft}
@@ -1595,6 +1787,13 @@ export function ModelEditor({
                         ['altura', 'Altura (m)'],
                         ['base', 'Peitoril / base (m)'],
                       ]
+                    : element.tipo === 'MALHA_IFC'
+                      ? [
+                          ['x', 'Posição X (m)'],
+                          ['z', 'Posição Z (m)'],
+                          ['base', 'Base no pavimento (m)'],
+                          ['rotacao', 'Rotação Y (graus)'],
+                        ]
                     : [
                         ['x', 'Posição X (m)'],
                         ['z', 'Posição Z (m)'],
@@ -1640,6 +1839,11 @@ export function ModelEditor({
                   {opening(element) && (
                     <small>
                       A posição e a rotação acompanham a parede. A base é relativa à base da parede.
+                    </small>
+                  )}
+                  {element.tipo === 'MALHA_IFC' && (
+                    <small>
+                      {element.malhaIfc?.sourceType || 'Elemento IFC'} · dimensões originais {element.largura.toFixed(3)} × {element.profundidade.toFixed(3)} × {element.altura.toFixed(3)} m. A geometria é mantida; use mover e girar para posicionar.
                     </small>
                   )}
                 </form>
@@ -1709,6 +1913,7 @@ export function ModelEditor({
                 </div>
               </details>
             </aside>
+          </div>
           </div>
           {role === 'SUPER_ADMIN' && (
             <details

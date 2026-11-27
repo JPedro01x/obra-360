@@ -158,6 +158,7 @@ export function ModelViewport({
         current.mode === 'navigate' ||
         !element ||
         !object ||
+        (element.tipo === 'MALHA_IFC' && current.mode === 'scale') ||
         (opening(element) && current.mode === 'rotate')
       )
         return;
@@ -344,7 +345,18 @@ export function ModelViewport({
       const floor = documento.pavimentos.find((f) => f.id === element.pavimentoId);
       if (!floor) continue;
       let geometry: THREE.BufferGeometry;
-      if (element.tipo === 'PAREDE') {
+      if (element.tipo === 'MALHA_IFC' && !element.malhaIfc) {
+        setError(`A malha IFC “${element.nome}” não contém buffers válidos.`);
+        continue;
+      } else if (element.tipo === 'MALHA_IFC' && element.malhaIfc) {
+        const positions = new Float32Array(decodeBase64(element.malhaIfc.positionsBase64).buffer);
+        const indices = new Uint32Array(decodeBase64(element.malhaIfc.indicesBase64).buffer);
+        geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+        geometry.computeVertexNormals();
+        geometry.computeBoundingSphere();
+      } else if (element.tipo === 'PAREDE') {
         const pieces = wallCells(element, documento.elementos).map((cell) => {
           const g = new THREE.BoxGeometry(cell.width, cell.height, element.profundidade);
           g.translate(cell.x, cell.y, 0);
@@ -364,6 +376,7 @@ export function ModelViewport({
         geometry.translate(0, element.altura / 2, 0);
       }
       const position = anchor(element, documento.elementos);
+      if (element.tipo === 'MALHA_IFC') position.base = element.base + element.altura / 2;
       const material = new THREE.MeshStandardMaterial({
         color: element.cor,
         roughness: 0.75,
@@ -420,7 +433,9 @@ export function ModelViewport({
               aria-pressed={mode === value}
               disabled={
                 value !== 'navigate' &&
-                (!selectedElement || (value === 'rotate' && opening(selectedElement)))
+                (!selectedElement ||
+                  (value === 'rotate' && opening(selectedElement)) ||
+                  (value === 'scale' && selectedElement.tipo === 'MALHA_IFC'))
               }
               onClick={() => setMode(value)}
             >
@@ -453,6 +468,13 @@ function dispose(group: THREE.Group) {
     }
   });
   group.clear();
+}
+
+function decodeBase64(value: string) {
+  const binary = atob(value);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);
+  return bytes;
 }
 
 export function footprint(element: ModelElement, elements: ModelElement[]) {

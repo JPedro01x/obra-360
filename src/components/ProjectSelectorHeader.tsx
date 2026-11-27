@@ -122,7 +122,7 @@ export const ProjectSelectorHeader: React.FC<ProjectSelectorHeaderProps> = ({
                 }}
                 className="text-[10px] font-bold text-orange-400 hover:underline flex items-center gap-1"
               >
-                <Plus className="w-3 h-3" /> Novo Empreendimento
+                <Plus className="w-3 h-3" /> Novo Projeto
               </button>
             </div>
 
@@ -189,7 +189,7 @@ export const ProjectSelectorHeader: React.FC<ProjectSelectorHeaderProps> = ({
             <div className={`flex justify-between items-center border-b pb-3 ${isDark ? 'border-[#27272a]' : 'border-zinc-200'}`}>
               <div className="flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-orange-500" />
-                <h3 className={`font-bold text-base ${textTitle}`}>Cadastrar Novo Empreendimento</h3>
+                <h3 className={`font-bold text-base ${textTitle}`}>Cadastrar Novo Projeto</h3>
               </div>
               <button onClick={() => setShowAddModal(false)} className={`font-bold ${textMuted} hover:${textTitle}`}>✕</button>
             </div>

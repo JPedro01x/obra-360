@@ -2,6 +2,8 @@
 
 Na tabela dos módulos operacionais, clique no nome do registro ou em **Ver detalhes**. A consulta abre uma janela com os dados gravados no banco e os vínculos disponíveis para seu perfil. Não altera os cadastros.
 
+As listagens operacionais retornam uma projeção de campos permitidos por módulo, não a entidade inteira do banco. A lista de usuários não envia hash de senha, vínculo Google, tentativas de login, bloqueio ou versão de credencial. A lista de documentos não envia localização interna de armazenamento nem hash do arquivo; o download continua sendo feito por endpoint que verifica empresa e permissão. Campos grandes do modelador e conteúdos de arquivo são carregados somente pelos fluxos específicos.
+
 Na obra, a visão reúne engenheiro, equipes e encarregados, membros alocados pelo RH, etapas, OS, contratos, estoque, documentos, plantas 2D/3D, clientes vinculados aos portais, unidades e ocorrências de qualidade. Cada lista mostra dez registros por página e o total de vínculos. A quantidade declarada de operários de uma equipe pode diferir dos funcionários efetivamente alocados; as duas informações são exibidas separadamente.
 
 **Ver detalhes** em um vínculo abre seu cadastro. **Voltar ao cadastro anterior** retorna à consulta de origem. **Atualizar detalhes** consulta novamente o banco. **Abrir planta** abre o modelo selecionado diretamente no editor, mantendo as permissões de edição já existentes. Documentos podem ser baixados pelos perfis autorizados.

@@ -404,7 +404,7 @@ export function App() {
       setActiveProject(created);
       setElements(initialElements);
       try { confetti({ particleCount: 70, spread: 65, origin: { y: 0.6 } }); } catch {}
-      addToast('success', 'Novo Empreendimento & Modelo 3D', `Empreendimento "${created.name}" cadastrado com modelo 3D inicial (${created.type}).`);
+      addToast('success', 'Novo Projeto & Modelo 3D', `Projeto "${created.name}" cadastrado com modelo 3D inicial (${created.type}).`);
     } finally {
       setIsSyncingAsync(false);
     }
@@ -791,7 +791,7 @@ export function App() {
                     exit={{ opacity: 0.9, y: -4 }}
                     transition={{ duration: 0.1 }}
                   >
-                    <NfeConciliationView currentRole={currentRole} theme={theme} onSendToast={addToast} />
+                    <NfeConciliationView />
                   </motion.div>
                 )}
 

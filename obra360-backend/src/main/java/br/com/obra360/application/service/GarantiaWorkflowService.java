@@ -40,6 +40,18 @@ public class GarantiaWorkflowService {
         c.setDataInicio(start);c.setDataFim(end);c.setDescricao(description.trim());c.setAtivo(active);em.persist(c);
         operations.audit("CADASTRAR_COBERTURA","cobertura_garantia",c.getId(),actor);return c;
     }
+    public CoberturaGarantiaEntity updateCoverage(Long id,String category,LocalDate start,LocalDate end,String description,boolean active,Long actor) {
+        var c=em.find(CoberturaGarantiaEntity.class,id,LockModeType.PESSIMISTIC_WRITE);
+        if(c==null)throw missing();
+        unit(c.getUnidadeId());
+        dates.changedPeriod(start,end,c.getDataInicio(),c.getDataFim());
+        category=category.trim().toUpperCase(Locale.ROOT);
+        long duplicate=em.createQuery("select count(c) from CoberturaGarantiaEntity c where c.empresaId=:t and c.unidadeId=:u and c.categoria=:category and c.id<>:id",Long.class)
+            .setParameter("t",TenantContext.getCurrentTenant()).setParameter("u",c.getUnidadeId()).setParameter("category",category).setParameter("id",id).getSingleResult();
+        if(duplicate>0)throw conflict("Já existe cobertura para esta categoria na unidade.");
+        c.setCategoria(category);c.setDataInicio(start);c.setDataFim(end);c.setDescricao(description.trim());c.setAtivo(active);
+        operations.audit("ATUALIZAR_COBERTURA","cobertura_garantia",id,actor);return c;
+    }
     public GarantiaPosVendaEntity create(Long unitId,Long clientId,String description,String category,Long actor) {
         var unit=unit(unitId);var client=operations.member(clientId);
         long links=em.createQuery("select count(a) from AcessoExternoEntity a where a.empresaId=:t and a.usuarioId=:client and a.perfil='CLIENTE' and a.unidadeImobiliariaId=:unit and a.projetoObraId=:project",Long.class)

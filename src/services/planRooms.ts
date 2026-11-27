@@ -270,7 +270,7 @@ export function refreshRoomLabels(doc: ModelDocument, floorId: string) {
       paredeIds: room.paredeIds,
     };
   });
-  doc.schemaVersao = 2;
+  if (doc.schemaVersao === 1) doc.schemaVersao = 2;
   doc.ambientes = [...(doc.ambientes || []).filter((r) => r.pavimentoId !== floorId), ...result];
   return rooms;
 }

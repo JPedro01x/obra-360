@@ -327,17 +327,28 @@ export function ModelPlan({
               <title>
                 {highlight && `${highlight.label}: `}{e.nome} · {e.largura} × {e.profundidade} m
               </title>
-              <rect
-                x={-p.width / 2}
-                y={-p.depth / 2}
-                width={p.width}
-                height={p.depth}
-                fill={highlight?.color ?? e.cor}
-                fillOpacity={highlight ? 0.45 : e.tipo === 'LAJE' ? 0.25 : opening(e) ? 0.9 : 0.8}
-                stroke={highlight?.color ?? (selected.includes(e.id) ? '#f97316' : 'var(--plan-outline)')}
-                strokeWidth={view.width / (highlight || selected.includes(e.id) ? 300 : 900)}
-                strokeDasharray={change === 'removed' ? `${view.width / 160} ${view.width / 280}` : undefined}
-              />
+              {e.tipo === 'MALHA_IFC' && e.malhaIfc ? (
+                <polygon
+                  points={e.malhaIfc.plantaXZ.map((point) => `${point.x},${point.z}`).join(' ')}
+                  fill={highlight?.color ?? e.cor}
+                  fillOpacity={highlight ? 0.45 : 0.8}
+                  stroke={highlight?.color ?? (selected.includes(e.id) ? '#f97316' : 'var(--plan-outline)')}
+                  strokeWidth={view.width / (highlight || selected.includes(e.id) ? 300 : 900)}
+                  strokeDasharray={change === 'removed' ? `${view.width / 160} ${view.width / 280}` : undefined}
+                />
+              ) : (
+                <rect
+                  x={-p.width / 2}
+                  y={-p.depth / 2}
+                  width={p.width}
+                  height={p.depth}
+                  fill={highlight?.color ?? e.cor}
+                  fillOpacity={highlight ? 0.45 : e.tipo === 'LAJE' ? 0.25 : opening(e) ? 0.9 : 0.8}
+                  stroke={highlight?.color ?? (selected.includes(e.id) ? '#f97316' : 'var(--plan-outline)')}
+                  strokeWidth={view.width / (highlight || selected.includes(e.id) ? 300 : 900)}
+                  strokeDasharray={change === 'removed' ? `${view.width / 160} ${view.width / 280}` : undefined}
+                />
+              )}
               <text
                 x={0}
                 y={-p.depth / 2 - font * 0.5}

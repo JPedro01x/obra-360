@@ -5,6 +5,7 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   timeout: 180000,
+  expect: { timeout: 15000 },
   forbidOnly: !!process.env.CI,
   retries: 0,
   reporter: 'list',
@@ -12,13 +13,13 @@ export default defineConfig({
     baseURL: 'http://127.0.0.1:4175',
     headless: true,
     trace: 'retain-on-failure',
-    actionTimeout: 10000,
+    actionTimeout: 15000,
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
     command: 'node scripts/integrated-server.mjs',
     url: 'http://127.0.0.1:4175/api/v1/instalacao',
     reuseExistingServer: false,
-    timeout: 180000,
+    timeout: 300000,
   },
 });

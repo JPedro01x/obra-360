@@ -63,10 +63,12 @@ export function WallRecognition({
     <section className="model-reference-panel" aria-label="Reconhecimento assistido de paredes">
       <h3>Reconhecimento assistido</h3>
       <p className="ws-help">
-        Após calibrar a escala, é possível sugerir paredes retas, inclusive inclinadas, com traço
-        sólido. Possíveis vãos entre trechos alinhados precisam de sua escolha como porta ou janela.
-        Confira a prévia antes de adicionar. Aberturas, cotas e medidas exigem revisão; fotografias
-        inclinadas e plantas complexas podem exigir traçado manual. A imagem fica neste navegador.
+        Após calibrar a escala, o sistema sugere paredes a partir dos traços da imagem. Isso é uma
+        aproximação: confira e ajuste cada trecho sobre a planta antes de adicionar. As paredes
+        confirmadas são usadas nas vistas 2D e 3D com as mesmas posições e comprimentos; a vista 3D
+        aplica a altura do pavimento. Portas, janelas e outros símbolos não são convertidos com
+        precisão automaticamente. Fotografia inclinada ou planta complexa pode exigir traçado manual.
+        A imagem fica neste navegador.
       </p>
       <button
         className="ws-secondary"

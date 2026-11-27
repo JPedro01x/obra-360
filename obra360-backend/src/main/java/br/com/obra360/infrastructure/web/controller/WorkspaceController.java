@@ -6,6 +6,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.BeanWrapperImpl;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -49,6 +50,28 @@ public class WorkspaceController {
         Map.entry("ordens", "from SolicitacaoServicoEntity e where e.contratoServicoId in (select c.id from ContratoServicoEntity c where c.empresaId = :tenant)"),
         Map.entry("garantias", "from GarantiaPosVendaEntity e where e.unidadeImobiliariaId in (select u.id from UnidadeImobiliariaEntity u where u.projetoObraId in (select p.id from ProjetoObraEntity p where p.empresaId = :tenant))")
     );
+    /** Only fields required by the operational tables and their row actions. Keep credentials, storage locators and large payloads out of list responses. */
+    private static final Map<String, List<String>> LIST_FIELDS = Map.ofEntries(
+        Map.entry("acessos", List.of("usuarioId","perfil","projetoObraId","unidadeImobiliariaId","fornecedorB2bId")),
+        Map.entry("fornecedores", List.of("razaoSocial","cnpj","categoriaFornecimento","statusHomologacao")),
+        Map.entry("movimentacoes", List.of("itemEstoqueId","tipoMovimentacao","quantidade","valorTotal","ordemServicoId","dataMovimentacao")),
+        Map.entry("consumos", List.of("ordemServicoId","itemEstoqueId","quantidadeUtilizada","custoTotalInsumo","dataConsumo")),
+        Map.entry("usuarios", List.of("nome","email","perfil","ativo")),
+        Map.entry("projetos", List.of("nome","areaTotalM2","vgvEstimado","dataInicio","dataPrevisaoFim")),
+        Map.entry("estoque", List.of("sku","nome","quantidadeAtual","unidadeMedida","estoqueMinimo","custoUnitarioMedio")),
+        Map.entry("documentos", List.of("projetoObraId","titulo","tipoDocumento","nomeArquivo","versao","dataCriacao")),
+        Map.entry("cronograma", List.of("nomeEtapa","ordemExecucao","dataInicioPrevista","dataFimPrevista","percentualExecutado")),
+        Map.entry("qualidade", List.of("titulo","normaRegulamentadora","grauSeveridade","statusPlanoAcao","dataCriacao")),
+        Map.entry("equipes", List.of("nomeEquipe","especialidade","quantidadeOperarios","projetoObraId")),
+        Map.entry("ordens", List.of("codigoProtocolo","descricao","statusOs","dataLimiteSla","exigeMaterial","justificativaAtraso","solicitanteEncerramentoId","aprovadorEncerramentoId")),
+        Map.entry("contratos", List.of("numeroContrato","valorTotal","retencaoTecnicaPct","dataInicio","dataTermino","ativo")),
+        Map.entry("cotacoes", List.of("codigoCotacao","valorProposta","prazoEntregaDias","statusCotacao","requisicaoCompraId","fornecedorB2bId")),
+        Map.entry("compras", List.of("itemEstoqueId","quantidade","justificativa","status","cotacaoSelecionadaId","aprovadorGestaoId","aprovadorFinanceiroId","numeroPedido","dataRecebimento")),
+        Map.entry("unidades", List.of("codigoUnidade","areaPrivativaM2","valorTabela","statusVenda")),
+        Map.entry("coberturas", List.of("unidadeId","categoria","dataInicio","dataFim","descricao","ativo")),
+        Map.entry("auditoria", List.of("acao","entidadeAfetada","entidadeId","usuarioId","dataHora")),
+        Map.entry("garantias", List.of("codigoChamado","descricaoDefeito","categoriaDefeito","statusChamado","dataAbertura","situacaoCobertura","vistoriaEm","ordemServicoId"))
+    );
 
     @GetMapping("/sessao")
     @PreAuthorize("isAuthenticated()")
@@ -56,7 +79,7 @@ public class WorkspaceController {
         UsuarioEntity user = em.find(UsuarioEntity.class, Long.valueOf(auth.getName()));
         EmpresaEntity company = em.find(EmpresaEntity.class, TenantContext.getCurrentTenant());
         if (company == null) throw new ResponseStatusException(HttpStatus.CONFLICT, "Empresa do usuário não encontrada.");
-        return Map.of("nome", user.getNome(), "email", user.getEmail(), "perfil", user.getPerfil(), "empresa", company,"exigeTrocaSenha",user.isExigeTrocaSenha());
+        return Map.of("id", user.getId(), "nome", user.getNome(), "email", user.getEmail(), "perfil", user.getPerfil(), "empresa", company,"exigeTrocaSenha",user.isExigeTrocaSenha());
     }
 
     private void checkResource(String resource, Authentication auth) {
@@ -164,7 +187,7 @@ public class WorkspaceController {
         return details.details(resource,rows.get(0),secao,page,readable,models);
     }
 
-    @GetMapping("/registros/{resource}")
+    @GetMapping("/registros/{resource:^(?!projetos$).+}")
     public Map<String, Object> list(@PathVariable String resource, @RequestParam(defaultValue = "0") int page,
                                     @RequestParam(defaultValue = "25") int size, Authentication auth) {
         checkResource(resource, auth);
@@ -174,7 +197,14 @@ public class WorkspaceController {
         var rows = em.createQuery("select e " + query + " order by e.id desc")
             .setParameter("tenant", tenant).setFirstResult(page * size).setMaxResults(size).getResultList();
         Long total = em.createQuery("select count(e) " + query, Long.class).setParameter("tenant", tenant).getSingleResult();
-        return Map.of("items", rows, "total", total, "page", page, "size", size);
+        var fields=LIST_FIELDS.get(resource);
+        if(fields==null)throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,"Projeção da listagem não configurada.");
+        List<Map<String,Object>> items=rows.stream().map(row->{
+            var bean=new BeanWrapperImpl(row);var projected=new LinkedHashMap<String,Object>();projected.put("id",bean.getPropertyValue("id"));
+            for(String field:fields)projected.put(field,bean.getPropertyValue(field));
+            return projected;
+        }).toList();
+        return Map.of("items", items, "total", total, "page", page, "size", size);
     }
 
     @PostMapping("/projetos")

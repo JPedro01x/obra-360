@@ -63,6 +63,14 @@ public class OperacaoService {
             .especialidade(specialty.trim()).quantidadeOperarios(count).build();
         em.persist(t);audit("CRIAR_EQUIPE","equipe_trabalho",t.getId(),actor); return t;
     }
+    public EquipeTrabalhoEntity updateTeam(Long id,String name,String specialty,int count,Long actor) {
+        var t=team(id);
+        long orders=em.createQuery("select count(o) from SolicitacaoServicoEntity o where o.equipeTrabalhoId=:team",Long.class)
+            .setParameter("team",id).getSingleResult();
+        if(orders>0)throw new ResponseStatusException(HttpStatus.CONFLICT,"A equipe já possui ordens de serviço; cadastre outra equipe para preservar o histórico.");
+        t.setNomeEquipe(name.trim());t.setEspecialidade(specialty.trim());t.setQuantidadeOperarios(count);
+        audit("ATUALIZAR_EQUIPE","equipe_trabalho",id,actor);return t;
+    }
     public ItemEstoqueEntity createStock(Long projectId,String sku,String name,String category,String unit,BigDecimal minimum,BigDecimal cost,Long actor) {
         project(projectId);
         var i=ItemEstoqueEntity.builder().empresaId(tenant()).projetoObraId(projectId).sku(sku.trim().toUpperCase(Locale.ROOT))
@@ -81,9 +89,19 @@ public class OperacaoService {
         em.persist(c);audit("CRIAR_CONTRATO","contrato_servico",c.getId(),actor);return c;
     }
     public FornecedorB2BEntity createSupplier(String cnpj,String name,String category,Long actor) {
-        var f=FornecedorB2BEntity.builder().empresaId(tenant()).cnpj(cnpj.toUpperCase(Locale.ROOT)).razaoSocial(name.trim())
+        Long company=tenant();String normalizedCnpj=cnpj.toUpperCase(Locale.ROOT);
+        Long duplicate=em.createQuery("select count(f) from FornecedorB2BEntity f where f.empresaId=:tenant and f.cnpj=:cnpj",Long.class)
+            .setParameter("tenant",company).setParameter("cnpj",normalizedCnpj).getSingleResult();
+        if(duplicate>0)throw new ResponseStatusException(HttpStatus.CONFLICT,"Este fornecedor já está cadastrado na sua empresa.");
+        var f=FornecedorB2BEntity.builder().empresaId(company).cnpj(normalizedCnpj).razaoSocial(name.trim())
             .categoriaFornecimento(category).statusHomologacao("EM_ANALISE").scoreReputacao(BigDecimal.ZERO).build();
         em.persist(f);audit("CRIAR_FORNECEDOR","fornecedor_b2b",f.getId(),actor);return f;
+    }
+    public FornecedorB2BEntity updateSupplier(Long id,String name,String category,Long actor) {
+        var supplier=em.find(FornecedorB2BEntity.class,id,LockModeType.PESSIMISTIC_WRITE);
+        if(supplier==null || !tenant().equals(supplier.getEmpresaId()))throw missing();
+        supplier.setRazaoSocial(name.trim());supplier.setCategoriaFornecimento(category);
+        audit("ATUALIZAR_FORNECEDOR","fornecedor_b2b",id,actor);return supplier;
     }
     public SolicitacaoServicoEntity createOrder(Long contractId,Long teamId,String description,String priority,OffsetDateTime deadline,Long actor) {
         return createOrder(contractId,teamId,description,priority,deadline,false,actor);

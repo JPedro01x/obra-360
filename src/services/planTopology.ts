@@ -18,7 +18,7 @@ export function wallEnds(e: ModelElement): [PlanPoint, PlanPoint] {
   ];
 }
 export function upgrade(doc: ModelDocument) {
-  doc.schemaVersao = 2;
+  if (doc.schemaVersao === 1) doc.schemaVersao = 2;
   doc.nos ??= [];
   doc.cotas ??= [];
   doc.ambientes ??= [];
@@ -186,7 +186,7 @@ export function topologyValidation(doc: ModelDocument, ids: Set<string>): string
       const a = nodeMap.get(e.noInicioId || ''),
         b = nodeMap.get(e.noFimId || '');
       if (
-        doc.schemaVersao !== 2 ||
+        doc.schemaVersao < 2 ||
         e.tipo !== 'PAREDE' ||
         !a ||
         !b ||

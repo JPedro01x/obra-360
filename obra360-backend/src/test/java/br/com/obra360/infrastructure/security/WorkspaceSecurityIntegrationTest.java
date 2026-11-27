@@ -74,6 +74,44 @@ class WorkspaceSecurityIntegrationTest {
 
     private String token(UsuarioEntity user) { return "Bearer " + jwt.issue(user); }
 
+    @Test void physicalMeasurementListKeepsTenantBoundaryPagingAndEmptyProjectSemantics() throws Exception {
+        Long projectId = ownProject();
+        var stage = EtapaCronogramaEntity.builder().projetoObraId(projectId).nomeEtapa("Fundação")
+            .ordemExecucao(1).dataInicioPrevista(LocalDate.now()).dataFimPrevista(LocalDate.now().plusDays(5))
+            .percentualExecutado(new BigDecimal("10.00")).build();
+        em.persist(stage);
+        em.persist(MedicaoFisicaEntity.builder().empresaId(admin.getEmpresaId()).projetoObraId(projectId)
+            .etapaCronogramaId(stage.getId()).competencia(LocalDate.now()).descricao("Concretagem medida")
+            .quantidade(new BigDecimal("12.5000")).unidade("m3").percentualAnterior(new BigDecimal("0.00"))
+            .percentualMedido(new BigDecimal("10.00")).valorMedido(new BigDecimal("2500.00"))
+            .status("EM_MEDICAO").criadoPor(admin.getId()).build());
+        em.flush();
+
+        mvc.perform(get("/api/v1/workspace/medicoes").param("projetoObraId", projectId.toString()).param("page", "0")
+                .header("Authorization", token(admin)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(1)).andExpect(jsonPath("$.page").value(0))
+            .andExpect(jsonPath("$.size").value(25)).andExpect(jsonPath("$.items[0].descricao").value("Concretagem medida"));
+
+        var emptyProject = ProjetoObraEntity.builder().empresaId(admin.getEmpresaId()).engenheiroResponsavelId(engineer.getId())
+            .nome("Obra sem medições").vgvEstimado(BigDecimal.TEN).areaTotalM2(BigDecimal.TEN)
+            .dataInicio(LocalDate.now()).dataPrevisaoFim(LocalDate.now().plusDays(10)).build();
+        em.persist(emptyProject); em.flush();
+        mvc.perform(get("/api/v1/workspace/medicoes").param("projetoObraId", emptyProject.getId().toString())
+                .header("Authorization", token(engineer)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(0)).andExpect(jsonPath("$.items.length()").value(0));
+
+        Long foreignProject = em.createQuery("select p.id from ProjetoObraEntity p where p.empresaId=:t", Long.class)
+            .setParameter("t", outsider.getEmpresaId()).getSingleResult();
+        mvc.perform(get("/api/v1/workspace/medicoes").param("projetoObraId", foreignProject.toString())
+                .header("Authorization", token(admin))).andExpect(status().isNotFound());
+        mvc.perform(get("/api/v1/workspace/medicoes").param("projetoObraId", projectId.toString())
+                .header("Authorization", token(outsider))).andExpect(status().isNotFound());
+
+        var warehouse = user(admin.getEmpresaId(), "measurement-warehouse@test.invalid", "ALMOXARIFE");
+        mvc.perform(get("/api/v1/workspace/medicoes").param("projetoObraId", projectId.toString())
+                .header("Authorization", token(warehouse))).andExpect(status().isForbidden());
+    }
+
     private com.fasterxml.jackson.databind.JsonNode gestion(String path,Object body,UsuarioEntity actor,int expected) throws Exception {
         var response=mvc.perform(post("/api/v1/workspace/gestao"+path).header("Authorization",token(actor)).contentType("application/json").content(json.writeValueAsString(body))).andExpect(status().is(expected)).andReturn();em.flush();
         return json.readTree(response.getResponse().getContentAsString());
@@ -366,9 +404,9 @@ class WorkspaceSecurityIntegrationTest {
     @Test void userRegistrationIgnoresIdentityFieldsAndRejectsOversizedNames() throws Exception {
         var body=new java.util.HashMap<String,Object>(Map.of("nome","Conta sem privilégios","email","mass-assignment@test.invalid","senhaHash","SenhaDeTeste@12345","perfil","COLABORADOR",
             "id",admin.getId(),"empresaId",outsider.getEmpresaId(),"googleSubject","forged","versaoCredencial",999));
-        var created=mvc.perform(post("/api/v1/auth/cadastrar").header("Authorization",token(admin)).contentType("application/json").content(json.writeValueAsString(body)))
-            .andExpect(status().isCreated()).andExpect(jsonPath("$.empresaId").value(admin.getEmpresaId())).andExpect(jsonPath("$.versaoCredencial").value(0)).andExpect(jsonPath("$.googleSubject").doesNotExist()).andReturn();
-        org.junit.jupiter.api.Assertions.assertNotEquals(admin.getId(),json.readTree(created.getResponse().getContentAsString()).get("id").asLong());
+        mvc.perform(post("/api/v1/auth/cadastrar").header("Authorization",token(admin)).contentType("application/json").content(json.writeValueAsString(body)))
+            .andExpect(status().isGone());
+        org.junit.jupiter.api.Assertions.assertEquals(0L, em.createQuery("select count(u) from UsuarioEntity u where u.email='mass-assignment@test.invalid'", Long.class).getSingleResult());
         body.put("nome","x".repeat(101));body.put("email","too-long@test.invalid");
         mvc.perform(post("/api/v1/auth/cadastrar").header("Authorization",token(admin)).contentType("application/json").content(json.writeValueAsString(body))).andExpect(status().isBadRequest());
     }
@@ -646,15 +684,15 @@ class WorkspaceSecurityIntegrationTest {
         var l=new LicencaEmpresaEntity();l.setEmpresaId(admin.getEmpresaId());l.setLimiteUsuarios(3);em.persist(l);em.flush();
         String auth=token(admin);
         var invitation=mvc.perform(post("/api/v1/workspace/convites").header("Authorization",auth).contentType("application/json")
-            .content("{\"email\":\"invited@test.invalid\",\"perfil\":\"RH\"}")).andExpect(status().isCreated()).andReturn();
+            .content("{\"email\":\"invited@test.invalid\",\"perfil\":\"CLIENTE\"}")).andExpect(status().isCreated()).andReturn();
         String raw=json.readTree(invitation.getResponse().getContentAsString()).get("token").asText();
         mvc.perform(post("/api/v1/workspace/convites").header("Authorization",auth).contentType("application/json")
-            .content("{\"email\":\"another@test.invalid\",\"perfil\":\"RH\"}")).andExpect(status().isConflict());
+            .content("{\"email\":\"another@test.invalid\",\"perfil\":\"CLIENTE\"}")).andExpect(status().isConflict());
         String accept=json.writeValueAsString(Map.of("token",raw,"nome","Convidado de teste","senha","SenhaDoConvidado@12345","empresaId",outsider.getEmpresaId(),"perfil","SUPER_ADMIN"));
         mvc.perform(post("/api/v1/auth/aceitar-convite").contentType("application/json").content(accept)).andExpect(status().isNoContent());
         var invited=em.createQuery("select u from UsuarioEntity u where u.email='invited@test.invalid'",UsuarioEntity.class).getSingleResult();
         org.junit.jupiter.api.Assertions.assertEquals(admin.getEmpresaId(),invited.getEmpresaId());
-        org.junit.jupiter.api.Assertions.assertEquals("RH",invited.getPerfil());
+        org.junit.jupiter.api.Assertions.assertEquals("CLIENTE",invited.getPerfil());
         mvc.perform(post("/api/v1/auth/aceitar-convite").contentType("application/json").content(accept)).andExpect(status().isBadRequest());
         mvc.perform(get("/api/v1/workspace/convites").header("Authorization",auth)).andExpect(status().isOk()).andExpect(jsonPath("$[0].tokenHash").doesNotExist());
     }
@@ -735,8 +773,8 @@ class WorkspaceSecurityIntegrationTest {
         mvc.perform(post("/api/v1/auth/login").contentType("application/json").content(json.writeValueAsString(Map.of("email",admin.getEmail(),"senha","NovaSenhaRecuperada@12345")))).andExpect(status().isOk());
     }
     @Test void unconfiguredServicesNeverFabricateResponses() throws Exception {
-        mvc.perform(post("/api/v1/workspace/integracoes/ia").header("Authorization",token(admin)).contentType("application/json").content("{\"pergunta\":\"Teste\",\"autorizaEnvio\":true}")).andExpect(status().isServiceUnavailable());
-        mvc.perform(post("/api/v1/workspace/integracoes/ia").header("Authorization",token(admin)).contentType("application/json").content("{\"pergunta\":\"Teste\",\"autorizaEnvio\":false}")).andExpect(status().isBadRequest());
+        mvc.perform(post("/api/v1/workspace/integracoes/ia").header("Authorization",token(admin)).header("X-Idempotency-Key",java.util.UUID.randomUUID().toString()).contentType("application/json").content("{\"pergunta\":\"Teste\",\"autorizaEnvio\":true}")).andExpect(status().isServiceUnavailable());
+        mvc.perform(post("/api/v1/workspace/integracoes/ia").header("Authorization",token(admin)).header("X-Idempotency-Key",java.util.UUID.randomUUID().toString()).contentType("application/json").content("{\"pergunta\":\"Teste\",\"autorizaEnvio\":false}")).andExpect(status().isBadRequest());
         mvc.perform(post("/api/v1/auth/recuperar").contentType("application/json").content("{\"email\":\"missing@test.invalid\"}")).andExpect(status().isServiceUnavailable());
         mvc.perform(post("/api/v1/auth/google").contentType("application/json").content("{\"credential\":\"forged\"}")).andExpect(status().isServiceUnavailable());
     }
@@ -761,8 +799,10 @@ class WorkspaceSecurityIntegrationTest {
     }
     @Test void supplierCannotSubmitProposalUsingAnotherAccountsBinding() throws Exception {
         var ids=workflow();var supplierUser=user(admin.getEmpresaId(),"supplier@test.invalid","FORNECEDOR");Long supplierId=em.createQuery("select f.id from FornecedorB2BEntity f where f.empresaId=:t",Long.class).setParameter("t",admin.getEmpresaId()).getSingleResult();Long access=create("/acessos",Map.of("usuarioId",supplierUser.getId(),"projetoObraId",ids.get("project"),"fornecedorB2bId",supplierId)).get("id").asLong();
-        mvc.perform(post("/api/v1/portal/propostas").header("Authorization",token(supplierUser)).contentType("application/json").content(json.writeValueAsString(Map.of("acessoId",access,"valor",10,"prazoDias",2)))).andExpect(status().isCreated()).andExpect(jsonPath("$.fornecedorB2bId").value(supplierId));
-        mvc.perform(post("/api/v1/portal/propostas").header("Authorization",token(supplierUser)).contentType("application/json").content(json.writeValueAsString(Map.of("acessoId",access+100000,"valor",10,"prazoDias",2)))).andExpect(status().isNotFound());
+        Long request=create("/compras",Map.of("itemEstoqueId",ids.get("item"),"quantidade",5,"justificativa","Reposição de material para a obra." )).get("id").asLong();
+        var proposal=Map.of("acessoId",access,"requisicaoId",request,"valor",10,"prazoDias",2);
+        mvc.perform(post("/api/v1/portal/propostas").header("Authorization",token(supplierUser)).contentType("application/json").content(json.writeValueAsString(proposal))).andExpect(status().isCreated()).andExpect(jsonPath("$.fornecedorB2bId").value(supplierId));
+        mvc.perform(post("/api/v1/portal/propostas").header("Authorization",token(supplierUser)).contentType("application/json").content(json.writeValueAsString(Map.of("acessoId",access+100000,"requisicaoId",request,"valor",10,"prazoDias",2)))).andExpect(status().isNotFound());
         mvc.perform(get("/api/v1/portal").header("Authorization",token(supplierUser))).andExpect(status().isOk()).andExpect(jsonPath("$.contratos.length()").value(1)).andExpect(jsonPath("$.cotacoes.length()").value(1));
     }
 
@@ -915,7 +955,8 @@ class WorkspaceSecurityIntegrationTest {
         mvc.perform(post("/api/v1/auth/cadastrar").header("Authorization",token(engineer)).contentType("application/json").content(payload))
             .andExpect(status().isForbidden());
         mvc.perform(post("/api/v1/auth/cadastrar").header("Authorization",token(admin)).contentType("application/json").content(payload))
-            .andExpect(status().isCreated()).andExpect(jsonPath("$.empresaId").value(admin.getEmpresaId())).andExpect(jsonPath("$.senhaHash").doesNotExist());
+            .andExpect(status().isGone());
+        org.junit.jupiter.api.Assertions.assertEquals(0L, em.createQuery("select count(u) from UsuarioEntity u where u.email='new@test.invalid'", Long.class).getSingleResult());
         mvc.perform(get("/api/v1/workspace/registros/usuarios").header("Authorization",token(admin)))
             .andExpect(status().isOk()).andExpect(jsonPath("$.items[*].senhaHash").doesNotExist());
     }
@@ -1128,6 +1169,28 @@ class WorkspaceSecurityIntegrationTest {
         mvc.perform(get("/api/v1/workspace/modelador/modelos/"+id).header("Authorization",token(admin))).andExpect(status().isOk()).andExpect(jsonPath("$.documento.elementos[0].rotacao").value(30)).andExpect(jsonPath("$.documento.elementos[1].paredeId").value("wall-1"));
         mvc.perform(put("/api/v1/workspace/modelador/modelos/"+id).header("Authorization",token(admin)).contentType("application/json").content(json.writeValueAsString(Map.of("versao",0,"nome","Modelo teste","motivo","Edição atrasada","documento",modelDocument(java.util.List.of(wall)))))).andExpect(status().isConflict());
         mvc.perform(get("/api/v1/workspace/modelador/modelos/"+id+"/revisoes").header("Authorization",token(admin))).andExpect(jsonPath("$.total").value(2));
+    }
+    @Test void modelEditorPersistsAndReopensIfcTriangleMesh() throws Exception {
+        Long id=create("/modelador/modelos",Map.of("projetoObraId",ownProject(),"nome","Modelo IFC teste")).get("id").asLong();
+        byte[] positions=java.nio.ByteBuffer.allocate(9*Float.BYTES).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+            .putFloat(0).putFloat(0).putFloat(0).putFloat(1).putFloat(0).putFloat(0).putFloat(0).putFloat(0).putFloat(1).array();
+        byte[] indices=java.nio.ByteBuffer.allocate(3*Integer.BYTES).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+            .putInt(0).putInt(1).putInt(2).array();
+        var element=modelElement("ifc-42","MALHA_IFC");element.put("largura",1);element.put("profundidade",1);element.put("altura",1);
+        element.put("malhaIfc",Map.of(
+            "positionsBase64",java.util.Base64.getEncoder().encodeToString(positions),
+            "indicesBase64",java.util.Base64.getEncoder().encodeToString(indices),
+            "plantaXZ",java.util.List.of(Map.of("x",-0.5,"z",-0.5),Map.of("x",0.5,"z",-0.5),Map.of("x",0,"z",0.5)),
+            "sourceGlobalId","0J$5eUQxP8w8mO7sQyG7xA","sourceExpressId",42,"sourceType","IFCWALL","sourceName","Parede IFC teste"));
+        var document=new java.util.HashMap<String,Object>();
+        document.put("schemaVersao",3);document.put("pavimentos",java.util.List.of(Map.of("id","floor-1","nome","Térreo","cota",0,"altura",2.8)));
+        document.put("elementos",java.util.List.of(element));
+        modelSave(id,0,document);
+        mvc.perform(get("/api/v1/workspace/modelador/modelos/"+id).header("Authorization",token(admin)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.documento.schemaVersao").value(3))
+            .andExpect(jsonPath("$.documento.elementos[0].tipo").value("MALHA_IFC"))
+            .andExpect(jsonPath("$.documento.elementos[0].malhaIfc.sourceGlobalId").value("0J$5eUQxP8w8mO7sQyG7xA"))
+            .andExpect(jsonPath("$.documento.elementos[0].malhaIfc.indicesBase64").value(java.util.Base64.getEncoder().encodeToString(indices)));
     }
     @Test void modelEditorRejectsDetachedAndOverlappingOpenings() throws Exception {
         Long id=create("/modelador/modelos",Map.of("projetoObraId",ownProject(),"nome","Modelo teste")).get("id").asLong();

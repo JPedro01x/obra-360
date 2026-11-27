@@ -40,6 +40,11 @@ export type OperationDefinition = {
 };
 const managers = ['SUPER_ADMIN', 'GERENTE_OBRA', 'ENGENHEIRO'];
 const commercial = ['SUPER_ADMIN', 'GERENTE_OBRA', 'FINANCEIRO', 'INCORPORADOR'];
+const internalAccountProfiles = [
+  'SUPER_ADMIN', 'GERENTE_OBRA', 'ENGENHEIRO', 'ARQUITETO', 'MESTRE_OBRA',
+  'ALMOXARIFE', 'FINANCEIRO', 'RH', 'AUDITOR', 'INCORPORADOR', 'COLABORADOR',
+];
+const externalAccountProfiles = ['CLIENTE', 'FORNECEDOR', 'CORRETOR', 'LOCADOR_MAQUINAS', 'INVESTIDOR'];
 const project: Field = { name: 'projetoObraId', label: 'Empreendimento', source: 'projetos' };
 const text = (name: string, label: string, maxLength = 150): Field => ({ name, label, maxLength });
 const number = (name: string, label: string, min = 0, step = '0.01', value = ''): Field => ({
@@ -334,6 +339,7 @@ export function rowOperations(
   const deletionRoles: Record<string, string[]> = {
     projetos: ['SUPER_ADMIN', 'GERENTE_OBRA', 'INCORPORADOR'],
     fornecedores: ['SUPER_ADMIN', 'GERENTE_OBRA', 'FINANCEIRO', 'INCORPORADOR'],
+    estoque: ['SUPER_ADMIN', 'GERENTE_OBRA', 'ENGENHEIRO', 'ALMOXARIFE'],
     equipes: ['SUPER_ADMIN', 'GERENTE_OBRA', 'ENGENHEIRO', 'MESTRE_OBRA'],
   };
   if (resource === 'acessos' && role === 'SUPER_ADMIN')
@@ -383,6 +389,32 @@ export function rowOperations(
       ...createOperations.movimentacoes,
       fields: createOperations.movimentacoes.fields.filter((f) => f.name !== 'itemEstoqueId'),
       hidden: { itemEstoqueId: row.id },
+    });
+  if (resource === 'fornecedores' && permitted(commercial))
+    actions.push({
+      title: 'Editar fornecedor',
+      path: `/fornecedores/${id}`,
+      method: 'PATCH',
+      roles: [],
+      fields: [
+        { ...text('razaoSocial', 'Razão social', 255), value: String(row.razaoSocial) },
+        choice('categoriaFornecimento', 'Categoria', ['INSUMOS', 'FROTAS', 'SERVICOS'], String(row.categoriaFornecimento)),
+      ],
+      success: 'Fornecedor atualizado. O CNPJ permanece como identificador do cadastro.',
+    });
+  if (resource === 'equipes' && permitted(deletionRoles.equipes))
+    actions.push({
+      title: 'Editar equipe',
+      path: `/equipes/${id}`,
+      method: 'PATCH',
+      roles: [],
+      warning: 'A edição só é permitida antes da primeira ordem de serviço. Depois disso, cadastre uma nova equipe para preservar o histórico.',
+      fields: [
+        { ...text('nomeEquipe', 'Nome da equipe', 100), value: String(row.nomeEquipe) },
+        { ...text('especialidade', 'Especialidade', 100), value: String(row.especialidade) },
+        number('quantidadeOperarios', 'Quantidade de profissionais', 1, '1', String(row.quantidadeOperarios)),
+      ],
+      success: 'Equipe atualizada.',
     });
   if (resource === 'ordens') {
     const late = new Date(String(row.dataLimiteSla)).getTime() < Date.now();
@@ -491,10 +523,11 @@ export function rowOperations(
     }
     if (row.status === 'APROVADO' && permitted(commercial))
       actions.push({
-        title: 'Emitir pedido de compra',
+        title: 'Registrar pedido no Obra360',
         path: `/compras/${id}/pedido`,
         roles: [],
         fields: [],
+        success: 'Pedido interno registrado. Este fluxo não transmite o pedido a um sistema externo do fornecedor.',
       });
     if (row.status === 'PEDIDO' && permitted(['SUPER_ADMIN', 'GERENTE_OBRA', 'ALMOXARIFE']))
       actions.push({
@@ -521,6 +554,34 @@ export function rowOperations(
       fields: [],
       hidden: { ativo: row.ativo === false },
     });
+  if (resource === 'coberturas' && permitted(managers))
+    actions.push({
+      title: 'Editar cobertura',
+      path: `/coberturas/${id}`,
+      method: 'PATCH',
+      roles: [],
+      fields: [
+        { ...text('categoria', 'Categoria do defeito', 50), value: String(row.categoria) },
+        { name: 'dataInicio', label: 'Início da cobertura', type: 'date', value: String(row.dataInicio) },
+        { name: 'dataFim', label: 'Fim da cobertura', type: 'date', value: String(row.dataFim) },
+        { name: 'descricao', label: 'Condições da cobertura', type: 'textarea', maxLength: 1000, value: String(row.descricao) },
+        { name: 'ativo', label: 'Cobertura ativa', options: [['true', 'Sim'], ['false', 'Não']], value: String(row.ativo) },
+      ],
+    });
+  if (resource === 'cronograma' && Number(row.percentualExecutado) === 0 && permitted(managers))
+    actions.push({
+      title: 'Editar etapa',
+      path: `/cronograma/${id}`,
+      method: 'PATCH',
+      roles: [],
+      warning: 'Etapas com avanço ou medições vinculadas não podem ser editadas. Preserve o histórico e cadastre uma nova etapa.',
+      fields: [
+        { ...text('nomeEtapa', 'Nome da etapa', 200), value: String(row.nomeEtapa) },
+        { ...number('ordemExecucao', 'Ordem de execução', 1, '1', String(row.ordemExecucao)), max: 100000 },
+        { name: 'dataInicioPrevista', label: 'Início previsto', type: 'date', value: String(row.dataInicioPrevista) },
+        { name: 'dataFimPrevista', label: 'Fim previsto', type: 'date', value: String(row.dataFimPrevista) },
+      ],
+    });
   if (resource === 'cronograma' && permitted(managers))
     actions.push({
       title: 'Informar avanço',
@@ -532,7 +593,7 @@ export function rowOperations(
           ...number(
             'percentualExecutado',
             'Execução (%)',
-            0,
+            Number(row.percentualExecutado),
             '0.01',
             String(row.percentualExecutado),
           ),
@@ -670,24 +731,9 @@ export function rowOperations(
         choice(
           'perfil',
           'Perfil de acesso',
-          [
-            'SUPER_ADMIN',
-            'GERENTE_OBRA',
-            'ENGENHEIRO',
-            'ARQUITETO',
-            'MESTRE_OBRA',
-            'ALMOXARIFE',
-            'FINANCEIRO',
-            'RH',
-            'AUDITOR',
-            'INCORPORADOR',
-            'CLIENTE',
-            'FORNECEDOR',
-            'CORRETOR',
-            'LOCADOR_MAQUINAS',
-            'INVESTIDOR',
-            'COLABORADOR',
-          ],
+          externalAccountProfiles.includes(String(row.perfil))
+            ? externalAccountProfiles
+            : internalAccountProfiles,
           String(row.perfil),
         ),
         {
@@ -729,7 +775,9 @@ export function rowOperations(
           ? 'Excluir obra'
           : resource === 'equipes'
             ? 'Excluir equipe'
-            : 'Excluir fornecedor',
+            : resource === 'estoque'
+              ? 'Excluir material'
+              : 'Excluir fornecedor',
       path: `/${resource}/${id}`,
       method: 'DELETE',
       roles: [],

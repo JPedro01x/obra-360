@@ -59,7 +59,7 @@ try {
     process.platform === 'win32'
       ? ['/d', '/s', '/c', 'mvn test --batch-mode -Dtest=PostgresWorkflowIntegrationTest,PostgresGestaoAtomicIntegrationTest,PostgresOperationalLimitsIntegrationTest,PostgresAccountLoginProtectionIntegrationTest']
       : ['test', '--batch-mode', '-Dtest=PostgresWorkflowIntegrationTest,PostgresGestaoAtomicIntegrationTest,PostgresOperationalLimitsIntegrationTest,PostgresAccountLoginProtectionIntegrationTest'];
-  const code = await new Promise((resolve, reject) => {
+  const result = await new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd: path.join(root, 'obra360-backend'),
       env,
@@ -67,9 +67,14 @@ try {
       windowsHide: true,
     });
     child.on('error', reject);
-    child.on('exit', resolve);
+    child.on('exit', (code, signal) => resolve({ code, signal }));
   });
-  process.exitCode = code || 0;
+  if (result.signal) {
+    console.error(`Maven foi interrompido pelo sinal ${result.signal}; validação PostgreSQL reprovada.`);
+    process.exitCode = 1;
+  } else {
+    process.exitCode = result.code ?? 1;
+  }
 } finally {
   await server.stop();
 }

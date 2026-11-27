@@ -24,8 +24,12 @@ public class PedidoMateriaisService {
   var f=em.find(FornecedorB2BEntity.class,supplier,LockModeType.PESSIMISTIC_WRITE);if(f==null||!finance.tenant().equals(f.getEmpresaId()))throw new ResponseStatusException(HttpStatus.NOT_FOUND);
   if(lines==null||lines.isEmpty()||lines.size()>100)throw bad("Informe entre 1 e 100 materiais.");
   var ids=new HashSet<Long>();BigDecimal total=BigDecimal.ZERO;
-  for(var l:lines){quantity(l.quantidade());finance.money(l.valorUnitario());if(l.valorUnitario().compareTo(new BigDecimal("9999999999.99"))>0)throw bad("Preço unitário excede o limite.");if(!ids.add(l.itemEstoqueId()))throw bad("Material repetido no pedido.");
-   var item=op.stock(l.itemEstoqueId(),false);if(!project.equals(item.getProjetoObraId()))throw bad("Todos os materiais devem pertencer à obra do pedido.");BigDecimal value=l.quantidade().multiply(l.valorUnitario()).setScale(2,RoundingMode.HALF_UP);finance.money(value);total=total.add(value);
+  for(var l:lines){quantity(l.quantidade());finance.money(l.valorUnitario());if(l.valorUnitario().compareTo(new BigDecimal("9999999999.99"))>0)throw bad("Preço unitário excede o limite.");if(l.itemEstoqueId()==null||l.itemEstoqueId()<1||!ids.add(l.itemEstoqueId()))throw bad("Material inválido ou repetido no pedido.");
+   BigDecimal value=l.quantidade().multiply(l.valorUnitario()).setScale(2,RoundingMode.HALF_UP);finance.money(value);total=total.add(value);
+  }
+  // Keep the same lock order for every multi-item order and serialize against material deletion.
+  for(var l:lines.stream().sorted(Comparator.comparing(Line::itemEstoqueId)).toList()){
+   var item=op.stock(l.itemEstoqueId(),true);if(!project.equals(item.getProjetoObraId()))throw bad("Todos os materiais devem pertencer à obra do pedido.");
   }
   finance.money(total);var p=finance.init(new PedidoMateriaisEntity(),project);p.setFornecedorB2bId(supplier);p.setJustificativa(reason.trim());p.setReferenciaProposta(proposal.trim());p.setVencimento(due);p.setTotal(total);p.setSituacao("APROVACAO");em.persist(p);
   for(var l:lines){var item=finance.init(new ItemPedidoMateriaisEntity(),project);item.setPedidoId(p.getId());item.setItemEstoqueId(l.itemEstoqueId());item.setQuantidade(l.quantidade());item.setValorUnitario(l.valorUnitario());item.setRecebida(BigDecimal.ZERO);item.setDevolvida(BigDecimal.ZERO);em.persist(item);}

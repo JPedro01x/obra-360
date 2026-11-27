@@ -19,7 +19,10 @@ export async function requestApi<T>(
   responseType: 'json' | 'blob' = 'json',
 ): Promise<T> {
   const headers = new Headers(options.headers);
-  headers.set('Accept', 'application/json');
+  headers.set(
+    'Accept',
+    responseType === 'blob' ? '*/*' : 'application/json',
+  );
   if (options.body && !(options.body instanceof FormData))
     headers.set('Content-Type', 'application/json');
   const token = sessionStorage.getItem('obra360_access_token');
@@ -56,7 +59,7 @@ export async function requestApi<T>(
         403: 'Você não tem permissão para esta operação.',
         404: 'Recurso não encontrado.',
         409: 'O registro já existe ou foi alterado. Atualize e tente novamente.',
-        413: 'O arquivo excede o limite de 20 MB.',
+        413: 'O arquivo excede o limite permitido.',
         429: 'Muitas tentativas. Aguarde antes de tentar novamente.',
         503: 'Serviço indisponível. Tente novamente em instantes.',
       };

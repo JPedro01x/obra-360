@@ -3,7 +3,7 @@
 Entrega documental de 21/11/2026, baseada nas interfaces implementadas no código de referência `ee9e72a`.
 
 - [Catálogo de interfaces](interfaces/index.html): 185 telas e estados, com wireframes e mockups lado a lado.
-- [Manual do usuário](manual/index.html): 184 procedimentos com 205 prints anotados, orientações de preenchimento, pré-requisitos, mensagens e perguntas frequentes.
+- [Manual do usuário](manual/index.html): 186 procedimentos com 205 prints anotados, orientações de preenchimento, pré-requisitos, mensagens e perguntas frequentes. O procedimento de configuração e retomada de uma obra foi acrescentado em 26/11/2026.
 - [Revisão dos diagramas](revisoes/revisao-diagramas-parte3-2026-11-21.md): correspondência das 110 figuras da parte 3 com a implementação e correções documentais identificadas.
 - [Evidências de preparação local](VALIDACAO-PREPARACAO-LOCAL-2026-11-20.md): resultados e limitações dos ensaios técnicos anteriores.
 

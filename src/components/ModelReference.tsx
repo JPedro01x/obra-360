@@ -52,12 +52,15 @@ export function ModelReference({
     <details className="model-plan-tools">
       <summary>Usar planta PDF ou imagem como referência</summary>
       <p>
-        Abra uma planta, calibre uma distância conhecida e use Desenhar parede para traçar sobre a
-        referência. As paredes aparecem em 3D enquanto você desenha.
+        Use uma planta exportada do CAD em PDF ou imagem nítida. Calibre uma distância cotada; as
+        paredes traçadas ou confirmadas são a geometria usada nas vistas 2D e 3D. No 3D, o modelo
+        extruda essas mesmas posições e medidas pela altura do pavimento.
       </p>
       <p>
         Cada revisão pode guardar um arquivo, a página aberta e a escala. Salvar modelo registra
         a referência junto com a geometria. Trocar o arquivo ou a página exige uma nova calibração.
+        A imagem serve como referência: textos, símbolos e detalhes gráficos não viram objetos 3D
+        automaticamente. Confira o contorno, as aberturas, a espessura e a altura antes de salvar.
       </p>
       <div className="model-toolbar">
         <label>

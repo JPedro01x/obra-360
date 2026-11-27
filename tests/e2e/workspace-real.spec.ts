@@ -1389,7 +1389,7 @@ for (const viewport of [
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
         viewport.width + 1,
       );
-      await page.getByRole('button', { name: 'Novo empreendimento', exact: true }).click();
+      await page.getByRole('button', { name: 'Novo projeto', exact: true }).click();
       const bounds = await page.getByRole('dialog').boundingBox();
       expect(bounds).toBeTruthy();
       expect(bounds!.x).toBeGreaterThanOrEqual(0);
@@ -1429,7 +1429,7 @@ test('connected pages and their dialogs share the login dark palette', async ({ 
   expect(
     await page.locator('.ws-table-card').evaluate((e) => getComputedStyle(e).backgroundColor),
   ).toBe('rgb(25, 25, 28)');
-  await page.getByRole('button', { name: 'Novo empreendimento', exact: true }).click();
+      await page.getByRole('button', { name: 'Novo projeto', exact: true }).click();
   expect(await page.getByRole('dialog').evaluate((e) => getComputedStyle(e).backgroundColor)).toBe(
     'rgb(25, 25, 28)',
   );
@@ -1639,7 +1639,7 @@ test('project form saves through API and reports validation errors', async ({ pa
     await route.fulfill({ status: 201, json: { id: 1 } });
   });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Novo empreendimento' }).click();
+  await page.getByRole('button', { name: 'Novo projeto' }).click();
   await page.getByLabel('Nome do empreendimento').fill('Obra cadastrada');
   await page.getByLabel('Engenheiro responsável').selectOption('7');
   await page.getByLabel('Área total (m²)').fill('100');

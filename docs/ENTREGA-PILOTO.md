@@ -46,3 +46,19 @@ Permanecem pendentes no ambiente de destino: PostgreSQL e perfil de produção e
 Antes de contratar operação regular: executar o piloto com dados autorizados, homologar os serviços contratados, revisar segurança de forma independente, conferir backups/capacidade/alertas no destino e definir contrato, suporte, treinamento e responsabilidades com os profissionais responsáveis. Consultar [COMERCIALIZACAO.md](COMERCIALIZACAO.md) e [OPERACAO-PRODUCAO.md](OPERACAO-PRODUCAO.md).
 
 Uma base preenchida ou uma suíte aprovada não substitui essas evidências. A entrega prepara uma versão para avaliação controlada; não declara funcionamento perfeito ou prontidão comercial integral.
+
+## Evidência técnica reproduzível — 27/11/2026
+
+O relatório atual desta rodada está em [VALIDACAO-TECNICA-PILOTO-2026-11-27.md](VALIDACAO-TECNICA-PILOTO-2026-11-27.md). Ele distingue comandos concluídos, interrompidos e não executados, registra o hash do snapshot e não declara aprovação de implantação. Para produzir um novo manifesto JSON local, execute `npm run piloto:validar`; para diagnosticar somente a coleta de evidências sem executar as suítes, use `npm run piloto:validar -- --no-validation` — essa opção sempre deixa o status incompleto. O aceite humano fica pendente por padrão. Depois de revisar as evidências e preencher o relatório estrutural, o operador declara sua revisão com `npm run piloto:validar -- --confirm-human-acceptance` e `PRODUCTION_PILOT_REPORT` apontando para esse relatório; isso não autentica as evidências de forma independente. O manifesto registra seu próprio caminho relativo em `test-results/` e não deve ser tratado como aceite automático do cliente.
+
+## Atualização operacional — 24/11/2026
+
+O runbook de PostgreSQL e operação foi reconciliado com os scripts de backup, verificação de prontidão, pacote de release e laboratório de pré-produção. A restauração documentada requer um host/projeto isolado, volumes novos e chaves injetadas de forma privada; a rotina de backup gera arquivos sem criptografia e sua verificação por SHA-256 não substitui um ensaio de recuperação.
+
+O laboratório `npm run test:preproduction -- "releases/<id>/bundle"` e o ensaio Compose de restauração não foram executados nesta rodada. Esta cópia não contém uma pasta `releases/<id>/bundle`, não tem checkout Git para gerar a entrega, e os comandos `java` e `docker` não estão disponíveis no PATH. Portanto, não há nova evidência de restauração nesta máquina. Nenhum host ou banco persistente foi acessado. Execute essas verificações num checkout Git e ambiente isolado com JDK 21, dependências disponíveis e Docker antes de publicar; o deploy continua pendente de infraestrutura e aceite real.
+
+## Atualização local — 26/11/2026
+
+Após as mudanças em chat, portal B2B, medições, fornecedores e projeções das listagens, `npm run typecheck`, `npm run build` e `mvn -q -DskipTests compile` concluíram com código 0. O build mais recente transformou 1.983 módulos. Nenhum teste automatizado foi executado nesta atualização, e a API em execução não foi reiniciada; as migrações V35/V36/V37 e estas mudanças ainda não estão aplicadas à instância ativa. A V37 foi compilada, mas sua execução em H2/PostgreSQL ainda precisa de validação isolada.
+
+`npm run verificar:producao` retornou código 1 e `configuracaoApta: false`. Neste checkout apenas o requisito de JWT persistente foi marcado como OK. Continuam pendentes PostgreSQL e perfil de produção, modo real, bloqueio da instalação inicial, URL HTTPS e CORS, recuperação por e-mail, diretório de armazenamento, comprovação do backup/restauração, auditoria de dependências vinculada ao JAR e relatório de aceite. A verificação não validou credenciais nem ambiente externo.

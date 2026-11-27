@@ -39,6 +39,19 @@ export const resources: Resource[] = [
     ],
   },
   {
+    id: 'notasfiscais',
+    title: 'Notas fiscais',
+    description: 'Registro local de NF-e, itens informados e entradas auditadas no almoxarifado.',
+    restricted: true,
+    columns: [
+      ['numero', 'Número'],
+      ['fornecedor', 'Fornecedor'],
+      ['dataEmissao', 'Emissão', 'date'],
+      ['valorTotal', 'Valor total', 'money'],
+      ['status', 'Status local'],
+    ],
+  },
+  {
     id: 'movimentacoes',
     title: 'Movimentações',
     description: 'Entradas e saídas de materiais com identificação de usuário e ordem.',
@@ -78,10 +91,10 @@ export const resources: Resource[] = [
   },
   {
     id: 'projetos',
-    title: 'Empreendimentos',
-    description: 'Obras e empreendimentos cadastrados na sua empresa.',
+    title: 'Projetos',
+    description: 'Obras e projetos cadastrados na sua empresa.',
     columns: [
-      ['nome', 'Empreendimento'],
+      ['nome', 'Projeto'],
       ['areaTotalM2', 'Área (m²)', 'number'],
       ['vgvEstimado', 'VGV estimado', 'money'],
       ['dataInicio', 'Início', 'date'],
@@ -140,7 +153,7 @@ export const resources: Resource[] = [
   {
     id: 'equipes',
     title: 'Equipes',
-    description: 'Equipes de trabalho vinculadas aos empreendimentos.',
+    description: 'Equipes de trabalho vinculadas aos projetos.',
     columns: [
       ['nomeEquipe', 'Equipe'],
       ['especialidade', 'Especialidade'],
@@ -253,6 +266,7 @@ export const privileged = ['SUPER_ADMIN', 'GERENTE_OBRA', 'FINANCEIRO', 'AUDITOR
 export const internal = ['RH', ...privileged, 'ENGENHEIRO', 'ARQUITETO', 'MESTRE_OBRA', 'ALMOXARIFE'];
 export const navigationGroups = [
   { title: 'Colaborador', ids: ['colaborador'] },
+  { title: 'Comunicação', ids: ['chat'] },
   {
     title: 'Obras e projetos',
     ids: [
@@ -270,6 +284,7 @@ export const navigationGroups = [
     title: 'Estoque e compras',
     ids: [
       'estoque',
+      'notasfiscais',
       'movimentacoes',
       'consumos',
       'fornecedores',
@@ -280,8 +295,8 @@ export const navigationGroups = [
   },
   {
     title: 'Financeiro e relacionamento',
-    ids: ['financeiro', 'contratos', 'unidades', 'coberturas', 'garantias'],
+    ids: ['financeiro', 'medicoes', 'contratos', 'unidades', 'coberturas', 'garantias'],
   },
   { title: 'Recursos humanos', ids: ['rh'] },
-  { title: 'Administração', ids: ['usuarios', 'acessos', 'auditoria', 'dados', 'integracoes'] },
+  { title: 'Administração', ids: ['usuarios', 'acessos', 'auditoria', 'dados', 'integracoes', 'planilhas'] },
 ];

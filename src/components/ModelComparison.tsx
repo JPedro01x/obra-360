@@ -19,7 +19,15 @@ function changed(
 ) {
   const keys = new Set([...Object.keys(before), ...Object.keys(after)]) as Set<keyof ModelElement>;
   return (
-    [...keys].some((key) => (before[key] ?? null) !== (after[key] ?? null)) ||
+    [...keys].some((key) => key !== 'malhaIfc' && (before[key] ?? null) !== (after[key] ?? null)) ||
+    (before.tipo === 'MALHA_IFC' && after.tipo === 'MALHA_IFC' &&
+      (before.malhaIfc?.positionsBase64 !== after.malhaIfc?.positionsBase64 ||
+        before.malhaIfc?.indicesBase64 !== after.malhaIfc?.indicesBase64 ||
+        JSON.stringify(before.malhaIfc?.plantaXZ) !== JSON.stringify(after.malhaIfc?.plantaXZ) ||
+        before.malhaIfc?.sourceType !== after.malhaIfc?.sourceType ||
+        before.malhaIfc?.sourceGlobalId !== after.malhaIfc?.sourceGlobalId ||
+        before.malhaIfc?.sourceExpressId !== after.malhaIfc?.sourceExpressId ||
+        before.malhaIfc?.sourceName !== after.malhaIfc?.sourceName)) ||
     JSON.stringify(anchor(before, bank.elementos)) !==
       JSON.stringify(anchor(after, draft.elementos))
   );

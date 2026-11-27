@@ -1,73 +1,83 @@
 # Construtora Horizonte — demonstração persistida
 
-Criada por solicitação do responsável em 12/11/2026. Empresa, pessoas, identificadores, obras, contratos e movimentações são fictícios. Os valores simulam uma operação para apresentação e testes; não comprovam atividade empresarial, direito trabalhista, autorização fiscal ou projeto executivo.
+Empresa e todos os registros são fictícios, criados para apresentar os módulos do Obra360. O ambiente está marcado como `HOMOLOGACAO`; estes dados não têm validade empresarial, fiscal, trabalhista, financeira ou executiva.
 
-A empresa foi provisionada separadamente no banco local existente, sem substituir os cadastros anteriores. A marcação de ambiente é `HOMOLOGACAO`. Os registros foram criados pelas APIs oficiais e conferidos novamente após reiniciar a aplicação, em `obra360-backend/data/obra360.mv.db`.
+## Instância isolada
+
+A demonstração foi criada em um banco H2 separado, em `obra360-backend/data/demonstracao/obra360-demo.mv.db`. Ela roda localmente em [http://127.0.0.1:3001](http://127.0.0.1:3001), com API em `127.0.0.1:8081`. A instância operacional anterior foi mantida em execução, sem alterações; ela continua nas portas e no banco próprios.
+
+O banco persiste os dados fora do código e das fixtures do frontend. Arquivos de progresso, documentos e credenciais também ficam em pastas locais ignoradas pelo Git. As senhas de demonstração são aleatórias e ficam cifradas em `ACESSO-DEMONSTRACAO.local`; não compartilhe esse arquivo.
+
+## Dados conferidos
 
 | Área | Quantidade |
 | --- | ---: |
 | Empresa fictícia | 1 |
-| Obras | 6 |
+| Projetos/obras | 9 (inclui escola, hospital e praça demonstrativos) |
 | Equipes | 18 |
 | Contratos | 18 |
-| Materiais | 60 |
+| Materiais e saldos conferidos | 60 |
 | Ordens de serviço | 72 |
 | Requisições de compra | 18 |
 | Documentos PDF demonstrativos | 12 |
-| Unidades | 12 |
+| Unidades imobiliárias | 12 |
 | Chamados de garantia | 6 |
-| Etapas de cronograma | 18 |
-| Contas de acesso | 68 |
-| Funcionários | 48 |
+| Etapas do cronograma | 18 |
+| Usuários | 68 |
+| Funcionários de RH | 57 |
 | Registros de ponto | 240 |
-| Benefícios e treinamentos | 48 de cada |
-| Folha administrativa com lançamentos manuais | 1 folha, 96 lançamentos |
-| Modelos de plantas 2D/3D | 12 |
+| Benefícios | 48 |
+| Treinamentos | 48 |
+| Folha administrativa | 1 folha, 96 lançamentos manuais |
+| Modelos de plantas 2D/3D persistidos | 15 |
+| Orçamentos aprovados preparados na carga | 6 |
+| Títulos a pagar/receber preparados na carga | 18 |
+| Baixas e conciliações bancárias preparadas na carga | 8 |
+| Pedidos financeiros preparados na carga | 6 |
+| Solicitações de atendimento preparadas na carga | 6 |
 
-As obras são Residencial Aurora, Condomínio Jardim das Palmeiras, Edifício Comercial Central, Residencial Vista Verde, Centro Logístico Horizonte e Vila das Acácias, todas identificadas como demonstração. O dimensionamento é uma hipótese de teste, não uma capacidade comercial contratada.
+Os números acima representam módulos com registros persistidos e conferidos pela API. As linhas financeiras e de atendimento são a cobertura preparada no carregador; ainda dependem da execução da carga e da conferência no banco isolado, portanto não devem ser apresentadas como contagens persistidas até a confirmação em `--verificar`. Algumas telas do protótipo ainda usam estado local e não fazem parte dessas contagens.
 
-## Processos prontos para experimentar
+Os projetos incluem Residencial Aurora, Condomínio Jardim das Palmeiras, Edifício Comercial Central, Residencial Vista Verde, Centro Logístico Horizonte e Vila das Acácias, além da Escola Parque Horizonte, Hospital Regional Horizonte e Praça das Acácias. Todos têm indicação de demonstração.
 
-- OS: 24 abertas, 24 em andamento e 24 concluídas, com consumos vinculados à obra correta.
-- Compras: seis recebidas, seis com pedido emitido e seis em aprovação. As recebidas possuem aprovações por pessoas distintas; a entrada e o custo de estoque foram conferidos.
-- RH: contas de Colaborador geradas no cadastro dos 48 funcionários, registros de cinco dias úteis, benefícios, treinamentos, solicitações futuras de férias e folha manual registrada como paga. Nenhuma transferência financeira foi feita nem tributo calculado.
-- Plantas: duas por obra, cada uma com seis ambientes, paredes conectadas, cotas, seis portas e quatro janelas. Há revisões salvas e publicação para a unidade vinculada ao cliente demonstrativo. As dimensões do contorno foram alinhadas à área cadastrada da unidade; a conferência técnica profissional não é substituída por essa consistência numérica.
-- Portais: clientes vinculados às unidades, um cliente com acesso a duas obras, corretores com unidades para reserva, investidores com visão dos projetos e parceiros com propostas demonstrativas. Há seis unidades vendidas, três reservadas e três disponíveis.
-- Os arquivos PDF identificam explicitamente que são demonstração sem validade real.
+## Processos representados
 
-## Entrar na nova empresa
+- Ordens de serviço abertas, em andamento e concluídas, com consumos relacionados aos projetos.
+- Compras recebidas, com pedido emitido ou em aprovação. Aprovações e pedidos são registros internos de demonstração; nenhuma solicitação foi enviada a um fornecedor externo e nenhum pagamento foi feito.
+- RH com funcionários, ponto, benefícios, treinamentos, afastamentos fictícios e lançamentos manuais. Não foram calculados tributos ou direitos trabalhistas.
+- Plantas diversificadas incluem casa térrea, condomínio vertical, edifício comercial, residência de dois pavimentos, galpão logístico, vila com praça, escola, hospital e praça pública. Os 15 modelos demonstrativos têm implantações, escalas, pavimentos e ambientes variados, com revisões persistidas; os modelos originais mantêm publicação vinculada a unidades quando aplicável. São exemplos esquemáticos, não projetos executivos, e precisam de validação técnica profissional.
+- Acessos de cliente, corretor, investidor e parceiros vinculados a obras/unidades para demonstrar níveis distintos de acesso.
+- Arquivos PDF identificados como demonstração sem validade real.
 
-Saia da conta atual e entre com `admin@horizonte-demo.test.invalid`. O administrador da empresa anterior continua vendo apenas sua própria empresa.
+## Módulos sem dados persistidos nesta demonstração
 
-As credenciais foram geradas aleatoriamente. O banco guarda os hashes de senha; a cópia privada dos acessos de demonstração fica cifrada em `ACESSO-DEMONSTRACAO.local`, ignorado pelo Git e separado dos acessos antigos.
+- A tela antiga **Conciliação de NF-e** ainda exibe exemplos locais de demonstração. No Workspace operacional, **Notas fiscais** grava cabeçalho, fornecedor, itens, estados e eventos no banco da empresa; a entrada de estoque é uma ação separada e transacional. O fluxo não importa XML nem autentica a NF-e na SEFAZ. V39 é necessária no PostgreSQL e ainda não foi aplicada nesta cópia.
+- O chat interno no `Workspace` tem fluxo tenant-aware para conversa, envio e leitura; a interface antiga de demonstração continua simulada e sem atualização em tempo real. As rotas B2B legadas permanecem bloqueadas; no portal operacional, o fornecedor vê requisições abertas de obras vinculadas e pode registrar uma proposta interna. Isso não transmite pedido a software externo. As migrações V35-V40 precisam ser aplicadas pela inicialização autorizada antes de disponibilizar as mudanças nesta instância. Medições têm API, histórico, fluxo de aprovação e anexos de evidência no código; não há medições demonstrativas carregadas. Liberação financeira apenas registra estado interno; não realiza pagamento nem faturamento externo.
+- O simulador de upload 3D é visual; não importa nem salva modelo BIM/IFC. As 15 plantas geométricas persistidas podem ser visualizadas no modo 3D do editor, mas não são arquivos executivos. No modelador, a conversão de PDF/imagem para paredes é assistida: a escala precisa ser calibrada e as sugestões revisadas; a vista 3D extruda a geometria confirmada, sem converter automaticamente todos os textos, símbolos ou detalhes da imagem.
+- A tela de integração mostra se as configurações existem. Nenhum fornecedor, banco, serviço fiscal ou integração externa recebeu chamadas nesta demonstração.
 
-No terminal privado, para consultar o administrador:
+Tornar esses módulos persistentes exige entidades e APIs próprias, validação de tenant/perfil e uma atualização do backend. Não reutilize rotas legadas bloqueadas para popular dados.
+
+## Estado da carga adicional
+
+O carregador agora prepara dados financeiros tenant-aware (orçamentos, títulos, baixas, extratos conciliados e pedidos internos) e solicitações fictícias de atendimento. Na revisão de 25/11/2026, as portas locais 3000, 3001, 8080 e 8081 não estavam em execução. A API isolada não pôde ser iniciada porque não há JDK 21 disponível nesta máquina; assim, os registros financeiros e de atendimento ainda não foram gravados nem conferidos. O carregador permanece pronto para ser retomado após disponibilizar o JDK 21 e iniciar a instância isolada. Nenhuma instância operacional ou banco foi alterado.
+
+## Acesso
+
+O login administrativo é `admin@horizonte-demo.test.invalid`. Para consultar credenciais da demonstração no próprio computador, use:
 
 ```powershell
-npm run acessos:demonstracao -- --perfil SUPER_ADMIN --mostrar-senhas
+node scripts/acessos-demonstracao.mjs
 ```
 
-Para listar os logins sem senhas:
+Esse comando consulta o arquivo local cifrado. Não publique senhas em documentação, mensagens ou capturas de tela. Contas internas criadas pelo RH precisam trocar a senha inicial no primeiro acesso.
+
+## Conferência e retomada
 
 ```powershell
-npm run acessos:demonstracao
+node scripts/demo-isolated.mjs --verificar
 ```
 
-Colaboradores precisam trocar a senha inicial ao entrar. O arquivo privado registra a senha inicial de teste e não recupera a senha pessoal definida depois. Não reutilize essas contas fora da demonstração nem compartilhe o arquivo de credenciais.
+Para conferir e popular são usadas APIs da empresa e do banco isolados. A carga é retomável pelo arquivo `obra360-backend/data/demonstracao/empresa.json`; `--popular` não deve ser usado como rotina de reset. Para recriar a demonstração, faça backup e use o processo de provisionamento com a API da instância isolada parada.
 
-## Conferência e recuperação
-
-```powershell
-npm run dados:demonstracao -- --verificar
-node scripts/validar-demonstracao.mjs
-```
-
-A primeira rotina confere empresa/ambiente, quantidades, estados, 60 saldos e 12 plantas. A segunda abre o frontend real, consulta obras e RH e reabre uma planta em 2D/3D; as capturas locais ficam em `scratch/demonstracao`. Ambas usam os dados já persistidos.
-
-O carregador `scripts/demo-company.mjs` tem destino fixo em loopback e exige a empresa/ambiente esperados. O comando `--popular` usa um registro de progresso privado para retomar a carga; não apaga nem reseta o banco. Após alterações manuais na demonstração, divergências de contagem ou saldo devem ser investigadas, não corrigidas com exclusões automáticas.
-
-Não execute novamente `--provisionar` nesta instalação: a empresa já existe. Esse modo exige API encerrada e backup prévio. Nunca copie o banco operacional para uma apresentação pública sem revisar seu conteúdo.
-
-Foram preservadas cópias do banco antes do provisionamento e após a carga em `backups/`. Para uma entrega em outro computador, o pacote do software e a cópia dos dados são artefatos separados; os arquivos privados e os bancos não entram nos pacotes de fonte/produção.
-
-Essa demonstração permite apresentação e ensaios operacionais. Não preenche o relatório de aceite de cliente real em [PILOTO-COMERCIAL.md](PILOTO-COMERCIAL.md).
+O carregador valida o tenant e o ambiente antes de criar dados. Não copie a base operacional para apresentações. A demonstração serve para navegação e ensaios locais; não representa um aceite de cliente real.

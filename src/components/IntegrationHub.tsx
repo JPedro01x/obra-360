@@ -41,7 +41,11 @@ export function IntegrationHub({ role }: { role: string }) {
     try {
       const result = await requestApi<{ resposta: string }>(
         '/v1/workspace/integracoes/ia',
-        { method: 'POST', body: JSON.stringify({ pergunta: question, autorizaEnvio: consent }) },
+        {
+          method: 'POST',
+          headers: { 'X-Idempotency-Key': crypto.randomUUID() },
+          body: JSON.stringify({ pergunta: question, autorizaEnvio: consent }),
+        },
         45000,
       );
       setAnswer(result.resposta);
@@ -60,7 +64,7 @@ export function IntegrationHub({ role }: { role: string }) {
       setFiscal(
         await requestApi<Record<string, string>>(
           '/v1/workspace/integracoes/sefaz',
-          { method: 'POST', body: JSON.stringify({ chave: key }) },
+          { method: 'POST', headers: { 'X-Idempotency-Key': crypto.randomUUID() }, body: JSON.stringify({ chave: key }) },
           35000,
         ),
       );

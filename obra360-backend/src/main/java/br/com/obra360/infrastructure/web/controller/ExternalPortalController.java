@@ -4,6 +4,7 @@ import br.com.obra360.application.service.OperacaoService;
 import br.com.obra360.application.service.ModeloDocumentoService;
 import br.com.obra360.domain.entity.*;
 import br.com.obra360.infrastructure.security.TenantContext;
+import br.com.obra360.domain.security.PerfisConta;
 import jakarta.persistence.*;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
@@ -22,10 +23,9 @@ public class ExternalPortalController {
     private final EntityManager em;private final OperacaoService operation;
     private final ModeloDocumentoService modelDocuments;
     private final br.com.obra360.application.service.GarantiaWorkflowService warrantyWorkflow;
-    private static final Set<String> ROLES=Set.of("CLIENTE","CORRETOR","INVESTIDOR","FORNECEDOR","LOCADOR_MAQUINAS");
     @PostMapping("/api/v1/workspace/acessos") @Transactional @PreAuthorize("hasRole('SUPER_ADMIN')") @ResponseStatus(HttpStatus.CREATED)
     public AcessoExternoEntity grant(@Valid @RequestBody Grant r,Authentication auth){
-        var user=operation.member(r.usuarioId());operation.project(r.projetoObraId());if(!ROLES.contains(user.getPerfil()))throw bad("Selecione um usuário com perfil externo.");
+        var user=operation.member(r.usuarioId());operation.project(r.projetoObraId());if(!PerfisConta.externo(user.getPerfil()))throw bad("Selecione um usuário com perfil externo.");
         if("CLIENTE".equals(user.getPerfil())&&r.unidadeImobiliariaId()==null)throw bad("Vincule a unidade do cliente.");
         if(Set.of("FORNECEDOR","LOCADOR_MAQUINAS").contains(user.getPerfil())&&r.fornecedorB2bId()==null)throw bad("Vincule o fornecedor da conta.");
         if(r.unidadeImobiliariaId()!=null){var unit=em.find(UnidadeImobiliariaEntity.class,r.unidadeImobiliariaId());if(unit==null||!r.projetoObraId().equals(unit.getProjetoObraId()))throw bad("Unidade deve pertencer à obra selecionada.");}
@@ -36,7 +36,7 @@ public class ExternalPortalController {
     }
     @DeleteMapping("/api/v1/workspace/acessos/{id}") @Transactional @PreAuthorize("hasRole('SUPER_ADMIN')") @ResponseStatus(HttpStatus.NO_CONTENT)
     public void revoke(@PathVariable Long id,Authentication auth){var access=em.find(AcessoExternoEntity.class,id);if(access==null||!TenantContext.getCurrentTenant().equals(access.getEmpresaId()))throw missing();em.remove(access);operation.audit("REVOGAR_ACESSO","acesso_externo",id,Long.valueOf(auth.getName()));}
-    private UsuarioEntity user(Authentication a){var user=em.find(UsuarioEntity.class,Long.valueOf(a.getName()));if(!ROLES.contains(user.getPerfil()))throw new ResponseStatusException(HttpStatus.FORBIDDEN);return user;}
+    private UsuarioEntity user(Authentication a){var user=em.find(UsuarioEntity.class,Long.valueOf(a.getName()));if(user==null||!PerfisConta.externo(user.getPerfil()))throw new ResponseStatusException(HttpStatus.FORBIDDEN);return user;}
     private List<AcessoExternoEntity> accesses(UsuarioEntity user){return em.createQuery("select a from AcessoExternoEntity a where a.usuarioId=:u and a.empresaId=:t and a.perfil=:r",AcessoExternoEntity.class).setParameter("u",user.getId()).setParameter("t",user.getEmpresaId()).setParameter("r",user.getPerfil()).getResultList();}
     private UnidadeImobiliariaEntity clientUnit(Long unitId, UsuarioEntity client) {
         var unit = em.find(UnidadeImobiliariaEntity.class, unitId);
@@ -78,7 +78,7 @@ public class ExternalPortalController {
             "documento",modelDocuments.decode(revision.getDocumento()));
     }
     @GetMapping("/api/v1/portal") public Map<String,Object> snapshot(Authentication a){
-        var user=user(a);var accesses=accesses(user);List<Map<String,Object>> projects=new ArrayList<>(),units=new ArrayList<>(),contracts=new ArrayList<>(),quotes=new ArrayList<>();List<GarantiaPosVendaEntity> tickets=new ArrayList<>();Set<Long> seenProjects=new HashSet<>(),seenUnits=new HashSet<>(),seenContracts=new HashSet<>(),seenQuotes=new HashSet<>();
+        var user=user(a);var accesses=accesses(user);List<Map<String,Object>> projects=new ArrayList<>(),units=new ArrayList<>(),contracts=new ArrayList<>(),quotes=new ArrayList<>(),purchaseRequests=new ArrayList<>();List<GarantiaPosVendaEntity> tickets=new ArrayList<>();Set<Long> seenProjects=new HashSet<>(),seenUnits=new HashSet<>(),seenContracts=new HashSet<>(),seenQuotes=new HashSet<>(),seenRequests=new HashSet<>();
         for(var access:accesses){
             var project=operation.project(access.getProjetoObraId());if(seenProjects.add(project.getId())){var average=em.createQuery("select avg(e.percentualExecutado) from EtapaCronogramaEntity e where e.projetoObraId=:p",Double.class).setParameter("p",project.getId()).getSingleResult();Map<String,Object> view=new LinkedHashMap<>();view.put("id",project.getId());view.put("nome",project.getNome());view.put("entrega",project.getDataPrevisaoFim());view.put("progresso",average);projects.add(view);}
             List<UnidadeImobiliariaEntity> allowedUnits=new ArrayList<>();
@@ -88,19 +88,35 @@ public class ExternalPortalController {
             if(Set.of("FORNECEDOR","LOCADOR_MAQUINAS").contains(user.getPerfil())&&access.getFornecedorB2bId()!=null){
                 for(var contract:em.createQuery("select c from ContratoServicoEntity c where c.empresaId=:t and c.projetoObraId=:p and c.fornecedorB2bId=:f",ContratoServicoEntity.class).setParameter("t",user.getEmpresaId()).setParameter("p",project.getId()).setParameter("f",access.getFornecedorB2bId()).getResultList())if(seenContracts.add(contract.getId()))contracts.add(Map.of("numero",contract.getNumeroContrato(),"valor",contract.getValorTotal(),"termino",contract.getDataTermino()));
                 for(var quote:em.createQuery("select c from CotacaoB2BEntity c where c.empresaId=:t and c.fornecedorB2bId=:f",CotacaoB2BEntity.class).setParameter("t",user.getEmpresaId()).setParameter("f",access.getFornecedorB2bId()).getResultList())if(seenQuotes.add(quote.getId()))quotes.add(Map.of("codigo",quote.getCodigoCotacao(),"valor",quote.getValorProposta(),"prazo",quote.getPrazoEntregaDias(),"situacao",quote.getStatusCotacao()));
+                var requests=em.createQuery("select r,i.nome,r.quantidade from RequisicaoCompraEntity r, ItemEstoqueEntity i where r.itemEstoqueId=i.id and r.empresaId=:t and i.empresaId=:t and i.projetoObraId=:p and r.status='COTACAO' order by r.dataCriacao desc",Object[].class)
+                    .setParameter("t",user.getEmpresaId()).setParameter("p",project.getId()).setMaxResults(100).getResultList();
+                for(var row:requests){var request=(RequisicaoCompraEntity)row[0];if(seenRequests.add(request.getId()))purchaseRequests.add(Map.of("id",request.getId(),"acessoId",access.getId(),"material",row[1],"quantidade",row[2],"projetoObraId",project.getId()));}
             }
         }
-        return Map.of("perfil",user.getPerfil(),"acessos",accesses,"projetos",projects,"unidades",units,"contratos",contracts,"cotacoes",quotes,"chamados",tickets);
+        return Map.of("perfil",user.getPerfil(),"acessos",accesses,"projetos",projects,"unidades",units,"contratos",contracts,"cotacoes",quotes,"requisicoes",purchaseRequests,"chamados",tickets);
     }
     @PostMapping("/api/v1/portal/chamados") @Transactional @PreAuthorize("hasRole('CLIENTE')") @ResponseStatus(HttpStatus.CREATED)
     public GarantiaPosVendaEntity ticket(@Valid @RequestBody Ticket r,Authentication a){var user=user(a);clientUnit(r.unidadeId(),user);return warrantyWorkflow.create(r.unidadeId(),user.getId(),r.descricao(),r.categoria(),user.getId());}
     @PostMapping("/api/v1/portal/unidades/{id}/reservar") @Transactional @PreAuthorize("hasRole('CORRETOR')")
     public void reserve(@PathVariable Long id,Authentication a){var user=user(a);var unit=em.find(UnidadeImobiliariaEntity.class,id,LockModeType.PESSIMISTIC_WRITE);if(unit==null||accesses(user).stream().noneMatch(access->unit.getProjetoObraId().equals(access.getProjetoObraId())))throw missing();if(!"DISPONIVEL".equals(unit.getStatusVenda()))throw new ResponseStatusException(HttpStatus.CONFLICT,"Unidade não está mais disponível.");unit.setStatusVenda("RESERVADO");unit.setReservaUsuarioId(user.getId());operation.audit("RESERVAR_UNIDADE","unidade_imobiliaria",id,user.getId());}
     @PostMapping("/api/v1/portal/propostas") @Transactional @PreAuthorize("hasAnyRole('FORNECEDOR','LOCADOR_MAQUINAS')") @ResponseStatus(HttpStatus.CREATED)
-    public CotacaoB2BEntity proposal(@Valid @RequestBody Proposal r,Authentication a){var user=user(a);var access=accesses(user).stream().filter(b->b.getId().equals(r.acessoId())).findFirst().orElseThrow(this::missing);if(access.getFornecedorB2bId()==null)throw missing();var quote=CotacaoB2BEntity.builder().empresaId(user.getEmpresaId()).fornecedorB2bId(access.getFornecedorB2bId()).codigoCotacao("PRO-"+UUID.randomUUID().toString().replace("-","").substring(0,24)).valorProposta(r.valor()).prazoEntregaDias(r.prazoDias()).statusCotacao("EM_ANALISE").build();em.persist(quote);operation.audit("ENVIAR_PROPOSTA","cotacao_b2b",quote.getId(),user.getId());return quote;}
+    public CotacaoB2BEntity proposal(@Valid @RequestBody Proposal r,Authentication a){
+        var user=user(a);
+        var access=accesses(user).stream().filter(b->b.getId().equals(r.acessoId())).findFirst().orElseThrow(this::missing);
+        if(access.getFornecedorB2bId()==null)throw missing();
+        var request=em.find(RequisicaoCompraEntity.class,r.requisicaoId(),LockModeType.PESSIMISTIC_WRITE);
+        if(request==null||!user.getEmpresaId().equals(request.getEmpresaId())||!"COTACAO".equals(request.getStatus()))throw missing();
+        var item=em.find(ItemEstoqueEntity.class,request.getItemEstoqueId());
+        if(item==null||!user.getEmpresaId().equals(item.getEmpresaId())||!access.getProjetoObraId().equals(item.getProjetoObraId()))throw missing();
+        boolean duplicate=em.createQuery("select count(c) from CotacaoB2BEntity c where c.empresaId=:t and c.requisicaoCompraId=:r and c.fornecedorB2bId=:f",Long.class)
+            .setParameter("t",user.getEmpresaId()).setParameter("r",request.getId()).setParameter("f",access.getFornecedorB2bId()).getSingleResult()>0;
+        if(duplicate)throw new ResponseStatusException(HttpStatus.CONFLICT,"Já existe uma proposta deste fornecedor para esta requisição.");
+        var quote=CotacaoB2BEntity.builder().empresaId(user.getEmpresaId()).requisicaoCompraId(request.getId()).fornecedorB2bId(access.getFornecedorB2bId()).codigoCotacao("PRO-"+UUID.randomUUID().toString().replace("-","").substring(0,24)).valorProposta(r.valor()).prazoEntregaDias(r.prazoDias()).statusCotacao("EM_ANALISE").build();
+        em.persist(quote);operation.audit("ENVIAR_PROPOSTA","cotacao_b2b",quote.getId(),user.getId());return quote;
+    }
     private ResponseStatusException missing(){return new ResponseStatusException(HttpStatus.NOT_FOUND,"Registro não vinculado à sua conta.");}
     private ResponseStatusException bad(String reason){return new ResponseStatusException(HttpStatus.BAD_REQUEST,reason);}
     public record Grant(@NotNull @Positive Long usuarioId,@NotNull @Positive Long projetoObraId,@Positive Long unidadeImobiliariaId,@Positive Long fornecedorB2bId){}
     public record Ticket(@NotNull @Positive Long unidadeId,@NotBlank @Size(max=10000) String descricao,@NotBlank @Size(max=50) String categoria){}
-    public record Proposal(@NotNull @Positive Long acessoId,@NotNull @DecimalMin("0") @Digits(integer=13,fraction=2) BigDecimal valor,@Min(0) @Max(3650) int prazoDias){}
+    public record Proposal(@NotNull @Positive Long acessoId,@NotNull @Positive Long requisicaoId,@NotNull @DecimalMin(value="0",inclusive=false) @Digits(integer=13,fraction=2) BigDecimal valor,@Min(0) @Max(3650) int prazoDias){}
 }
